@@ -1,0 +1,11 @@
+.idea/
+data/
+**/data
+**/plots
+rcrp
+*.npy
+*.npz
+*.pkl
+*.csv
+*.joblib
+**/__pycache__/
