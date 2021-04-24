@@ -2,7 +2,7 @@
 data/
 **/data
 **/plots
-rcrp
+ribp
 *.npy
 *.npz
 *.pkl

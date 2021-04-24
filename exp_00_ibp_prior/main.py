@@ -5,17 +5,17 @@ import os
 import scipy.stats
 import seaborn as sns
 
-from utils.data import vectorized_sample_sequence_from_ibp, sample_sequence_from_ibp
+from utils.data import vectorized_sample_sequence_from_ibp
 
 np.random.seed(1)
 
-exp_dir = 'exp_06_ibp_prior'
+exp_dir = 'exp_00_ibp_prior'
 plot_dir = os.path.join(exp_dir, 'plots')
 os.makedirs(plot_dir, exist_ok=True)
 
 T = 50  # max time
 num_samples = 5000  # number of samples to draw from IBP(alpha)
-alphas = [10.37, 1.1, 15.78, 30.91]  # CRP parameter
+alphas = [1.1, 10.37, 15.78, 30.91]  # CRP parameter
 
 # alpha = alphas[0]
 # max_dishes = int(10 * alpha * np.sum(1 / (1 + np.arange(T))))
