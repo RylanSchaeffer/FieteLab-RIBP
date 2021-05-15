@@ -1,84 +1,131 @@
-import matplotlib as mpl
-import matplotlib.pyplot as plt
+# TODO: refactor to match RCRP Exp 00
+# TODO: switch to log colorscale scaling
 import numpy as np
 import os
 import scipy.stats
 import seaborn as sns
 
 from utils.data import vectorized_sample_sequence_from_ibp
-
-np.random.seed(1)
-
-exp_dir = 'exp_00_ibp_prior'
-plot_dir = os.path.join(exp_dir, 'plots')
-os.makedirs(plot_dir, exist_ok=True)
-
-T = 50  # max time
-num_samples = 5000  # number of samples to draw from IBP(alpha)
-alphas = [1.1, 10.37, 15.78, 30.91]  # CRP parameter
-
-# alpha = alphas[0]
-# max_dishes = int(10 * alpha * np.sum(1 / (1 + np.arange(T))))
-# dish_indices = np.arange(max_dishes + 1)
-# prev_running_harmonic_sum = alpha / 1
-# for t in range(2, T):
-#     prev_dish_distribution = scipy.stats.poisson.pmf(
-#         dish_indices,
-#         mu=prev_running_harmonic_sum)
-#     new_running_harmonic_sum = prev_running_harmonic_sum + alpha / t
-#     new_dish_distribution = scipy.stats.poisson.pmf(
-#         dish_indices,
-#         mu=new_running_harmonic_sum)
-#     print(10)
+import plot
 
 
-# draw num_samples IBP(alpha) samples
-ibp_samples_by_alpha = {}
-for alpha in alphas:
-    ibp_empirics_path = os.path.join(exp_dir, f'ibp_sample_{alpha}.npy')
-    if os.path.isfile(ibp_empirics_path):
-        customers_dishes_samples = np.load(ibp_empirics_path)
-        print(f'Loaded samples for {ibp_empirics_path}')
-        assert customers_dishes_samples.shape[0] == num_samples
-        assert customers_dishes_samples.shape[1] == T
-    else:
-        customers_dishes_samples = vectorized_sample_sequence_from_ibp(
-            T=np.full(shape=num_samples, fill_value=T),
-            alpha=np.full(shape=num_samples, fill_value=alpha))
-        customers_dishes_samples = np.stack(customers_dishes_samples)
-        np.save(arr=customers_dishes_samples, file=ibp_empirics_path)
-        print(f'Generated samples for {ibp_empirics_path}')
-    ibp_samples_by_alpha[alpha] = customers_dishes_samples
+def main():
+
+    # set seed
+    np.random.seed(1)
+
+    # create directories
+    exp_dir = 'exp_00_ibp_prior'
+    plot_dir = os.path.join(exp_dir, 'plots')
+    os.makedirs(plot_dir, exist_ok=True)
+
+    T = 50  # max time
+    num_samples = 5000  # number of samples to draw from IBP(alpha)
+    alphas = [1.1, 10.37]  # , 15.78, 30.91]  # IBP parameter
+
+    sampled_customers_dishes_by_alpha = sample_from_ibp(
+        T=T,
+        alphas=alphas,
+        exp_dir=exp_dir,
+        num_samples=num_samples)
+
+    analytical_dish_distribution_poisson_rate_by_alpha_by_T = construct_analytical_indian_dish_distribution(
+        T=T,
+        alphas=alphas)
+
+    analytical_customers_dishes_by_alpha = construct_analytical_ibp(
+        T=T,
+        alphas=alphas,
+        exp_dir=exp_dir)
+
+    plot.plot_indian_buffet_dish_dist_by_customer_num(
+        analytical_dish_distribution_poisson_rate_by_alpha_by_T=analytical_dish_distribution_poisson_rate_by_alpha_by_T,
+        plot_dir=plot_dir)
+
+    num_reps = 10
+    mean_errors_per_num_samples_per_alpha, sem_errors_per_num_samples_per_alpha = \
+        calc_analytical_vs_monte_carlo_mse(
+            T=T,
+            alphas=alphas,
+            exp_dir=exp_dir,
+            num_reps=num_reps,
+            sample_subset_size=num_samples,
+            analytical_customer_dishes_by_alpha=analytical_customers_dishes_by_alpha)
+
+    # plot_analytical_vs_monte_carlo_mse(
+    #     means_per_num_samples_per_alpha=means_per_num_samples_per_alpha,
+    #     sems_per_num_samples_per_alpha=sems_per_num_samples_per_alpha,
+    #     num_reps=num_reps,
+    #     plot_dir=plot_dir)
 
 
-# import matplotlib.pyplot as plt
-#
-# plt.imshow(ibp_samples_by_alpha[10.01][0, :, :50])
-# plt.ylabel('Customer Index')
-# plt.xlabel('Dish Index')
-# plt.show()
+def calc_analytical_vs_monte_carlo_mse(T: int,
+                                       alphas,
+                                       exp_dir,
+                                       num_reps: int,
+                                       sample_subset_size: int,
+                                       analytical_customer_dishes_by_alpha):
+
+    sample_subset_sizes = np.logspace(1, 4, 5).astype(np.int)
+
+    rep_errors = np.zeros(shape=(num_reps, len(alphas), len(sample_subset_sizes)))
+
+    for rep_idx in range(num_reps):
+        # draw sample from CRP
+        sampled_customer_dishes_by_alpha = sample_from_ibp(
+            T=T,
+            alphas=alphas,
+            exp_dir=exp_dir,
+            num_samples=sample_subset_size,
+            rep_idx=rep_idx)
+
+        for alpha_idx, alpha in enumerate(alphas):
+            # for each subset of data, calculate the error
+            for sample_idx, sample_subset_size in enumerate(sample_subset_sizes):
+                rep_error = np.square(np.linalg.norm(
+                    np.subtract(
+                        np.mean(sampled_customer_dishes_by_alpha[alpha][:sample_subset_size],
+                                axis=0),
+                        analytical_customer_dishes_by_alpha[alpha])
+                ))
+                rep_errors[rep_idx, alpha_idx, sample_idx] = rep_error
+
+    mean_errors_per_num_samples_per_alpha, sem_errors_per_num_samples_per_alpha = {}, {}
+    for alpha_idx, alpha in enumerate(alphas):
+        mean_errors_per_num_samples_per_alpha[alpha] = {
+            num_sample: error for num_sample, error in
+            zip(sample_subset_sizes, np.mean(rep_errors[:, alpha_idx, :], axis=0))}
+        sem_errors_per_num_samples_per_alpha[alpha] = {
+            num_sample: error for num_sample, error in
+            zip(sample_subset_sizes, scipy.stats.sem(rep_errors[:, alpha_idx, :], axis=0))}
+
+    return mean_errors_per_num_samples_per_alpha, sem_errors_per_num_samples_per_alpha
 
 
 def construct_analytical_customers_dishes(T, alpha):
+
     # shape: (number of customers, number of dishes)
-    # heuristic: 10 * expected number
     assert alpha > 0
     alpha = float(alpha)
 
-    max_dishes = int(2 * alpha * np.sum(1 / (1 + np.arange(T))))
+    # heuristic: 3 * expected number
+    # needs to match whatever the sampled IBP max is, otherwise shapes disagree
+    max_dishes = int(3 * alpha * np.sum(1 / (1 + np.arange(T))))
     analytical_customers_dishes = np.zeros(shape=(T + 1, max_dishes + 1))
     analytical_customer_dishes_running_sum = np.zeros(shape=(T + 1, max_dishes + 1))
     dish_indices = np.arange(max_dishes + 1)
 
     # customer 1 samples only new dishes
     new_dishes_rate = alpha / 1
-    analytical_customers_dishes[1, :] = np.cumsum(scipy.stats.poisson.pmf(dish_indices[::-1], mu=new_dishes_rate))[::-1]
+    analytical_customers_dishes[1, :] = np.cumsum(scipy.stats.poisson.pmf(dish_indices[::-1], mu=new_dishes_rate))[
+                                        ::-1]
     analytical_customer_dishes_running_sum[1, :] = analytical_customers_dishes[1, :]
     total_dishes_rate_running_sum = new_dishes_rate
 
     # all subsequent customers sample new dishes
     for customer_num in range(2, T + 1):
-        analytical_customers_dishes[customer_num, :] = analytical_customer_dishes_running_sum[customer_num - 1, :] / customer_num
+        analytical_customers_dishes[customer_num, :] = analytical_customer_dishes_running_sum[customer_num - 1,
+                                                       :] / customer_num
         new_dishes_rate = alpha / customer_num
         cdf_lambda_t_minus_1 = scipy.stats.poisson.cdf(dish_indices, mu=total_dishes_rate_running_sum)
         cdf_lambda_t = scipy.stats.poisson.cdf(dish_indices, mu=total_dishes_rate_running_sum + new_dishes_rate)
@@ -89,73 +136,68 @@ def construct_analytical_customers_dishes(T, alpha):
                    analytical_customers_dishes[customer_num, :])
         total_dishes_rate_running_sum += new_dishes_rate
 
-    plt.imshow(analytical_customers_dishes[1:, 1:])
-    # plt.ylabel('Customer Index')
-    # plt.xlabel('Dish Index')
-    plt.show()
-
-    return analytical_customers_dishes[1:, 1:], analytical_customer_dishes_running_sum[1:, 1:]
+    return analytical_customers_dishes[1:, 1:]
 
 
-analytical_customer_dishes_by_alpha = {}
-customer_seating_probs_by_alpha = {}
-for alpha in alphas:
-    ibp_analytics_path = os.path.join(exp_dir, f'ibp_analytics_{alpha}.npz')
-    if os.path.isfile(ibp_analytics_path):
-        npz_file = np.load(ibp_analytics_path)
-        analytical_customers_dishes = npz_file['analytical_customers_dishes']
-        analytical_customer_dishes_running_sum = npz_file['analytical_customer_dishes_running_sum']
-    else:
-        analytical_customers_dishes, analytical_customer_dishes_running_sum = construct_analytical_customers_dishes(
-            T=T,
-            alpha=alpha)
-        np.savez(analytical_customers_dishes=analytical_customers_dishes,
-                 analytical_customer_dishes_running_sum=analytical_customer_dishes_running_sum,
-                 file=ibp_analytics_path)
-    analytical_customer_dishes_by_alpha[alpha] = analytical_customers_dishes
+def construct_analytical_ibp(T, alphas, exp_dir):
+    analytical_customers_dishes_by_alpha = {}
+    for alpha in alphas:
+        ibp_analytics_path = os.path.join(exp_dir, f'ibp_analytics_{alpha}.npz')
+        if os.path.isfile(ibp_analytics_path):
+            npz_file = np.load(ibp_analytics_path)
+            analytical_customers_dishes = npz_file['analytical_customers_dishes']
+            assert analytical_customers_dishes.shape[0] == T
+        else:
+            analytical_customers_dishes = construct_analytical_customers_dishes(
+                T=T,
+                alpha=alpha)
+            np.savez(analytical_customers_dishes=analytical_customers_dishes,
+                     file=ibp_analytics_path)
+        analytical_customers_dishes_by_alpha[alpha] = analytical_customers_dishes
+    return analytical_customers_dishes_by_alpha
 
-table_distributions_by_alpha_by_T = {}
-cmap = plt.get_cmap('jet_r')
-for alpha in alphas:
-    ibp_samples = np.mean(ibp_samples_by_alpha[alpha], axis=0)
-    max_dish_idx = np.max(np.argmin(ibp_samples != 0, axis=1))
 
-    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(8, 4), sharex=True, sharey=True)
+def construct_analytical_indian_dish_distribution(T, alphas):
 
-    sns.heatmap(
-        data=ibp_samples[:, :max_dish_idx],
-        cbar_kws=dict(label='P(Dish)'),
-        cmap='jet',
-        # mask=ibp_samples[:, :max_dish_idx] == 0,
-        vmin=0.,
-        vmax=1.,
-        ax=axes[0])
-    sns.heatmap(
-        data=analytical_customer_dishes_by_alpha[alpha][:, :max_dish_idx],
-        cbar_kws=dict(label='P(Dish)'),
-        cmap='jet',
-        # mask=analytical_customer_dishes_by_alpha[alpha][:, :max_dish_idx] == 0,
-        vmin=0.,
-        vmax=1.,
-        ax=axes[1])
+    num_customers = 1 + np.arange(T)
+    dish_distribution_poisson_rate_by_alpha_by_T = {}
+    for alpha in alphas:
+        dish_distribution_poisson_rate_by_alpha_by_T[alpha] = {}
+        poisson_rate = 0
+        for t in num_customers:
+            poisson_rate += alpha / t
+            dish_distribution_poisson_rate_by_alpha_by_T[alpha][t] = poisson_rate
+    return dish_distribution_poisson_rate_by_alpha_by_T
 
-    # # https://stackoverflow.com/questions/43805821/matplotlib-add-colorbar-to-non-mappable-object
-    # norm = mpl.colors.Normalize(vmin=1, vmax=T)
-    # sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-    # # sm.set_array([])
-    # colorbar = plt.colorbar(sm,
-    #                         ticks=np.arange(1, T + 1, 5),
-    #                         # boundaries=np.arange(-0.05, T + 0.1, .1)
-    #                         )
-    # colorbar.set_label('Number of Customers')
-    # plt.title(fr'Chinese Restaurant Table Distribution ($\alpha$={alpha})')
-    axes[0].set_title(rf'Monte Carlo Estimate ($\alpha$={alpha})')
-    axes[0].set_ylabel(r'Customer Index')
-    axes[0].set_xlabel(r'Dish Index')
-    axes[1].set_title(rf'Analytical Prediction ($\alpha$={alpha})')
-    axes[1].set_xlabel(r'Dish Index')
-    plt.savefig(os.path.join(plot_dir, f'empirical_ibp={alpha}.png'),
-                bbox_inches='tight',
-                dpi=300)
-    plt.show()
-    plt.close()
+
+def sample_from_ibp(T,
+                    alphas,
+                    exp_dir,
+                    num_samples,
+                    rep_idx=0):
+
+    # generate Monte Carlo samples from IBP(alpha)
+    sampled_customer_dishes_by_alpha = {}
+    for alpha in alphas:
+        ibp_samples_path = os.path.join(exp_dir, f'ibp_sample_{alpha}_rep_idx={rep_idx}.npz')
+        if os.path.isfile(ibp_samples_path):
+            ibp_sample_data = np.load(ibp_samples_path)
+            sampled_customer_dishes = ibp_sample_data['sampled_customer_dishes']
+            assert sampled_customer_dishes.shape[0] == num_samples
+            assert sampled_customer_dishes.shape[1] == T
+            print(f'Loaded samples for {ibp_samples_path}')
+        else:
+            sampled_customer_dishes = vectorized_sample_sequence_from_ibp(
+                T=np.full(shape=num_samples, fill_value=T),
+                alpha=np.full(shape=num_samples, fill_value=alpha))
+            sampled_customer_dishes = np.stack(sampled_customer_dishes)
+            np.savez(file=ibp_samples_path,
+                     sampled_customer_dishes=sampled_customer_dishes)
+            print(f'Generated samples for {ibp_samples_path}')
+        sampled_customer_dishes_by_alpha[alpha] = sampled_customer_dishes
+
+    return sampled_customer_dishes_by_alpha
+
+
+if __name__ == '__main__':
+    main()

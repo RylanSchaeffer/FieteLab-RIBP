@@ -6,25 +6,48 @@ from utils.helpers import assert_torch_no_nan_no_inf, torch_logits_to_probs, tor
 torch.set_default_tensor_type('torch.DoubleTensor')
 
 
+def create_new_cluster_params_linear_gaussian(torch_observation,
+                                              obs_idx,
+                                              cluster_parameters):
+    # data is necessary to not break backprop
+    # see https://stackoverflow.com/questions/53819383/how-to-assign-a-new-value-to-a-pytorch-variable-without-breaking-backpropagation
+    assert_torch_no_nan_no_inf(torch_observation)
+    cluster_parameters['M'].data[obs_idx, :] = torch_observation
+    cluster_parameters['stddevs'].data[obs_idx, :, :] = torch.eye(torch_observation.shape[0])
+
+
+def create_new_cluster_params_multivariate_normal(torch_observation,
+                                                  obs_idx,
+                                                  cluster_parameters):
+    # data is necessary to not break backprop
+    # see https://stackoverflow.com/questions/53819383/how-to-assign-a-new-value-to-a-pytorch-variable-without-breaking-backpropagation
+    assert_torch_no_nan_no_inf(torch_observation)
+    cluster_parameters['means'].data[obs_idx, :] = torch_observation
+    cluster_parameters['stddevs'].data[obs_idx, :, :] = torch.eye(torch_observation.shape[0])
+
+
 def recursive_ibp(observations,
                   concentration_param: float,
                   likelihood_model: str,
                   learning_rate,
                   num_em_steps: int = 3):
-
     assert concentration_param > 0
     assert likelihood_model in {'multivariate_normal', 'dirichlet_multinomial',
-                                'bernoulli', 'continuous_bernoulli'}
+                                'bernoulli', 'continuous_bernoulli', 'linear_gaussian'}
     num_obs, obs_dim = observations.shape
+
+    # Note: the expected number of latents grows logarithmically with the
+    # number of observations, but can exceed the number of observations, so
+    # this is a heuristic
+    max_num_latents = 10 * num_obs
 
     # The recursion does not require recording the full history of priors/posteriors
     # but we record the full history for subsequent analysis
-    max_num_latents = num_obs
+
     table_assignment_priors = torch.zeros(
         (num_obs, max_num_latents),
         dtype=torch.float64,
         requires_grad=False)
-    table_assignment_priors[0, 0] = 1.
 
     table_assignment_posteriors = torch.zeros(
         (num_obs, max_num_latents),
@@ -41,7 +64,13 @@ def recursive_ibp(observations,
         dtype=torch.float64,
         requires_grad=False)
 
-    if likelihood_model == 'continuous_bernoulli':
+    if likelihood_model == 'linear_gaussian':
+        cluster_parameters = dict(
+            M=torch.eye(max_num_latents, dtype=torch.float64, requires_grad=False),
+        )
+        create_new_cluster_params_fn = create_new_cluster_params_linear_gaussian
+        likelihood_fn = likelihood_linear_gaussian
+    elif likelihood_model == 'continuous_bernoulli':
         # need to use logits, otherwise gradient descent will carry parameters outside
         # valid interval
         cluster_parameters = dict(
@@ -238,6 +267,47 @@ def recursive_ibp(observations,
 
     return bayesian_recursion_results
 
+
+def likelihood_linear_gaussian(torch_observation,
+                               obs_idx,
+                               cluster_parameters):
+    # TODO: figure out how to do gradient descent using the post-grad step means
+    # covariances = torch.stack([
+    #     torch.matmul(stddev, stddev.T) for stddev in cluster_parameters['stddevs']])
+    #
+    obs_dim = torch_observation.shape[0]
+    covariances = torch.stack([torch.matmul(torch.eye(obs_dim), torch.eye(obs_dim).T)
+                               for stddev in cluster_parameters['stddevs']]).double()
+
+    mv_normal = torch.distributions.multivariate_normal.MultivariateNormal(
+        loc=cluster_parameters['means'][:obs_idx + 1],
+        covariance_matrix=covariances[:obs_idx + 1],
+        # scale_tril=cluster_parameters['stddevs'][:obs_idx + 1],
+    )
+    log_likelihoods_per_latent = mv_normal.log_prob(value=torch_observation)
+    likelihoods_per_latent = torch.exp(log_likelihoods_per_latent)
+    return likelihoods_per_latent, log_likelihoods_per_latent
+
+
+def likelihood_multivariate_normal(torch_observation,
+                                   obs_idx,
+                                   cluster_parameters):
+    # TODO: figure out how to do gradient descent using the post-grad step means
+    # covariances = torch.stack([
+    #     torch.matmul(stddev, stddev.T) for stddev in cluster_parameters['stddevs']])
+    #
+    obs_dim = torch_observation.shape[0]
+    covariances = torch.stack([torch.matmul(torch.eye(obs_dim), torch.eye(obs_dim).T)
+                               for stddev in cluster_parameters['stddevs']]).double()
+
+    mv_normal = torch.distributions.multivariate_normal.MultivariateNormal(
+        loc=cluster_parameters['means'][:obs_idx + 1],
+        covariance_matrix=covariances[:obs_idx + 1],
+        # scale_tril=cluster_parameters['stddevs'][:obs_idx + 1],
+    )
+    log_likelihoods_per_latent = mv_normal.log_prob(value=torch_observation)
+    likelihoods_per_latent = torch.exp(log_likelihoods_per_latent)
+    return likelihoods_per_latent, log_likelihoods_per_latent
 
 
 def run_inference_alg(inference_alg_str,

@@ -2,11 +2,20 @@ import numpy as np
 import scipy.stats
 
 
+def convert_binary_latent_features_to_left_order_form(binary_latent_features):
+    # reorder to "Left Ordered Form" i.e. permute columns such that column sums are decreasing
+    seq_len = binary_latent_features.shape[0]
+    powers_of_2 = np.power(2, np.arange(0, seq_len)[::-1], dtype=np.float64)
+    column_sums = np.sum(np.multiply(binary_latent_features, powers_of_2[:, np.newaxis]), axis=0)
+    column_ordering = np.argsort(column_sums)[::-1]
+    return binary_latent_features[:, column_ordering]
+
+
 def sample_sequence_from_ibp(T: int,
                              alpha: float):
     # shape: (number of customers, number of dishes)
-    # heuristic: 10 * expected number
-    max_dishes = int(10 * alpha * np.sum(1 / (1 + np.arange(T))))
+    # heuristic: 3 * expected number
+    max_dishes = int(3 * alpha * np.sum(1 / (1 + np.arange(T))))
     customers_dishes_draw = np.zeros(shape=(T, max_dishes), dtype=np.int)
 
     current_num_dishes = 0
@@ -67,9 +76,14 @@ def sample_sequence_from_binary_linear_gaussian(class_sampling: str = 'Uniform',
             low=0,
             high=2,
             size=(seq_len, num_latent_features))  # high is exclusive
+        binary_latent_features = convert_binary_latent_features_to_left_order_form(
+            binary_latent_features)
     elif class_sampling == 'IBP':
         assert alpha is not None
         binary_latent_features = sample_sequence_from_ibp(T=seq_len, alpha=alpha)
+        # should be unnecessary, but just to check
+        binary_latent_features = convert_binary_latent_features_to_left_order_form(
+            binary_latent_features)
         num_latent_features = np.sum(np.sum(binary_latent_features, axis=0) != 0)
     else:
         raise ValueError(f'Impermissible class sampling: {class_sampling}')
