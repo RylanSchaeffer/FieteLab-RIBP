@@ -1,7 +1,6 @@
 .idea/
 data/
 **/data
-**/plots
 ribp
 *.npy
 *.npz
