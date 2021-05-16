@@ -42,12 +42,12 @@ def run_one_dataset(dataset_dir,
                     gaussian_mean_prior_cov_scaling: float = 6.):
 
     # sample data
-    sampled_mog_results = utils.data.sample_sequence_from_binary_linear_gaussian(
+    sampled_binary_linear_gaussian_results = utils.data.sample_sequence_from_binary_linear_gaussian(
         seq_len=100,
         sigma_A=100.94,
         sigma_x_squared=0.0001,
         obs_dim=2,
-        num_latent_features=2)
+        num_latent_features=7)
 
     concentration_params = 0.01 + np.arange(0., 6.01, 0.25)
 
@@ -69,15 +69,15 @@ def run_one_dataset(dataset_dir,
     inference_algs_results = {}
     for inference_alg_str in inference_alg_strs:
         inference_alg_results = run_and_plot_inference_alg(
-            sampled_mog_results=sampled_mog_results,
+            sampled_binary_linear_gaussian_results=sampled_binary_linear_gaussian_results,
             inference_alg_str=inference_alg_str,
             concentration_params=concentration_params,
             plot_dir=dataset_dir)
         inference_algs_results[inference_alg_str] = inference_alg_results
-    return inference_algs_results, sampled_mog_results
+    return inference_algs_results, sampled_binary_linear_gaussian_results
 
 
-def run_and_plot_inference_alg(sampled_mog_results,
+def run_and_plot_inference_alg(sampled_binary_linear_gaussian_results,
                                inference_alg_str,
                                concentration_params,
                                plot_dir):
@@ -102,9 +102,9 @@ def run_and_plot_inference_alg(sampled_mog_results,
             start_time = timer()
             inference_alg_concentration_param_results = utils.inference.run_inference_alg(
                 inference_alg_str=inference_alg_str,
-                observations=sampled_mog_results['gaussian_samples_seq'],
+                observations=sampled_binary_linear_gaussian_results['observations_seq'],
                 concentration_param=concentration_param,
-                likelihood_model='multivariate_normal',
+                likelihood_model='linear_gaussian',
                 learning_rate=1e0)
 
             # record elapsed time
@@ -113,7 +113,7 @@ def run_and_plot_inference_alg(sampled_mog_results,
 
             # record scores
             scores, pred_cluster_labels = utils.metrics.score_predicted_clusters(
-                true_cluster_labels=sampled_mog_results['assigned_table_seq'],
+                true_cluster_labels=sampled_binary_linear_gaussian_results['assigned_table_seq'],
                 table_assignment_posteriors=inference_alg_concentration_param_results['table_assignment_posteriors'])
 
             # count number of clusters
@@ -137,7 +137,7 @@ def run_and_plot_inference_alg(sampled_mog_results,
             inference_alg_results_concentration_param_path)
 
         plot_inference_results(
-            sampled_mog_results=sampled_mog_results,
+            sampled_mog_results=sampled_binary_linear_gaussian_results,
             inference_results=stored_data['inference_alg_concentration_param_results'],
             inference_alg_str=inference_alg_str,
             concentration_param=concentration_param,
