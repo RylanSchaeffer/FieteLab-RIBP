@@ -1,4 +1,5 @@
 import matplotlib as mpl
+from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -8,24 +9,24 @@ import seaborn as sns
 
 alphas_color_map = {
     1.1: 'tab:blue',
-    10.78: 'tab:orange',
-    15.37: 'tab:purple',
+    10.37: 'tab:orange',
+    15.78: 'tab:purple',
     30.91: 'tab:green'
 }
 
 
-def plot_analytical_vs_monte_carlo_mse(means_per_num_samples_per_alpha,
-                                       sems_per_num_samples_per_alpha,
+def plot_analytical_vs_monte_carlo_mse(error_means_per_num_samples_per_alpha,
+                                       error_sems_per_num_samples_per_alpha,
                                        num_reps,
                                        plot_dir):
 
-    alphas = list(sems_per_num_samples_per_alpha.keys())
+    alphas = list(error_sems_per_num_samples_per_alpha.keys())
 
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 4))
     for alpha in alphas:
-        ax.errorbar(x=list(means_per_num_samples_per_alpha[alpha].keys()),
-                    y=list(means_per_num_samples_per_alpha[alpha].values()),
-                    yerr=list(sems_per_num_samples_per_alpha[alpha].values()),
+        ax.errorbar(x=list(error_means_per_num_samples_per_alpha[alpha].keys()),
+                    y=list(error_means_per_num_samples_per_alpha[alpha].values()),
+                    yerr=list(error_sems_per_num_samples_per_alpha[alpha].values()),
                     label=rf'$\alpha$={alpha}',
                     c=alphas_color_map[alpha])
     ax.legend(title=f'Num Repeats: {num_reps}')
@@ -41,8 +42,8 @@ def plot_analytical_vs_monte_carlo_mse(means_per_num_samples_per_alpha,
     plt.close()
 
 
-def plot_indian_buffet_dish_dist_by_customer_num(analytical_dish_distribution_poisson_rate_by_alpha_by_T,
-                                                 plot_dir):
+def plot_indian_buffet_num_dishes_dist_by_customer_num(analytical_dish_distribution_poisson_rate_by_alpha_by_T,
+                                                       plot_dir):
     # plot how the CRT table distribution changes for T customers
     alphas = list(analytical_dish_distribution_poisson_rate_by_alpha_by_T.keys())
     T = len(analytical_dish_distribution_poisson_rate_by_alpha_by_T[alphas[0]])
@@ -71,39 +72,90 @@ def plot_indian_buffet_dish_dist_by_customer_num(analytical_dish_distribution_po
         plt.xlabel(r'Number of Dishes after T Customers')
         plt.ylabel(r'P(Number of Dishes after T Customers)')
         plt.xlim(0., max_val)
-        plt.savefig(os.path.join(plot_dir, f'crt_table_distribution_alpha={alpha}.png'),
+        plt.savefig(os.path.join(plot_dir, f'ibp_dish_distribution_alpha={alpha}.png'),
                     bbox_inches='tight',
                     dpi=300)
         # plt.show()
         plt.close()
 
 
-# alpha = alphas[0]
-# max_dishes = int(10 * alpha * np.sum(1 / (1 + np.arange(T))))
-# dish_indices = np.arange(max_dishes + 1)
-# prev_running_harmonic_sum = alpha / 1
-# for t in range(2, T):
-#     prev_dish_distribution = scipy.stats.poisson.pmf(
-#         dish_indices,
-#         mu=prev_running_harmonic_sum)
-#     new_running_harmonic_sum = prev_running_harmonic_sum + alpha / t
-#     new_dish_distribution = scipy.stats.poisson.pmf(
-#         dish_indices,
-#         mu=new_running_harmonic_sum)
-#     print(10)
+def plot_recursion_visualization(analytical_customers_dishes_by_alpha,
+                                 analytical_dish_distribution_poisson_rate_by_alpha_by_T,
+                                 plot_dir):
+    alphas = list(analytical_customers_dishes_by_alpha.keys())
+    cutoff = 1e-8
+
+    for alpha in alphas:
+        fig, axes = plt.subplots(nrows=1,
+                                 ncols=5,
+                                 figsize=(13, 4),
+                                 gridspec_kw={"width_ratios": [1, 0.1, 1, 0.1, 1]},
+                                 sharex=True)
+
+        ax = axes[0]
+        cum_customer_dish_eating_probs = np.cumsum(analytical_customers_dishes_by_alpha[alpha], axis=0)
+        cum_customer_dish_eating_probs[cum_customer_dish_eating_probs < cutoff] = np.nan
+
+        # figure out which dish falls below cutoff. if no dishes are below threshold, need to set
+        max_dish_idx = np.argmax(np.nansum(cum_customer_dish_eating_probs, axis=0) < cutoff)
+        if max_dish_idx == 0 and np.nansum(cum_customer_dish_eating_probs, axis=0)[max_dish_idx] >= cutoff:
+            max_dish_idx = cum_customer_dish_eating_probs.shape[1]
+        sns.heatmap(
+            data=cum_customer_dish_eating_probs[:, :max_dish_idx],
+            ax=ax,
+            cbar_kws=dict(label=r'$\sum_{t^{\prime} = 1}^{t-1} p(z_{t\prime k} = 1)$'),
+            cmap='jet',
+            mask=np.isnan(cum_customer_dish_eating_probs[:, :max_dish_idx]),
+            norm=LogNorm(vmin=cutoff),
+        )
+        ax.set_xlabel('Dish Index')
+        ax.set_ylabel('Customer Index')
+        ax.set_title('Running Sum of\nPrev. Customers\' Distributions')
+
+        # necessary to make space for colorbar text
+        axes[1].axis('off')
+
+        ax = axes[2]
+        table_distributions_by_T_array = np.stack([
+            scipy.stats.poisson.pmf(np.arange(max_dish_idx),
+                                    mu=analytical_dish_distribution_poisson_rate_by_alpha_by_T[alpha][key])
+            for key in sorted(analytical_dish_distribution_poisson_rate_by_alpha_by_T[alpha].keys())])
+        table_distributions_by_T_array[table_distributions_by_T_array < cutoff] = np.nan
+        sns.heatmap(
+            data=table_distributions_by_T_array[:, :max_dish_idx],
+            ax=ax,
+            cbar_kws=dict(label='$p(Lambda_t = l)$'),
+            cmap='jet',
+            mask=np.isnan(table_distributions_by_T_array[:, :max_dish_idx]),
+            norm=LogNorm(vmin=cutoff, ),
+        )
+        ax.set_title('Distribution over\nNumber of Dishes')
+        ax.set_xlabel('Dish Index')
+
+        # necessary to make space for colorbar text
+        axes[3].axis('off')
+
+        ax = axes[4]
+        analytical_customer_dishes = np.copy(analytical_customers_dishes_by_alpha[alpha])
+        analytical_customer_dishes[analytical_customer_dishes < cutoff] = np.nan
+        sns.heatmap(
+            data=analytical_customer_dishes[:, :max_dish_idx],
+            ax=ax,
+            cbar_kws=dict(label='$p(z_{tk}=1)$'),
+            cmap='jet',
+            mask=np.isnan(analytical_customer_dishes[:, :max_dish_idx]),
+            norm=LogNorm(vmin=cutoff, ),
+        )
+        ax.set_title('New Customer\'s Distribution')
+        ax.set_xlabel('Dish Index')
+        fig.savefig(os.path.join(plot_dir, f'ibp_recursion_alpha={alpha}.png'),
+                    bbox_inches='tight',
+                    dpi=300)
+        # plt.show()
+        plt.close()
 
 
-# import matplotlib.pyplot as plt
-#
-# plt.imshow(ibp_samples_by_alpha[10.01][0, :, :50])
-# plt.ylabel('Customer Index')
-# plt.xlabel('Dish Index')
-# plt.show()
 
-
-
-
-#
 # table_distributions_by_alpha_by_T = {}
 # cmap = plt.get_cmap('jet_r')
 # for alpha in alphas:
