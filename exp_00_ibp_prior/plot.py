@@ -15,6 +15,55 @@ alphas_color_map = {
 }
 
 
+def plot_analytics_vs_monte_carlo_customer_dishes(sampled_customers_dishes_by_alpha,
+                                                  analytical_customers_dishes_by_alpha,
+                                                  plot_dir):
+    # plot analytics versus monte carlo estimates
+    for alpha in sampled_customers_dishes_by_alpha.keys():
+        fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(10, 5))
+
+        sampled_customer_tables = sampled_customers_dishes_by_alpha[alpha]
+        average_customer_tables = np.mean(sampled_customer_tables, axis=0)
+        analytical_customer_dishes = analytical_customers_dishes_by_alpha[alpha]
+
+        # replace 0s with nans to allow for log scaling
+        average_customer_tables[average_customer_tables == 0.] = np.nan
+        cutoff = np.nanmin(average_customer_tables)
+        analytical_customer_dishes[analytical_customer_dishes < cutoff] = np.nan
+
+        ax = axes[0]
+        sns.heatmap(average_customer_tables,
+                    ax=ax,
+                    mask=np.isnan(average_customer_tables),
+                    cmap='jet',
+                    norm=LogNorm(vmin=cutoff, vmax=1., ),
+                    )
+
+        ax.set_title(rf'Monte Carlo Estimate ($\alpha$={alpha})')
+        ax.set_ylabel(r'Customer Index')
+        ax.set_xlabel(r'Dish Index')
+
+        ax = axes[1]
+        # log_analytical_customer_tables = np.log(analytical_customer_dishes)
+        sns.heatmap(analytical_customer_dishes,
+                    ax=ax,
+                    mask=np.isnan(analytical_customer_dishes),
+                    cmap='jet',
+                    norm=LogNorm(vmin=cutoff,
+                                 vmax=1., ),
+                    )
+        ax.set_title(rf'Analytical Prediction ($\alpha$={alpha})')
+        ax.set_xlabel(r'Dish Index')
+
+        # for some reason, on OpenMind, colorbar ticks disappear without calling plt.show() first
+        # plt.show()
+        fig.savefig(os.path.join(plot_dir, f'analytics_vs_monte_carlo_customer_tables={alpha}.png'),
+                    bbox_inches='tight',
+                    dpi=300)
+        plt.show()
+        plt.close()
+
+
 def plot_analytical_vs_monte_carlo_mse(error_means_per_num_samples_per_alpha,
                                        error_sems_per_num_samples_per_alpha,
                                        num_reps,

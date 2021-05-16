@@ -1,12 +1,10 @@
-# TODO: refactor to match RCRP Exp 00
 # TODO: switch to log colorscale scaling
 import numpy as np
 import os
 import scipy.stats
-import seaborn as sns
 
-from utils.data import vectorized_sample_sequence_from_ibp
 import plot
+from utils.data import vectorized_sample_sequence_from_ibp
 
 
 def main():
@@ -38,12 +36,22 @@ def main():
         alphas=alphas,
         exp_dir=exp_dir)
 
-    plot.plot_indian_buffet_dish_dist_by_customer_num(
+    plot.plot_indian_buffet_num_dishes_dist_by_customer_num(
         analytical_dish_distribution_poisson_rate_by_alpha_by_T=analytical_dish_distribution_poisson_rate_by_alpha_by_T,
         plot_dir=plot_dir)
 
+    plot.plot_recursion_visualization(
+        analytical_customers_dishes_by_alpha=analytical_customers_dishes_by_alpha,
+        analytical_dish_distribution_poisson_rate_by_alpha_by_T=analytical_dish_distribution_poisson_rate_by_alpha_by_T,
+        plot_dir=plot_dir)
+
+    plot.plot_analytics_vs_monte_carlo_customer_dishes(
+        sampled_customers_dishes_by_alpha=sampled_customers_dishes_by_alpha,
+        analytical_customers_dishes_by_alpha=analytical_customers_dishes_by_alpha,
+        plot_dir=plot_dir)
+
     num_reps = 10
-    mean_errors_per_num_samples_per_alpha, sem_errors_per_num_samples_per_alpha = \
+    error_means_per_num_samples_per_alpha, error_sems_per_num_samples_per_alpha = \
         calc_analytical_vs_monte_carlo_mse(
             T=T,
             alphas=alphas,
@@ -52,11 +60,11 @@ def main():
             sample_subset_size=num_samples,
             analytical_customer_dishes_by_alpha=analytical_customers_dishes_by_alpha)
 
-    # plot_analytical_vs_monte_carlo_mse(
-    #     means_per_num_samples_per_alpha=means_per_num_samples_per_alpha,
-    #     sems_per_num_samples_per_alpha=sems_per_num_samples_per_alpha,
-    #     num_reps=num_reps,
-    #     plot_dir=plot_dir)
+    plot.plot_analytical_vs_monte_carlo_mse(
+        error_means_per_num_samples_per_alpha=error_means_per_num_samples_per_alpha,
+        error_sems_per_num_samples_per_alpha=error_sems_per_num_samples_per_alpha,
+        num_reps=num_reps,
+        plot_dir=plot_dir)
 
 
 def calc_analytical_vs_monte_carlo_mse(T: int,
