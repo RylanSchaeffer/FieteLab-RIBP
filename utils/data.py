@@ -46,7 +46,7 @@ def sample_sequence_from_binary_linear_gaussian(class_sampling: str = 'Uniform',
                                                 sigma_A: float = 10.94,
                                                 obs_dim: int = 2,
                                                 alpha: float = None,
-                                                num_latent_features: int = None):
+                                                num_features: int = None):
     """
     Draw sample from Binary Linear-Gaussian model, using either uniform sampling or
     IBP sampling.
@@ -59,23 +59,23 @@ def sample_sequence_from_binary_linear_gaussian(class_sampling: str = 'Uniform',
     :param sigma_x_squared:
     :param sigma_A:
     :param obs_dim:
-    :param num_latent_features:
+    :param num_features:
     :return:
         assigned_table_seq: NumPy array with shape (seq_len,) of (integer) sampled classes
         linear_gaussian_samples_seq: NumPy array with shape (seq_len, obs_dim) of
                                 binary linear-Gaussian samples
     """
 
-    assert (alpha is None and num_latent_features is not None) or \
-           (alpha is not None and num_latent_features is None)
+    assert (alpha is None and num_features is not None) or \
+           (alpha is not None and num_features is None)
 
     # sample binary Z (seq len \times K)
     if class_sampling == 'Uniform':
-        assert num_latent_features is not None
+        assert num_features is not None
         binary_latent_features = np.random.randint(
             low=0,
             high=2,
-            size=(seq_len, num_latent_features))  # high is exclusive
+            size=(seq_len, num_features))  # high is exclusive
         binary_latent_features = convert_binary_latent_features_to_left_order_form(
             binary_latent_features)
     elif class_sampling == 'IBP':
@@ -84,7 +84,7 @@ def sample_sequence_from_binary_linear_gaussian(class_sampling: str = 'Uniform',
         # should be unnecessary, but just to check
         binary_latent_features = convert_binary_latent_features_to_left_order_form(
             binary_latent_features)
-        num_latent_features = np.sum(np.sum(binary_latent_features, axis=0) != 0)
+        num_features = np.sum(np.sum(binary_latent_features, axis=0) != 0)
     else:
         raise ValueError(f'Impermissible class sampling: {class_sampling}')
 
@@ -93,8 +93,8 @@ def sample_sequence_from_binary_linear_gaussian(class_sampling: str = 'Uniform',
 
     # sample A (K \times D) from matrix normal
     feature_means = scipy.stats.matrix_normal.rvs(
-        mean=np.zeros(shape=(num_latent_features, obs_dim)),
-        rowcov=sigma_A * np.eye(num_latent_features),
+        mean=np.zeros(shape=(num_features, obs_dim)),
+        rowcov=sigma_A * np.eye(num_features),
         size=1)
 
     obs_means = np.matmul(binary_latent_features, feature_means)
@@ -112,3 +112,50 @@ def sample_sequence_from_binary_linear_gaussian(class_sampling: str = 'Uniform',
     )
 
     return result
+
+
+def sample_sequence_from_factor_analysis(seq_len: int,
+                                         obs_dim: int = 2,
+                                         num_features: int = 7,
+                                         beta_a: float = 3,
+                                         beta_b: float = 5,
+                                         weight_variance: float = 1.,
+                                         obs_variance: float = 0.0675,  # copied from paper
+                                         feature_covariance: np.ndarray = None):
+    """Factor Analysis model from Paisley & Carin (2009) Equation 11.
+    """
+
+    if feature_covariance is None:
+        feature_covariance = np.eye(obs_dim)
+
+    pi_k = np.random.beta(a=beta_a / num_features,
+                          b=beta_b * (num_features - 1) / num_features,
+                          size=num_features)
+    # draw Z from Bernoulli i.e. Binomial with n=1
+    indicators = np.random.binomial(n=1, p=pi_k, size=(seq_len, num_features))
+
+    weights = np.random.multivariate_normal(
+        mean=np.zeros(num_features),
+        cov=weight_variance * np.eye(num_features),
+        size=(seq_len,))
+
+    features = np.random.multivariate_normal(
+        mean=np.zeros(obs_dim),
+        cov=feature_covariance,
+        size=(num_features,))
+
+    noise = np.random.multivariate_normal(
+        mean=np.zeros(obs_dim),
+        cov=obs_variance * np.eye(obs_dim),
+        size=(seq_len,))
+
+    observations_seq = np.matmul(np.multiply(indicators, weights), features) + noise
+
+    results = dict(
+        observations_seq=observations_seq,
+        indicators=indicators,
+        features=features,
+        weights=weights,
+    )
+
+    return results
