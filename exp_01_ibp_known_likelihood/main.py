@@ -17,24 +17,24 @@ def main():
 
     num_datasets = 10
     inference_algs_results_by_dataset_idx = {}
-    sampled_mog_results_by_dataset_idx = {}
+    sampled_factor_analysis_results_by_dataset_idx = {}
 
     # generate lots of datasets and record performance for each
     for dataset_idx in range(num_datasets):
         print(f'Dataset Index: {dataset_idx}')
         dataset_dir = os.path.join(plot_dir, f'dataset={dataset_idx}')
         os.makedirs(dataset_dir, exist_ok=True)
-        dataset_inference_algs_results, dataset_sampled_binary_linear_gaussians_results = run_one_dataset(
+        dataset_inference_algs_results, sampled_dataset_factor_analysis_results = run_one_dataset(
             dataset_dir=dataset_dir)
         inference_algs_results_by_dataset_idx[dataset_idx] = dataset_inference_algs_results
-        sampled_mog_results_by_dataset_idx[dataset_idx] = dataset_sampled_binary_linear_gaussians_results
+        sampled_factor_analysis_results_by_dataset_idx[dataset_idx] = sampled_dataset_factor_analysis_results
 
     utils.plot.plot_inference_algs_comparison(
         plot_dir=plot_dir,
         inference_algs_results_by_dataset_idx=inference_algs_results_by_dataset_idx,
-        dataset_by_dataset_idx=sampled_mog_results_by_dataset_idx)
+        dataset_by_dataset_idx=sampled_factor_analysis_results_by_dataset_idx)
 
-    print('Successfully completed Exp 01 Mixture of Gaussians')
+    print('Successfully completed Exp 01 Known Likelihoods')
 
 
 def run_one_dataset(dataset_dir,
@@ -44,41 +44,33 @@ def run_one_dataset(dataset_dir,
 
     # sample data
     beta_a, beta_b = 5, 10
-    sampled_factor_analysis_results = utils.data.sample_sequence_from_factor_analysis(
+    sampled_dataset_factor_analysis_results = utils.data.sample_sequence_from_factor_analysis(
         seq_len=250,
+        obs_dim=25,
         max_num_features=5000,
+        weight_mean=1.,
+        weight_variance=1e-9,  # effectively set all weights to 0 noise
+        obs_variance=0.0675,
         beta_a=beta_a,
         beta_b=beta_b)
 
     possible_inference_params = dict(
         alpha=[beta_a],
-        beta=[beta_b],
-    )
+        beta=[beta_b])
 
     inference_alg_strs = [
-        # online algorithms
         'R-IBP',
-        'MAP',  # deterministically determine whether dish is selected, using MAP
-        'Sample',  # randomly determine whether dish is selected, sampling from dish posterior
-        # offline algorithms
-        # 'HMC-Gibbs (5000 Samples)',
-        # 'HMC-Gibbs (20000 Samples)',
-        # 'SVI (25k Steps)',
-        # 'SVI (50k Steps)',
-        # 'Variational Bayes (15 Init, 30 Iter)',
-        # 'Variational Bayes (5 Init, 30 Iter)',
-        # 'Variational Bayes (1 Init, 8 Iter)',
     ]
 
     inference_algs_results = {}
     for inference_alg_str in inference_alg_strs:
         inference_alg_results = run_and_plot_inference_alg(
-            sampled_factor_analysis_results=sampled_factor_analysis_results,
+            sampled_factor_analysis_results=sampled_dataset_factor_analysis_results,
             inference_alg_str=inference_alg_str,
             possible_inference_params=possible_inference_params,
             plot_dir=dataset_dir)
         inference_algs_results[inference_alg_str] = inference_alg_results
-    return inference_algs_results, sampled_factor_analysis_results
+    return inference_algs_results, sampled_dataset_factor_analysis_results
 
 
 def run_and_plot_inference_alg(sampled_factor_analysis_results,
@@ -92,18 +84,19 @@ def run_and_plot_inference_alg(sampled_factor_analysis_results,
     scores_by_concentration_param = {}
     runtimes_by_concentration_param = {}
 
-    for alpha, beta in product(possible_inference_params['alpha'], possible_inference_params['beta']):
+    for alpha, beta in product(possible_inference_params['alpha'],
+                               possible_inference_params['beta']):
 
         inference_params = dict(
             alpha=alpha,
             beta=beta)
 
-        inference_alg_results_concentration_param_path = os.path.join(
+        inference_alg_results_params_path = os.path.join(
             inference_alg_plot_dir,
             f'results_a={np.round(alpha, 2)}_b={np.round(alpha, 2)}.joblib')
 
         # if results do not exist, generate
-        if not os.path.isfile(inference_alg_results_concentration_param_path):
+        if not os.path.isfile(inference_alg_results_params_path):
 
             # run inference algorithm
             # time using timer because https://stackoverflow.com/a/25823885/4570472
@@ -112,8 +105,11 @@ def run_and_plot_inference_alg(sampled_factor_analysis_results,
                 inference_alg_str=inference_alg_str,
                 observations=sampled_factor_analysis_results['observations_seq'],
                 inference_params=inference_params,
-                likelihood_model='linear_gaussian',
-                learning_rate=1e0)
+                likelihood_model='multivariate_normal',
+                learning_rate=1e0,
+                likelihood_known=True,
+                likelihood_params=dict(mean=sampled_factor_analysis_results['features'],
+                                       cov=sampled_factor_analysis_results['obs_covariance']))
 
             # record elapsed time
             stop_time = timer()
@@ -136,13 +132,13 @@ def run_and_plot_inference_alg(sampled_factor_analysis_results,
             )
 
             joblib.dump(data_to_store,
-                        filename=inference_alg_results_concentration_param_path)
+                        filename=inference_alg_results_params_path)
             del inference_alg_concentration_param_results
             del data_to_store
 
         # read results from disk
         stored_data = joblib.load(
-            inference_alg_results_concentration_param_path)
+            inference_alg_results_params_path)
 
         plot_inference_results(
             sampled_mog_results=sampled_factor_analysis_results,

@@ -5,6 +5,7 @@ import scipy.stats
 def convert_binary_latent_features_to_left_order_form(indicators):
     # reorder to "Left Ordered Form" i.e. permute columns such that column as binary integers are decreasing
     def left_order_form_indices_recursion(indicators_matrix, indices, row_idx):
+        # https://stackoverflow.com/a/67699595/4570472
         if indices.size <= 1 or row_idx >= indicators_matrix.shape[0]:
             return indices
         left_indices = indices[np.where(indicators_matrix[row_idx, indices] == 1)]
@@ -13,37 +14,20 @@ def convert_binary_latent_features_to_left_order_form(indicators):
             (left_order_form_indices_recursion(indicators_matrix, indices=left_indices, row_idx=row_idx + 1),
              left_order_form_indices_recursion(indicators_matrix, indices=right_indices, row_idx=row_idx + 1)))
 
-    # def left_order_form_indices_recursion(indicators, row_idx: int, start_col: int, end_col: int):
-    #     """
-    #
-    #     :param indicators:
-    #     :param row_idx:
-    #     :param start_col: inclusive
-    #     :param end_col: exclusive
-    #     :return:
-    #     """
-    #
-    #     # base case: if we're at the bottom of the matrix, or if we have 0 columns
-    #     if start_col + 1 == end_col or row_idx == indicators.shape[0]:
-    #         return
-    #     row_values = indicators[row_idx, start_col:end_col]
-    #     sorted_row_values_indices = np.argsort(row_values)[::-1]
-    #     sorted_row_values = row_values[sorted_row_values_indices]
-    #     # find the changepoint i.e. where 1 switches to 0
-    #     changepoint_idx = np.argmin(sorted_row_values)
-    #
-    #     left_order_form_indices_recursion(indicators=indicators,
-    #                               row_idx=row_idx+1,
-    #                               )
-    #     print(10)
+    # sort columns via recursion
+    # reordered_indices = left_order_form_indices_recursion(
+    #     indicators_matrix=indicators,
+    #     row_idx=0,
+    #     indices=np.arange(indicators.shape[1]))
+    # left_ordered_indicators = indicators[:, reordered_indices]
 
-    reordered_indices = left_order_form_indices_recursion(
-        indicators_matrix=indicators,
-        row_idx=0,
-        indices=np.arange(indicators.shape[1]))
+    # sort columns via lexicographic sorting
+    left_ordered_indicators_2 = indicators[:, np.lexsort(-indicators[::-1])]
 
-    left_ordered_indicators = indicators[:, reordered_indices]
-    return left_ordered_indicators
+    # check equality of both approaches
+    # assert np.all(left_ordered_indicators == left_ordered_indicators_2)
+
+    return left_ordered_indicators_2
 
 
 def sample_sequence_from_ibp(T: int,
@@ -154,8 +138,9 @@ def sample_sequence_from_factor_analysis(seq_len: int,
                                          max_num_features: int = 5000,
                                          beta_a: float = 1,  # copied from paper
                                          beta_b: float = 1,  # copied from paper
+                                         weight_mean: float = 0.,
                                          weight_variance: float = 1.,
-                                         obs_variance: float = 0.0675,  # copied from paper
+                                         obs_variance: float = 0.0675,  # copied from Paisely and Carin
                                          feature_covariance: np.ndarray = None):
     """Factor Analysis model from Paisley & Carin (2009) Equation 11.
 
@@ -196,9 +181,10 @@ def sample_sequence_from_factor_analysis(seq_len: int,
     indicators = indicators[:, non_empty_dishes != 0]
     num_features = indicators.shape[1]
 
+    weight_covariance = weight_variance * np.eye(num_features)
     weights = np.random.multivariate_normal(
-        mean=np.zeros(num_features),
-        cov=weight_variance * np.eye(num_features),
+        mean=weight_mean * np.ones(num_features),
+        cov=weight_covariance,
         size=(seq_len,))
 
     features = np.random.multivariate_normal(
@@ -206,23 +192,30 @@ def sample_sequence_from_factor_analysis(seq_len: int,
         cov=feature_covariance,
         size=(num_features,))
 
+    obs_covariance = obs_variance * np.eye(obs_dim)
     noise = np.random.multivariate_normal(
         mean=np.zeros(obs_dim),
-        cov=obs_variance * np.eye(obs_dim),
+        cov=obs_covariance,
         size=(seq_len,))
+
+    assert indicators.shape == (seq_len, num_features)
+    assert weights.shape == (seq_len, num_features)
+    assert features.shape == (num_features, obs_dim)
+    assert noise.shape == (seq_len, obs_dim)
 
     observations_seq = np.matmul(np.multiply(indicators, weights), features) + noise
 
     assert observations_seq.shape == (seq_len, obs_dim)
-    assert indicators.shape == (seq_len, num_features)
-    assert weights.shape == (seq_len, num_features)
-    assert features.shape == (num_features, obs_dim)
 
     results = dict(
         observations_seq=observations_seq,
         indicators=indicators,
         features=features,
+        feature_covariance=feature_covariance,
         weights=weights,
+        weight_covariance=weight_covariance,
+        noise=noise,
+        obs_covariance=obs_covariance,
     )
 
     # import matplotlib.pyplot as plt
