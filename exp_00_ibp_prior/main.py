@@ -19,7 +19,8 @@ def main():
 
     T = 50  # max time
     num_samples = 5000  # number of samples to draw from IBP(alpha)
-    alphas = [1.1, 10.37]  # , 15.78, 30.91]  # IBP parameter
+    alphas = [1.1, 10.37, 15.78, 30.91]  # IBP parameter
+    # alphas = [30.91]  # IBP parameter
 
     sampled_customers_dishes_by_alpha = sample_from_ibp(
         T=T,
@@ -57,7 +58,7 @@ def main():
             alphas=alphas,
             exp_dir=exp_dir,
             num_reps=num_reps,
-            sample_subset_size=num_samples,
+            num_samples=num_samples,
             analytical_customer_dishes_by_alpha=analytical_customers_dishes_by_alpha)
 
     plot.plot_analytical_vs_monte_carlo_mse(
@@ -71,10 +72,10 @@ def calc_analytical_vs_monte_carlo_mse(T: int,
                                        alphas,
                                        exp_dir,
                                        num_reps: int,
-                                       sample_subset_size: int,
+                                       num_samples: int,
                                        analytical_customer_dishes_by_alpha):
 
-    sample_subset_sizes = np.logspace(1, 4, 5).astype(np.int)
+    sample_subset_sizes = np.logspace(1, np.log10(num_samples), 5).astype(np.int)
 
     rep_errors = np.zeros(shape=(num_reps, len(alphas), len(sample_subset_sizes)))
 
@@ -84,18 +85,17 @@ def calc_analytical_vs_monte_carlo_mse(T: int,
             T=T,
             alphas=alphas,
             exp_dir=exp_dir,
-            num_samples=sample_subset_size,
+            num_samples=num_samples,
             rep_idx=rep_idx)
 
         for alpha_idx, alpha in enumerate(alphas):
             # for each subset of data, calculate the error
-            for sample_idx, sample_subset_size in enumerate(sample_subset_sizes):
-                rep_error = np.square(np.linalg.norm(
-                    np.subtract(
-                        np.mean(sampled_customer_dishes_by_alpha[alpha][:sample_subset_size],
+            for sample_idx, num_samples in enumerate(sample_subset_sizes):
+                diff = np.subtract(
+                        np.mean(sampled_customer_dishes_by_alpha[alpha][:num_samples],
                                 axis=0),
                         analytical_customer_dishes_by_alpha[alpha])
-                ))
+                rep_error = np.square(np.linalg.norm(diff[~np.isnan(diff)]))
                 rep_errors[rep_idx, alpha_idx, sample_idx] = rep_error
 
     mean_errors_per_num_samples_per_alpha, sem_errors_per_num_samples_per_alpha = {}, {}

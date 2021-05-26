@@ -2,13 +2,48 @@ import numpy as np
 import scipy.stats
 
 
-def convert_binary_latent_features_to_left_order_form(binary_latent_features):
-    # reorder to "Left Ordered Form" i.e. permute columns such that column sums are decreasing
-    seq_len = binary_latent_features.shape[0]
-    powers_of_2 = np.power(2, np.arange(0, seq_len)[::-1], dtype=np.float64)
-    column_sums = np.sum(np.multiply(binary_latent_features, powers_of_2[:, np.newaxis]), axis=0)
-    column_ordering = np.argsort(column_sums)[::-1]
-    return binary_latent_features[:, column_ordering]
+def convert_binary_latent_features_to_left_order_form(indicators):
+    # reorder to "Left Ordered Form" i.e. permute columns such that column as binary integers are decreasing
+    def left_order_form_indices_recursion(indicators_matrix, indices, row_idx):
+        if indices.size <= 1 or row_idx >= indicators_matrix.shape[0]:
+            return indices
+        left_indices = indices[np.where(indicators_matrix[row_idx, indices] == 1)]
+        right_indices = indices[np.where(indicators_matrix[row_idx, indices] == 0)]
+        return np.concatenate(
+            (left_order_form_indices_recursion(indicators_matrix, indices=left_indices, row_idx=row_idx + 1),
+             left_order_form_indices_recursion(indicators_matrix, indices=right_indices, row_idx=row_idx + 1)))
+
+    # def left_order_form_indices_recursion(indicators, row_idx: int, start_col: int, end_col: int):
+    #     """
+    #
+    #     :param indicators:
+    #     :param row_idx:
+    #     :param start_col: inclusive
+    #     :param end_col: exclusive
+    #     :return:
+    #     """
+    #
+    #     # base case: if we're at the bottom of the matrix, or if we have 0 columns
+    #     if start_col + 1 == end_col or row_idx == indicators.shape[0]:
+    #         return
+    #     row_values = indicators[row_idx, start_col:end_col]
+    #     sorted_row_values_indices = np.argsort(row_values)[::-1]
+    #     sorted_row_values = row_values[sorted_row_values_indices]
+    #     # find the changepoint i.e. where 1 switches to 0
+    #     changepoint_idx = np.argmin(sorted_row_values)
+    #
+    #     left_order_form_indices_recursion(indicators=indicators,
+    #                               row_idx=row_idx+1,
+    #                               )
+    #     print(10)
+
+    reordered_indices = left_order_form_indices_recursion(
+        indicators_matrix=indicators,
+        row_idx=0,
+        indices=np.arange(indicators.shape[1]))
+
+    left_ordered_indicators = indicators[:, reordered_indices]
+    return left_ordered_indicators
 
 
 def sample_sequence_from_ibp(T: int,
@@ -115,24 +150,51 @@ def sample_sequence_from_binary_linear_gaussian(class_sampling: str = 'Uniform',
 
 
 def sample_sequence_from_factor_analysis(seq_len: int,
-                                         obs_dim: int = 2,
-                                         num_features: int = 7,
-                                         beta_a: float = 3,
-                                         beta_b: float = 5,
+                                         obs_dim: int = 25,
+                                         max_num_features: int = 5000,
+                                         beta_a: float = 1,  # copied from paper
+                                         beta_b: float = 1,  # copied from paper
                                          weight_variance: float = 1.,
                                          obs_variance: float = 0.0675,  # copied from paper
                                          feature_covariance: np.ndarray = None):
     """Factor Analysis model from Paisley & Carin (2009) Equation 11.
+
+    We make one modification. Paisely and Carin sample pi_k from
+    Beta(beta_a/num_features, beta_b*(num_features-1)/num_features), which
+    is an alternative parameterization of the IBP that does not agree with the
+    parameterization used by Griffiths and Ghahramani (2011). Theirs samples pi_i from
+    Beta(beta_a*beta_b/num_features, beta_b*(num_features-1)/num_features), which
+    we will use here. Either is fine. You just need to be careful about which is used
+    because the parameterization dictates the expected number of dishes per customer
+    and the expected number of total dishes.
+
+    Technically, we should take limit of num_features->infty.
     """
 
     if feature_covariance is None:
         feature_covariance = np.eye(obs_dim)
 
-    pi_k = np.random.beta(a=beta_a / num_features,
-                          b=beta_b * (num_features - 1) / num_features,
-                          size=num_features)
+    pi = np.random.beta(a=beta_a * beta_b / max_num_features,
+                        b=beta_b * (max_num_features - 1) / max_num_features,
+                        size=max_num_features)
     # draw Z from Bernoulli i.e. Binomial with n=1
-    indicators = np.random.binomial(n=1, p=pi_k, size=(seq_len, num_features))
+    indicators = np.random.binomial(n=1, p=pi, size=(seq_len, max_num_features))
+
+    # convert to Left Ordered Form
+    indicators = convert_binary_latent_features_to_left_order_form(
+        indicators=indicators)
+
+    # Uncomment to check correctness of indicators
+    # num_dishes_per_customer = np.sum(indicators, axis=1)
+    # average_dishes_per_customer = np.mean(num_dishes_per_customer)
+    # average_dishes_per_customer_expected = beta_a
+    non_empty_dishes = np.sum(indicators, axis=0)
+    # total_dishes = np.sum(non_empty_dishes != 0)
+    # total_dishes_expected = beta_a * beta_b * np.log(beta_b + seq_len)
+
+    # only keep columns with non-empty dishes
+    indicators = indicators[:, non_empty_dishes != 0]
+    num_features = indicators.shape[1]
 
     weights = np.random.multivariate_normal(
         mean=np.zeros(num_features),
@@ -151,11 +213,31 @@ def sample_sequence_from_factor_analysis(seq_len: int,
 
     observations_seq = np.matmul(np.multiply(indicators, weights), features) + noise
 
+    assert observations_seq.shape == (seq_len, obs_dim)
+    assert indicators.shape == (seq_len, num_features)
+    assert weights.shape == (seq_len, num_features)
+    assert features.shape == (num_features, obs_dim)
+
     results = dict(
         observations_seq=observations_seq,
         indicators=indicators,
         features=features,
         weights=weights,
     )
+
+    # import matplotlib.pyplot as plt
+    # plt.scatter(observations_seq[:, 0],
+    #             observations_seq[:, 1],
+    #             s=2)
+    # # plot features
+    # for k in range(num_features):
+    #     plt.plot([0, pi[k]*features[k][0]],
+    #              [0, pi[k]*features[k][1]],
+    #              color='red',
+    #              label='Scaled Features' if k == 0 else None)
+    # plt.xlim(-1, 1)
+    # plt.ylim(-1, 1)
+    # plt.legend()
+    # plt.show()
 
     return results

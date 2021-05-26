@@ -27,11 +27,11 @@ def create_new_cluster_params_multivariate_normal(torch_observation,
 
 
 def recursive_ibp(observations,
-                  concentration_param: float,
+                  inference_params: float,
                   likelihood_model: str,
                   learning_rate,
                   num_em_steps: int = 3):
-    assert concentration_param > 0
+    assert inference_params > 0
     assert likelihood_model in {'multivariate_normal', 'dirichlet_multinomial',
                                 'bernoulli', 'continuous_bernoulli', 'linear_gaussian'}
     num_obs, obs_dim = observations.shape
@@ -149,10 +149,10 @@ def recursive_ibp(observations,
             # we don't subtract 1 because Python uses 0-based indexing
             assert torch.allclose(torch.sum(table_assignment_prior), torch.Tensor([obs_idx]).double())
             # add new table probability
-            table_assignment_prior[1:] += concentration_param * torch.clone(
+            table_assignment_prior[1:] += inference_params * torch.clone(
                 num_table_posteriors[obs_idx - 1, :obs_idx])
             # renormalize
-            table_assignment_prior /= (concentration_param + obs_idx)
+            table_assignment_prior /= (inference_params + obs_idx)
             assert torch.allclose(torch.sum(table_assignment_prior), one_tensor)
 
             # record latent prior
@@ -312,7 +312,7 @@ def likelihood_multivariate_normal(torch_observation,
 
 def run_inference_alg(inference_alg_str,
                       observations,
-                      concentration_param,
+                      inference_params,
                       likelihood_model,
                       learning_rate):
     # allow algorithm-specific arguments to inference alg function
@@ -348,7 +348,7 @@ def run_inference_alg(inference_alg_str,
     #
     #     if likelihood_model == 'dirichlet_multinomial':
     #         inference_alg_kwargs['model_params'] = dict(
-    #             dirichlet_concentration_param=10.)  # same as R-CRP
+    #             dirichlet_inference_params=10.)  # same as R-CRP
     #     elif likelihood_model == 'multivariate_normal':
     #         # Note: these are the ground truth parameters
     #         inference_alg_kwargs['model_params'] = dict(
@@ -366,7 +366,7 @@ def run_inference_alg(inference_alg_str,
     #     # Note: these are the ground truth parameters
     #     if likelihood_model == 'dirichlet_multinomial':
     #         inference_alg_kwargs['model_params'] = dict(
-    #             dirichlet_concentration_param=10.)  # same as R-CRP
+    #             dirichlet_inference_params=10.)  # same as R-CRP
     #     elif likelihood_model == 'multivariate_normal':
     #         inference_alg_kwargs['model_params'] = dict(
     #             gaussian_mean_prior_cov_scaling=6.,
@@ -387,7 +387,7 @@ def run_inference_alg(inference_alg_str,
     # run inference algorithm
     inference_alg_results = inference_alg_fn(
         observations=observations,
-        concentration_param=concentration_param,
+        inference_params=inference_params,
         likelihood_model=likelihood_model,
         learning_rate=learning_rate,
         **inference_alg_kwargs)

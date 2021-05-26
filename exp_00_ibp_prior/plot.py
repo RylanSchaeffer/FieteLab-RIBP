@@ -1,4 +1,4 @@
-import matplotlib as mpl
+import matplotlib
 from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
 import numpy as np
@@ -37,14 +37,14 @@ def plot_analytics_vs_monte_carlo_customer_dishes(sampled_customers_dishes_by_al
                     mask=np.isnan(average_customer_tables),
                     cmap='jet',
                     norm=LogNorm(vmin=cutoff, vmax=1., ),
+                    # cbar_kws=dict(label='$p(z_{tk}=1)$'),
                     )
 
-        ax.set_title(rf'Monte Carlo Estimate ($\alpha$={alpha})')
+        ax.set_title(r'Monte Carlo  $p(z_{tk} = 1 | $' + rf'$\alpha$={alpha})')
         ax.set_ylabel(r'Customer Index')
         ax.set_xlabel(r'Dish Index')
 
         ax = axes[1]
-        # log_analytical_customer_tables = np.log(analytical_customer_dishes)
         sns.heatmap(analytical_customer_dishes,
                     ax=ax,
                     mask=np.isnan(analytical_customer_dishes),
@@ -52,15 +52,13 @@ def plot_analytics_vs_monte_carlo_customer_dishes(sampled_customers_dishes_by_al
                     norm=LogNorm(vmin=cutoff,
                                  vmax=1., ),
                     )
-        ax.set_title(rf'Analytical Prediction ($\alpha$={alpha})')
+        ax.set_title(r'Analytical  $p(z_{tk} = 1 | $' + rf'$\alpha$={alpha})')
         ax.set_xlabel(r'Dish Index')
 
-        # for some reason, on OpenMind, colorbar ticks disappear without calling plt.show() first
-        # plt.show()
         fig.savefig(os.path.join(plot_dir, f'analytics_vs_monte_carlo_customer_tables={alpha}.png'),
                     bbox_inches='tight',
                     dpi=300)
-        plt.show()
+        # plt.show()
         plt.close()
 
 
@@ -81,10 +79,10 @@ def plot_analytical_vs_monte_carlo_mse(error_means_per_num_samples_per_alpha,
     ax.legend(title=f'Num Repeats: {num_reps}')
     ax.set_xscale('log')
     ax.set_yscale('log')
-    ax.set_ylabel(r'$(Analytic - Monte Carlo Estimate)^2$')
+    ax.set_ylabel(r'(Analytic - Monte Carlo$)^2$')
     # ax.set_ylabel(r'$\mathbb{E}_D[\sum_k (\mathbb{E}[N_{T, k}] - \frac{1}{S} \sum_{s=1}^S N_{T, k}^{(s)})^2]$')
     ax.set_xlabel('Number of Monte Carlo Samples')
-    fig.savefig(os.path.join(plot_dir, f'crp_expected_mse.png'),
+    fig.savefig(os.path.join(plot_dir, f'ibp_analytical_vs_monte_carlo_mse.png'),
                 bbox_inches='tight',
                 dpi=300)
     # plt.show()
@@ -110,7 +108,7 @@ def plot_indian_buffet_num_dishes_dist_by_customer_num(analytical_dish_distribut
                      color=cmap(float(t) / T))
 
         # https://stackoverflow.com/questions/43805821/matplotlib-add-colorbar-to-non-mappable-object
-        norm = mpl.colors.Normalize(vmin=1, vmax=T)
+        norm = matplotlib.colors.Normalize(vmin=1, vmax=T)
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         colorbar = plt.colorbar(sm,
                                 ticks=np.arange(1, T + 1, 5),
@@ -152,7 +150,7 @@ def plot_recursion_visualization(analytical_customers_dishes_by_alpha,
         sns.heatmap(
             data=cum_customer_dish_eating_probs[:, :max_dish_idx],
             ax=ax,
-            cbar_kws=dict(label=r'$\sum_{t^{\prime} = 1}^{t-1} p(z_{t\prime k} = 1)$'),
+            cbar_kws=dict(label=r'$\sum_{t^{\prime} = 1}^{t-1} p(z_{t^{\prime} k} = 1)$'),
             cmap='jet',
             mask=np.isnan(cum_customer_dish_eating_probs[:, :max_dish_idx]),
             norm=LogNorm(vmin=cutoff),
@@ -173,7 +171,7 @@ def plot_recursion_visualization(analytical_customers_dishes_by_alpha,
         sns.heatmap(
             data=table_distributions_by_T_array[:, :max_dish_idx],
             ax=ax,
-            cbar_kws=dict(label='$p(Lambda_t = l)$'),
+            cbar_kws=dict(label=r'$p(\Lambda_t = \ell)$'),
             cmap='jet',
             mask=np.isnan(table_distributions_by_T_array[:, :max_dish_idx]),
             norm=LogNorm(vmin=cutoff, ),
@@ -197,56 +195,9 @@ def plot_recursion_visualization(analytical_customers_dishes_by_alpha,
         )
         ax.set_title('New Customer\'s Distribution')
         ax.set_xlabel('Dish Index')
+
         fig.savefig(os.path.join(plot_dir, f'ibp_recursion_alpha={alpha}.png'),
                     bbox_inches='tight',
                     dpi=300)
         # plt.show()
         plt.close()
-
-
-
-# table_distributions_by_alpha_by_T = {}
-# cmap = plt.get_cmap('jet_r')
-# for alpha in alphas:
-#     ibp_samples = np.mean(ibp_samples_by_alpha[alpha], axis=0)
-#     max_dish_idx = np.max(np.argmin(ibp_samples != 0, axis=1))
-#
-#     fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(8, 4), sharex=True, sharey=True)
-#
-#     sns.heatmap(
-#         data=ibp_samples[:, :max_dish_idx],
-#         cbar_kws=dict(label='P(Dish)'),
-#         cmap='jet',
-#         # mask=ibp_samples[:, :max_dish_idx] == 0,
-#         vmin=0.,
-#         vmax=1.,
-#         ax=axes[0])
-#     sns.heatmap(
-#         data=analytical_customer_dishes_by_alpha[alpha][:, :max_dish_idx],
-#         cbar_kws=dict(label='P(Dish)'),
-#         cmap='jet',
-#         # mask=analytical_customer_dishes_by_alpha[alpha][:, :max_dish_idx] == 0,
-#         vmin=0.,
-#         vmax=1.,
-#         ax=axes[1])
-#
-#     # # https://stackoverflow.com/questions/43805821/matplotlib-add-colorbar-to-non-mappable-object
-#     # norm = mpl.colors.Normalize(vmin=1, vmax=T)
-#     # sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-#     # # sm.set_array([])
-#     # colorbar = plt.colorbar(sm,
-#     #                         ticks=np.arange(1, T + 1, 5),
-#     #                         # boundaries=np.arange(-0.05, T + 0.1, .1)
-#     #                         )
-#     # colorbar.set_label('Number of Customers')
-#     # plt.title(fr'Chinese Restaurant Table Distribution ($\alpha$={alpha})')
-#     axes[0].set_title(rf'Monte Carlo Estimate ($\alpha$={alpha})')
-#     axes[0].set_ylabel(r'Customer Index')
-#     axes[0].set_xlabel(r'Dish Index')
-#     axes[1].set_title(rf'Analytical Prediction ($\alpha$={alpha})')
-#     axes[1].set_xlabel(r'Dish Index')
-#     plt.savefig(os.path.join(plot_dir, f'empirical_ibp={alpha}.png'),
-#                 bbox_inches='tight',
-#                 dpi=300)
-#     plt.show()
-#     plt.close()

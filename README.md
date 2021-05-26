@@ -1,4 +1,4 @@
-# Efficient Online Inference for Nonparametric Factorial Time Series
+# Efficient Online Inference for Infinite Latent Feature Models
 
 This code corresponds to the [NeurIPS 2021](https://nips.cc/Conferences/2021/Dates)
 paper.

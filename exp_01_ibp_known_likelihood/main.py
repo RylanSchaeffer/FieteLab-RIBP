@@ -1,8 +1,9 @@
+from itertools import product
 import joblib
 import os
 from timeit import default_timer as timer
 
-from exp_01_binary_linear_gaussian.plot import *
+from exp_01_ibp_known_likelihood.plot import *
 import utils.data
 import utils.inference
 import utils.metrics
@@ -10,7 +11,7 @@ import utils.plot
 
 
 def main():
-    plot_dir = 'exp_01_binary_linear_gaussian/plots'
+    plot_dir = 'exp_01_factor_analysis/plots'
     os.makedirs(plot_dir, exist_ok=True)
     np.random.seed(1)
 
@@ -42,20 +43,23 @@ def run_one_dataset(dataset_dir,
                     gaussian_mean_prior_cov_scaling: float = 6.):
 
     # sample data
-    sampled_binary_linear_gaussian_results = utils.data.sample_sequence_from_binary_linear_gaussian(
-        seq_len=100,
-        sigma_A=100.94,
-        sigma_x_squared=0.0001,
-        obs_dim=2,
-        num_latent_features=7)
+    beta_a, beta_b = 5, 10
+    sampled_factor_analysis_results = utils.data.sample_sequence_from_factor_analysis(
+        seq_len=250,
+        max_num_features=5000,
+        beta_a=beta_a,
+        beta_b=beta_b)
 
-    concentration_params = 0.01 + np.arange(0., 6.01, 0.25)
+    possible_inference_params = dict(
+        alpha=[beta_a],
+        beta=[beta_b],
+    )
 
     inference_alg_strs = [
         # online algorithms
         'R-IBP',
-        # 'SUSG',  # deterministically select highest table assignment posterior
-        # 'Online CRP',  # sample from table assignment posterior; potentially correct
+        'MAP',  # deterministically determine whether dish is selected, using MAP
+        'Sample',  # randomly determine whether dish is selected, sampling from dish posterior
         # offline algorithms
         # 'HMC-Gibbs (5000 Samples)',
         # 'HMC-Gibbs (20000 Samples)',
@@ -69,17 +73,17 @@ def run_one_dataset(dataset_dir,
     inference_algs_results = {}
     for inference_alg_str in inference_alg_strs:
         inference_alg_results = run_and_plot_inference_alg(
-            sampled_binary_linear_gaussian_results=sampled_binary_linear_gaussian_results,
+            sampled_factor_analysis_results=sampled_factor_analysis_results,
             inference_alg_str=inference_alg_str,
-            concentration_params=concentration_params,
+            possible_inference_params=possible_inference_params,
             plot_dir=dataset_dir)
         inference_algs_results[inference_alg_str] = inference_alg_results
-    return inference_algs_results, sampled_binary_linear_gaussian_results
+    return inference_algs_results, sampled_factor_analysis_results
 
 
-def run_and_plot_inference_alg(sampled_binary_linear_gaussian_results,
+def run_and_plot_inference_alg(sampled_factor_analysis_results,
                                inference_alg_str,
-                               concentration_params,
+                               possible_inference_params,
                                plot_dir):
 
     inference_alg_plot_dir = os.path.join(plot_dir, inference_alg_str)
@@ -88,11 +92,15 @@ def run_and_plot_inference_alg(sampled_binary_linear_gaussian_results,
     scores_by_concentration_param = {}
     runtimes_by_concentration_param = {}
 
-    for concentration_param in concentration_params:
+    for alpha, beta in product(possible_inference_params['alpha'], possible_inference_params['beta']):
+
+        inference_params = dict(
+            alpha=alpha,
+            beta=beta)
 
         inference_alg_results_concentration_param_path = os.path.join(
             inference_alg_plot_dir,
-            f'results_{np.round(concentration_param, 2)}.joblib')
+            f'results_a={np.round(alpha, 2)}_b={np.round(alpha, 2)}.joblib')
 
         # if results do not exist, generate
         if not os.path.isfile(inference_alg_results_concentration_param_path):
@@ -102,8 +110,8 @@ def run_and_plot_inference_alg(sampled_binary_linear_gaussian_results,
             start_time = timer()
             inference_alg_concentration_param_results = utils.inference.run_inference_alg(
                 inference_alg_str=inference_alg_str,
-                observations=sampled_binary_linear_gaussian_results['observations_seq'],
-                concentration_param=concentration_param,
+                observations=sampled_factor_analysis_results['observations_seq'],
+                inference_params=inference_params,
                 likelihood_model='linear_gaussian',
                 learning_rate=1e0)
 
@@ -113,7 +121,7 @@ def run_and_plot_inference_alg(sampled_binary_linear_gaussian_results,
 
             # record scores
             scores, pred_cluster_labels = utils.metrics.score_predicted_clusters(
-                true_cluster_labels=sampled_binary_linear_gaussian_results['assigned_table_seq'],
+                true_cluster_labels=sampled_factor_analysis_results['assigned_table_seq'],
                 table_assignment_posteriors=inference_alg_concentration_param_results['table_assignment_posteriors'])
 
             # count number of clusters
@@ -137,7 +145,7 @@ def run_and_plot_inference_alg(sampled_binary_linear_gaussian_results,
             inference_alg_results_concentration_param_path)
 
         plot_inference_results(
-            sampled_mog_results=sampled_binary_linear_gaussian_results,
+            sampled_mog_results=sampled_factor_analysis_results,
             inference_results=stored_data['inference_alg_concentration_param_results'],
             inference_alg_str=inference_alg_str,
             concentration_param=concentration_param,
