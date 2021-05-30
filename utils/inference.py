@@ -1,3 +1,4 @@
+import cvxpy as cp
 import numpy as np
 from scipy.stats import poisson
 import torch
@@ -139,7 +140,9 @@ def recursive_ibp(observations,
                     requires_grad=True),
             )
         create_new_feature_params_fn = create_new_feature_params_multivariate_normal
-        likelihood_fn = likelihood_multivariate_normal_leave_one_out
+        posterior_fn = posterior_multivariate_normal_leave_one_out
+        posterior_fn = posterior_multivariate_normal_lin_regr_constrained
+        # posterior_fn = posterior_multivariate_normal_sequential
     else:
         raise NotImplementedError
 
@@ -178,47 +181,20 @@ def recursive_ibp(observations,
         dish_eating_priors[obs_idx, :] = dish_eating_prior
 
         if likelihood_known:
-            likelihoods_per_latent_equal_one, log_likelihoods_per_latent_equal_one, \
-            likelihoods_per_latent_equal_zero, log_likelihoods_per_latent_equal_zero = \
-                likelihood_fn(
-                    torch_observation=torch_observation,
-                    obs_idx=obs_idx,
-                    likelihood_params=likelihood_params,
-                    dish_eating_prior=dish_eating_prior)
+            # likelihoods_per_latent_equal_one, log_likelihoods_per_latent_equal_one, \
+            # likelihoods_per_latent_equal_zero, log_likelihoods_per_latent_equal_zero = \
+            #     likelihood_fn(
+            #         torch_observation=torch_observation,
+            #         obs_idx=obs_idx,
+            #         likelihood_params=likelihood_params,
+            #         dish_eating_prior=dish_eating_prior)
 
-            # typically, we would compute the posterior as:
-            # p(z=1|o, history) = p(z=1, o|history) / p(o|history)
-            #                   = p(z=1, o |history) / (p(z=1, o |history) + p(z=0, o |history))
-            # this is numerically unstable. Instead, we use the following likelihood ratio-based approach
-            # p(z=1|o, history) / p(z=0|o, history) = p(o|z=1) p(z=1|history) / (p(o|z=0) p(z=0|history))
-            # rearranging, we see that
-            # p(z=1|o, history) / p(z=0|o, history) =
-            #               exp(log p(o|z=1) + log p(z=1|history) - log (p(o|z=0) - log p(z=0|history)))
-            # Noting that p(z=0|o, history) = 1 - p(z=1|o, history), if we define the RHS as A,
-            # then p(z=1|o, history) = A / (1 + A)
-            A_argument = log_likelihoods_per_latent_equal_one - log_likelihoods_per_latent_equal_zero
-            A_argument += torch.log(dish_eating_prior) - torch.log(1 - dish_eating_prior)
-            A = torch.exp(A_argument)
-            dish_eating_posterior = torch.divide(A, 1 + A)
+            dish_eating_posterior = posterior_fn(
+                torch_observation=torch_observation,
+                obs_idx=obs_idx,
+                likelihood_params=likelihood_params,
+                dish_eating_prior=dish_eating_prior)
 
-            # if A large/infinite, we want the result to approach 1.
-            dish_eating_posterior[torch.isinf(A)] = 1.
-
-            # WARNING: numerically unstable!!
-            # log_p_obs_and_latents_equal_one = torch.add(
-            #     log_likelihoods_per_latent_equal_one,
-            #     torch.log(dish_eating_priors[obs_idx, :]))
-            # log_p_obs_and_latents_equal_zero = torch.add(
-            #     log_likelihoods_per_latent_equal_zero,
-            #     1 - dish_eating_priors[obs_idx, :])
-            # dish_eating_posterior = torch.divide(
-            #     torch.exp(log_p_obs_and_latents_equal_one),
-            #     torch.exp(log_p_obs_and_latents_equal_one) + torch.exp(log_p_obs_and_latents_equal_zero))
-
-            # from scipy.spatial.distance import pdist, squareform
-            # temp = squareform(pdist(likelihood_params['mean'][dish_eating_posterior > 0.99].numpy()))
-
-            dish_eating_posterior[torch.isnan(dish_eating_posterior)] = 0.
             dish_eating_posteriors[obs_idx] = dish_eating_posterior
         else:
             raise NotImplementedError
@@ -317,71 +293,214 @@ def recursive_ibp(observations,
     return bayesian_recursion_results
 
 
-def likelihood_multivariate_normal_leave_one_out(torch_observation,
-                                                 obs_idx,
-                                                 likelihood_params,
-                                                 dish_eating_prior):
+def posterior_multivariate_normal_leave_one_out(torch_observation,
+                                                obs_idx,
+                                                likelihood_params,
+                                                dish_eating_prior):
     # TODO: figure out how to do gradient descent using the post-gradient step means
     max_num_dishes = dish_eating_prior.shape[0]
 
-    # add extra dimension for broadcasting
-    dish_eating_prior = dish_eating_prior.unsqueeze(1)
+    dish_eating_posterior = torch.clone(dish_eating_prior)
 
     log_likelihoods_per_latent_equal_one = torch.zeros(max_num_dishes)
     log_likelihoods_per_latent_equal_zero = torch.zeros(max_num_dishes)
     mask = torch.ones(size=(max_num_dishes,), dtype=torch.bool)
+
+    import matplotlib.pyplot as plt
+
+    for iter_idx in range(3):
+        for dish_idx in range(max_num_dishes):
+            mask[dish_idx] = False
+            dish_mean = likelihood_params['mean'][~mask]
+            other_dish_means = likelihood_params['mean'][mask]
+            component_explained_by_other_features = torch.sum(
+                torch.multiply(dish_eating_posterior[mask].unsqueeze(1),
+                               other_dish_means),
+                axis=0)
+            torch_observation_minus_component_explained_by_other_features = torch.subtract(
+                torch_observation,
+                component_explained_by_other_features)
+
+            if obs_idx == 1 and dish_idx < 7:
+                plt.scatter(component_explained_by_other_features[0],
+                            component_explained_by_other_features[1],
+                            label=r'$\sum_{k\prime < k} \phi_{k\prime} p(z_k)$')
+                plt.scatter(component_explained_by_other_features[0] + dish_mean[0, 0],
+                            component_explained_by_other_features[1] + dish_mean[0, 1],
+                            label=r'$\sum_{k\prime < k} \phi_{k\prime} p(z_k) + \phi_k$')
+                plt.scatter(torch_observation[0],
+                            torch_observation[1],
+                            label=r'$o_{2}$')
+                plt.title(f'k={dish_idx + 1}')
+                plt.legend()
+                plt.xlim(-4, 4)
+                plt.ylim(-4, 4)
+                plt.show()
+
+            # compute p(o_t|z_{tk} = 1, z_{t, -k})
+            mv_normal_latent_equal_one = torch.distributions.multivariate_normal.MultivariateNormal(
+                loc=dish_mean,
+                covariance_matrix=likelihood_params['cov'])
+            log_likelihoods_per_latent_equal_one[dish_idx] = mv_normal_latent_equal_one.log_prob(
+                value=torch_observation_minus_component_explained_by_other_features)
+
+            # compute p(o_t|z_{tk} = 0, z_{t, -k})
+            mv_normal_latent_equal_zero = torch.distributions.multivariate_normal.MultivariateNormal(
+                loc=torch.zeros_like(dish_mean),
+                covariance_matrix=likelihood_params['cov'])
+            log_likelihoods_per_latent_equal_zero[dish_idx] = mv_normal_latent_equal_zero.log_prob(
+                value=torch_observation_minus_component_explained_by_other_features)
+
+            # log_ratio = log_likelihoods_per_latent_equal_one[dish_idx] - log_likelihoods_per_latent_equal_zero[dish_idx]
+
+            # reset mask for next step
+            mask[dish_idx] = True
+
+        # typically, we would compute the posterior as:
+        # p(z=1|o, history) = p(z=1, o|history) / p(o|history)
+        #                   = p(z=1, o |history) / (p(z=1, o |history) + p(z=0, o |history))
+        # this is numerically unstable. Instead, we use the following likelihood ratio-based approach
+        # p(z=1|o, history) / p(z=0|o, history) = p(o|z=1) p(z=1|history) / (p(o|z=0) p(z=0|history))
+        # rearranging, we see that
+        # p(z=1|o, history) / p(z=0|o, history) =
+        #               exp(log p(o|z=1) + log p(z=1|history) - log (p(o|z=0) - log p(z=0|history)))
+        # Noting that p(z=0|o, history) = 1 - p(z=1|o, history), if we define the RHS as A,
+        # then p(z=1|o, history) = A / (1 + A)
+        A_argument = log_likelihoods_per_latent_equal_one - log_likelihoods_per_latent_equal_zero
+        A_argument += torch.log(dish_eating_posterior) - torch.log(1 - dish_eating_posterior)
+        A = torch.exp(A_argument)
+        dish_eating_posterior[:] = torch.divide(A, 1 + A)
+
+        # if A is infinite, we want the result to be 1 since inf/(1+inf) = 1
+        dish_eating_posterior[torch.isinf(A)] = 1.
+        print(1)
+
+    return dish_eating_posterior
+
+
+def posterior_multivariate_normal_lin_regr_constrained(torch_observation,
+                                                       obs_idx,
+                                                       likelihood_params,
+                                                       dish_eating_prior):
+
+    # TODO: explore switching to one of:
+    #   https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.lsq_linear.html#scipy.optimize.lsq_linear
+    #   https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.fmin_slsqp.html#scipy.optimize.fmin_slsqp
+    #   https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html
+
+    def mse(X, Y, z):
+        return (1.0 / X.shape[0]) * cp.norm2(X @ z - Y) ** 2
+
+    def regularizer_l1(z):
+        return cp.norm1(z)
+
+    # def regularizer_ibp_prior(z):
+    #     return cp.norm2(z - dish_eating_prior) ** 2
+
+    def regularizer_ibp_prior(z):
+        return cp.sum(cp.kl_div(z, dish_eating_prior))
+
+    # def regularizer_ibp_prior(z):
+    #     cp.multiply(z, cp.log(cp.))
+        # return cp.sum(cp.kl_div(z, dish_eating_prior))
+
+    def objective_fn(X, Y, z, l1_coefficient, kl_div_coefficient):
+        return mse(X=X, Y=Y, z=z) + l1_coefficient * regularizer_l1(z=z) + kl_div_coefficient * regularizer_ibp_prior(z)
+
+    max_num_dishes = dish_eating_prior.shape[0]
+    z = cp.Variable(max_num_dishes)
+    objective = cp.Minimize(objective_fn(X=likelihood_params['mean'].numpy().T,
+                                         Y=torch_observation.numpy(),
+                                         z=z,
+                                         l1_coefficient=2,  # 1 / 2,  # 1 / alpha
+                                         kl_div_coefficient=3))
+    # worked alright for 2, 3
+
+    constraints = [0 <= z, z <= 1]
+    prob = cp.Problem(objective, constraints)
+    # prob.solve(verbose=True)
+    prob.solve()
+    dish_eating_posterior = torch.from_numpy(z.value)
+    return dish_eating_posterior
+
+
+def posterior_multivariate_normal_sequential(torch_observation,
+                                             obs_idx,
+                                             likelihood_params,
+                                             dish_eating_prior):
+    max_num_dishes = dish_eating_prior.shape[0]
+
+    dish_eating_posterior = torch.zeros_like(dish_eating_prior)
+
+    component_explained_by_earlier_features = torch.zeros_like(torch_observation)
+    log_likelihoods_per_latent_equal_one = torch.zeros(max_num_dishes)
+    log_likelihoods_per_latent_equal_zero = torch.zeros(max_num_dishes)
+
+    import matplotlib.pyplot as plt
+
     for dish_idx in range(max_num_dishes):
-        mask[dish_idx] = False
-        dish_mean = likelihood_params['mean'][~mask]
-        other_latent_means = likelihood_params['mean'][mask]
-        torch_observation_minus_component_explained_by_other_features = torch.subtract(
-            torch_observation,
-            torch.sum(torch.multiply(dish_eating_prior[mask], other_latent_means), axis=0))
+        dish_mean = likelihood_params['mean'][dish_idx]
+
+        torch_observation_minus_component_explained_by_earlier_features = \
+            torch_observation - component_explained_by_earlier_features
+
+        if obs_idx == 2:
+            plt.scatter(component_explained_by_earlier_features[0],
+                        component_explained_by_earlier_features[1],
+                        label=r'$\sum_{k\prime < k} \phi_{k\prime} p(z_k)$')
+            plt.scatter(component_explained_by_earlier_features[0] + dish_mean[0],
+                        component_explained_by_earlier_features[1] + dish_mean[1],
+                        label=r'$\sum_{k\prime < k} \phi_{k\prime} p(z_k) + \phi_k$')
+            plt.scatter(torch_observation[0],
+                        torch_observation[1],
+                        label=r'$o_{2}$')
+            plt.title(f'k={dish_idx + 1}')
+            plt.legend()
+            plt.xlim(-4, 4)
+            plt.ylim(-4, 4)
+            plt.show()
 
         # compute p(o_t|z_{tk} = 1, z_{t, -k})
         mv_normal_latent_equal_one = torch.distributions.multivariate_normal.MultivariateNormal(
             loc=dish_mean,
             covariance_matrix=likelihood_params['cov'])
         log_likelihoods_per_latent_equal_one[dish_idx] = mv_normal_latent_equal_one.log_prob(
-            value=torch_observation_minus_component_explained_by_other_features)
+            value=torch_observation_minus_component_explained_by_earlier_features)
 
         # compute p(o_t|z_{tk} = 0, z_{t, -k})
         mv_normal_latent_equal_zero = torch.distributions.multivariate_normal.MultivariateNormal(
             loc=torch.zeros_like(dish_mean),
             covariance_matrix=likelihood_params['cov'])
         log_likelihoods_per_latent_equal_zero[dish_idx] = mv_normal_latent_equal_zero.log_prob(
-            value=torch_observation_minus_component_explained_by_other_features)
+            value=torch_observation_minus_component_explained_by_earlier_features)
 
         # log_ratio = log_likelihoods_per_latent_equal_one[dish_idx] - log_likelihoods_per_latent_equal_zero[dish_idx]
 
-        # reset mask for next step
-        mask[dish_idx] = True
+        # typically, we would compute the posterior as:
+        # p(z=1|o, history) = p(z=1, o|history) / p(o|history)
+        #                   = p(z=1, o |history) / (p(z=1, o |history) + p(z=0, o |history))
+        # this is numerically unstable. Instead, we use the following likelihood ratio-based approach
+        # p(z=1|o, history) / p(z=0|o, history) = p(o|z=1) p(z=1|history) / (p(o|z=0) p(z=0|history))
+        # rearranging, we see that
+        # p(z=1|o, history) / p(z=0|o, history) =
+        #               exp(log p(o|z=1) + log p(z=1|history) - log (p(o|z=0) - log p(z=0|history)))
+        # Noting that p(z=0|o, history) = 1 - p(z=1|o, history), if we define the RHS as A,
+        # then p(z=1|o, history) = A / (1 + A)
+        A_argument = log_likelihoods_per_latent_equal_one[dish_idx] \
+                     - log_likelihoods_per_latent_equal_zero[dish_idx]
+        A_argument += torch.log(dish_eating_prior[dish_idx]) \
+                      - torch.log(1 - dish_eating_prior[dish_idx])
+        A = torch.exp(A_argument)
+        dish_eating_posterior[dish_idx] = torch.divide(A, 1 + A)
 
-    # these are typically all zeros because the log likelihood is -3e20, so
-    # e^{-3e20} = 0
-    likelihoods_per_latent_equal_one = torch.exp(log_likelihoods_per_latent_equal_one)
-    likelihoods_per_latent_equal_zero = torch.exp(log_likelihoods_per_latent_equal_zero)
+        # if A large/infinite, we want the result to approach 1.
+        if torch.isinf(A):
+            dish_eating_posterior[dish_idx] = 1.
 
-    return likelihoods_per_latent_equal_one, log_likelihoods_per_latent_equal_one, \
-           likelihoods_per_latent_equal_zero, log_likelihoods_per_latent_equal_zero
+        # update component explained by earlier features
+        component_explained_by_earlier_features += dish_mean * dish_eating_posterior[dish_idx]
 
-
-def likelihood_multivariate_normal_sequential(torch_observation,
-                                              obs_idx,
-                                              likelihood_params):
-    # # TODO: figure out how to do gradient descent using the post-gradient step means
-    # mv_normal = torch.distributions.multivariate_normal.MultivariateNormal(
-    #     loc=likelihood_params['mean'],
-    #     covariance_matrix=likelihood_params['cov'],
-    # )
-    # log_likelihoods_per_latent = mv_normal.log_prob(value=torch_observation)
-    # likelihoods_per_latent = torch.exp(log_likelihoods_per_latent)
-    #
-    # likelihoods_per_latent_equal_one = torch.exp(log_likelihoods_per_latent_equal_one)
-    # likelihoods_per_latent_equal_zero = torch.exp(log_likelihoods_per_latent_equal_zero)
-    # return likelihoods_per_latent_equal_one, log_likelihoods_per_latent_equal_one, \
-    #        likelihoods_per_latent_equal_zero, log_likelihoods_per_latent_equal_zero
-    raise NotImplementedError
+    return dish_eating_posterior
 
 
 def run_inference_alg(inference_alg_str: str,
