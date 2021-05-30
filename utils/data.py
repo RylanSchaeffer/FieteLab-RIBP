@@ -4,15 +4,15 @@ import scipy.stats
 
 def convert_binary_latent_features_to_left_order_form(indicators):
     # reorder to "Left Ordered Form" i.e. permute columns such that column as binary integers are decreasing
-    def left_order_form_indices_recursion(indicators_matrix, indices, row_idx):
-        # https://stackoverflow.com/a/67699595/4570472
-        if indices.size <= 1 or row_idx >= indicators_matrix.shape[0]:
-            return indices
-        left_indices = indices[np.where(indicators_matrix[row_idx, indices] == 1)]
-        right_indices = indices[np.where(indicators_matrix[row_idx, indices] == 0)]
-        return np.concatenate(
-            (left_order_form_indices_recursion(indicators_matrix, indices=left_indices, row_idx=row_idx + 1),
-             left_order_form_indices_recursion(indicators_matrix, indices=right_indices, row_idx=row_idx + 1)))
+    # def left_order_form_indices_recursion(indicators_matrix, indices, row_idx):
+    #     # https://stackoverflow.com/a/67699595/4570472
+    #     if indices.size <= 1 or row_idx >= indicators_matrix.shape[0]:
+    #         return indices
+    #     left_indices = indices[np.where(indicators_matrix[row_idx, indices] == 1)]
+    #     right_indices = indices[np.where(indicators_matrix[row_idx, indices] == 0)]
+    #     return np.concatenate(
+    #         (left_order_form_indices_recursion(indicators_matrix, indices=left_indices, row_idx=row_idx + 1),
+    #          left_order_form_indices_recursion(indicators_matrix, indices=right_indices, row_idx=row_idx + 1)))
 
     # sort columns via recursion
     # reordered_indices = left_order_form_indices_recursion(
@@ -153,7 +153,8 @@ def sample_sequence_from_factor_analysis(seq_len: int,
     because the parameterization dictates the expected number of dishes per customer
     and the expected number of total dishes.
 
-    Technically, we should take limit of num_features->infty.
+    Technically, we should take limit of num_features->infty. Instead we set
+    max_num_features very large, and keep only the nonzero ones.
     """
 
     if feature_covariance is None:
