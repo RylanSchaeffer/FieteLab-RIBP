@@ -31,23 +31,24 @@ def convert_binary_latent_features_to_left_order_form(indicators):
 
 
 def sample_sequence_from_ibp(T: int,
-                             alpha: float):
+                             alpha: float,
+                             beta: float):
     # shape: (number of customers, number of dishes)
     # heuristic: 3 * expected number
-    max_dishes = int(3 * alpha * np.sum(1 / (1 + np.arange(T))))
+    max_dishes = int(3 * alpha * beta * np.sum(1 / (1 + np.arange(T))))
     customers_dishes_draw = np.zeros(shape=(T, max_dishes), dtype=np.int)
 
     current_num_dishes = 0
-    for t in range(T):
+    for t in range(1, T+1):
         # sample old dishes for new customer
-        frac_prev_customers_sampling_dish = np.sum(customers_dishes_draw[:t, :], axis=0) / (t + 1)
+        frac_prev_customers_sampling_dish = np.sum(customers_dishes_draw[:t-1, :], axis=0) / (beta + t - 1)
         dishes_for_new_customer = np.random.binomial(n=1, p=frac_prev_customers_sampling_dish[np.newaxis, :])[0]
-        customers_dishes_draw[t, :] = dishes_for_new_customer.astype(np.int)
+        customers_dishes_draw[t-1, :] = dishes_for_new_customer.astype(np.int)
 
         # sample number of new dishes for new customer
-        # add +1 to t because of 0-based indexing
-        num_new_dishes = np.random.poisson(alpha / (t + 1))
-        customers_dishes_draw[t, current_num_dishes:current_num_dishes + num_new_dishes] = 1
+        # subtract 1 from to t because of 1-based iterating
+        num_new_dishes = np.random.poisson(alpha * beta / (beta + t - 1))
+        customers_dishes_draw[t-1, current_num_dishes:current_num_dishes + num_new_dishes] = 1
 
         # increment current num dishes
         current_num_dishes += num_new_dishes

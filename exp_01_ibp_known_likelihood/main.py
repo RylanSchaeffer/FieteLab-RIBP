@@ -11,7 +11,7 @@ import utils.plot
 
 
 def main():
-    plot_dir = 'exp_01_factor_analysis/plots'
+    plot_dir = 'exp_01_ibp_known_likelihood/plots'
     os.makedirs(plot_dir, exist_ok=True)
     np.random.seed(1)
 
@@ -43,14 +43,14 @@ def run_one_dataset(dataset_dir,
                     gaussian_mean_prior_cov_scaling: float = 6.):
 
     # sample data
-    beta_a, beta_b = 5, 10
+    beta_a, beta_b = 5, 6
     sampled_dataset_factor_analysis_results = utils.data.sample_sequence_from_factor_analysis(
         seq_len=250,
-        obs_dim=25,
-        max_num_features=5000,
+        obs_dim=2,  # TODO: restore to 25
+        max_num_features=10000,
         weight_mean=1.,
         weight_variance=1e-20,  # effectively set all weights to 1 i.e. no noise
-        obs_variance=1e-20,  # 0.0675,
+        obs_variance=0.0675,
         beta_a=beta_a,
         beta_b=beta_b)
 
@@ -87,13 +87,15 @@ def run_and_plot_inference_alg(sampled_factor_analysis_results,
     for alpha, beta in product(possible_inference_params['alpha'],
                                possible_inference_params['beta']):
 
+        inference_params_str = f'a={np.round(alpha, 2)}_b={np.round(alpha, 2)}'
+
         inference_params = dict(
             alpha=alpha,
             beta=beta)
 
         inference_alg_results_params_path = os.path.join(
             inference_alg_plot_dir,
-            f'results_a={np.round(alpha, 2)}_b={np.round(alpha, 2)}.joblib')
+            f'results_{inference_params_str}.joblib')
 
         # if results do not exist, generate
         if not os.path.isfile(inference_alg_results_params_path):
@@ -111,47 +113,25 @@ def run_and_plot_inference_alg(sampled_factor_analysis_results,
                 likelihood_params=dict(mean=sampled_factor_analysis_results['features'],
                                        cov=sampled_factor_analysis_results['obs_covariance']))
 
-            import seaborn as sns
-            from matplotlib.colors import LogNorm
-            epsilon = 1e-10
-            cutoff = 1e-10
-            fig, axes = plt.subplots(nrows=1, ncols=2)
-            sns.heatmap(sampled_factor_analysis_results['indicators'] + epsilon,
-                        ax=axes[0],
-                        mask=sampled_factor_analysis_results['indicators'] < cutoff,
-                        cmap='jet',
-                        norm=LogNorm(vmin=cutoff, vmax=1., ))
-            sns.heatmap(inference_alg_particular_params_results['dish_eating_posteriors'] + epsilon,
-                        ax=axes[1],
-                        mask=inference_alg_particular_params_results['dish_eating_posteriors'] < cutoff,
-                        cmap='jet',
-                        norm=LogNorm(vmin=cutoff, vmax=1., ))
-            plt.show()
-
-            seq_length = sampled_factor_analysis_results['observations_seq'].shape[0]
-            plt.plot(np.arange(1 + seq_length),  # remember, we started with zero
-                     inference_alg_particular_params_results['num_dishes_poisson_rate_posteriors'][:, 0])
-            plt.show()
-
             # record elapsed time
             stop_time = timer()
             runtime = stop_time - start_time
 
-            # record scores
-            scores, pred_cluster_labels = utils.metrics.score_predicted_clusters(
-                true_cluster_labels=sampled_factor_analysis_results['assigned_table_seq'],
-                table_assignment_posteriors=inference_alg_particular_params_results['table_assignment_posteriors'])
+            # # record scores
+            # scores, pred_cluster_labels = utils.metrics.score_predicted_clusters(
+            #     true_cluster_labels=sampled_factor_analysis_results['assigned_table_seq'],
+            #     table_assignment_posteriors=inference_alg_particular_params_results['table_assignment_posteriors'])
 
-            # count number of clusters
-            num_clusters = len(np.unique(pred_cluster_labels))
+            # # count number of clusters
+            # num_clusters = len(np.unique(pred_cluster_labels))
 
             # write to disk and delete
             data_to_store = dict(
-                inference_alg_concentration_param_results=inference_alg_particular_params_results,
-                num_clusters=num_clusters,
-                scores=scores,
-                runtime=runtime,
-            )
+                # num_clusters=num_clusters,
+                # scores=scores,
+                sampled_factor_analysis_results=sampled_factor_analysis_results,
+                inference_alg_particular_params_results=inference_alg_particular_params_results,
+                runtime=runtime)
 
             joblib.dump(data_to_store,
                         filename=inference_alg_results_params_path)
@@ -163,20 +143,20 @@ def run_and_plot_inference_alg(sampled_factor_analysis_results,
             inference_alg_results_params_path)
 
         plot_inference_results(
-            sampled_mog_results=sampled_factor_analysis_results,
+            sampled_factor_analysis_results=stored_data['sampled_factor_analysis_results'],
             inference_results=stored_data['inference_alg_particular_params_results'],
             inference_alg_str=inference_alg_str,
-            concentration_param=concentration_param,
+            inference_params=inference_params,
             plot_dir=inference_alg_plot_dir)
 
-        num_clusters_by_concentration_param[concentration_param] = stored_data[
-            'num_clusters']
-        scores_by_concentration_param[concentration_param] = stored_data[
-            'scores']
-        runtimes_by_concentration_param[concentration_param] = stored_data[
+        # num_clusters_by_concentration_param[inference_params_str] = stored_data[
+        #     'num_clusters']
+        # scores_by_concentration_param[inference_params_str] = stored_data[
+        #     'scores']
+        runtimes_by_concentration_param[inference_params_str] = stored_data[
             'runtime']
 
-        print('Finished {} concentration_param={:.2f}'.format(inference_alg_str, concentration_param))
+        print('Finished {} inference params: {}'.format(inference_alg_str, inference_params))
 
     inference_alg_particular_params_results = dict(
         num_clusters_by_param=num_clusters_by_concentration_param,

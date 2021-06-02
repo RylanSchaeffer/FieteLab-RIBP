@@ -1,3 +1,4 @@
+from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -5,127 +6,104 @@ import pandas as pd
 import seaborn as sns
 
 # common plotting functions
-from utils.plot import *
 
 
-def plot_inference_results(sampled_mog_results: dict,
+def plot_inference_results(sampled_factor_analysis_results: dict,
                            inference_results: dict,
                            inference_alg_str: str,
-                           concentration_param: float,
+                           inference_params: dict,
                            plot_dir,
                            num_tables_to_plot: int = 10):
 
-    assert isinstance(num_tables_to_plot, int)
-    assert num_tables_to_plot > 0
-    # num_obs = sampled_mog_results['gaussian_samples_seq'].shape[0]
-    # yticklabels = np.arange(num_obs)
-    # indices_to_keep = yticklabels % 10 == 0
-    # yticklabels += 1
-    # yticklabels = yticklabels.astype(np.str)
-    # yticklabels[~indices_to_keep] = ''
+    plot_inferred_dishes(
+        indicators=sampled_factor_analysis_results['indicators'],
+        dish_eating_priors=inference_results['dish_eating_priors'],
+        dish_eating_posteriors=inference_results['dish_eating_posteriors'],
+        plot_dir=plot_dir)
 
-    xmin = 1.1 * np.min(sampled_mog_results['gaussian_samples_seq'][:, 0])
-    xmax = 1.1 * np.max(sampled_mog_results['gaussian_samples_seq'][:, 0])
-    ymin = 1.1 * np.min(sampled_mog_results['gaussian_samples_seq'][:, 1])
-    ymax = 1.1 * np.max(sampled_mog_results['gaussian_samples_seq'][:, 1])
+    plot_num_dishes_by_observation(
+        indicators=sampled_factor_analysis_results['indicators'],
+        num_dishes_poisson_rate_priors=inference_results['num_dishes_poisson_rate_priors'],
+        num_dishes_poisson_rate_posteriors=inference_results['num_dishes_poisson_rate_posteriors'],
+        plot_dir=plot_dir)
 
+
+def plot_inferred_dishes(indicators,
+                         dish_eating_priors,
+                         dish_eating_posteriors,
+                         plot_dir):
     fig, axes = plt.subplots(nrows=1,
-                             ncols=3,
-                             figsize=(12, 4))
+                             ncols=5,
+                             figsize=(12, 5),
+                             gridspec_kw={'width_ratios': [1, 0.25, 1, 0.25, 1]})
+    cutoff = 1e-2
+    indicators = indicators.astype(float)
+    indicators[indicators < cutoff] = np.nan
+    axes[0].set_title(r'$z_{tk}$')
+    sns.heatmap(indicators,
+                ax=axes[0],
+                mask=np.isnan(indicators),
+                cmap='jet',
+                vmin=cutoff,
+                vmax=1.,
+                norm=LogNorm())
 
-    ax_idx = 0
-    # plot ground truth data
-    ax = axes[ax_idx]
-    ax.scatter(sampled_mog_results['gaussian_samples_seq'][:, 0],
-               sampled_mog_results['gaussian_samples_seq'][:, 1],
-               c=sampled_mog_results['assigned_table_seq'])
-    ax.set_xlim(xmin=xmin, xmax=xmax)
-    ax.set_ylim(ymin=ymin, ymax=ymax)
-    ax.set_title('Ground Truth Data')
+    axes[1].axis('off')
 
-    # plot cluster centroids
-    ax_idx += 1
-    ax = axes[ax_idx]
-    ax.scatter(inference_results['parameters']['means'][:, 0],
-               inference_results['parameters']['means'][:, 1],
-               s=2 * inference_results['table_assignment_posteriors_running_sum'][-1, :],
-               facecolors='none',
-               edgecolors='k')
-    ax.set_xlim(xmin=xmin, xmax=xmax)
-    ax.set_ylim(ymin=ymin, ymax=ymax)
-    ax.set_title(r'Cluster Centroids $\mu_z$')
+    dish_eating_priors[dish_eating_priors < cutoff] = np.nan
+    axes[2].set_title(r'$p(z_{tk}=1|o_{<t})$')
+    sns.heatmap(dish_eating_priors,
+                ax=axes[2],
+                mask=np.isnan(dish_eating_priors),
+                cmap='jet',
+                vmin=cutoff,
+                vmax=1.,
+                norm=LogNorm())
 
-    # plot predicted cluster labels
-    ax_idx += 1
-    ax = axes[ax_idx]
-    pred_cluster_labels = np.argmax(inference_results['table_assignment_posteriors'],
-                                    axis=1)
-    ax.scatter(sampled_mog_results['gaussian_samples_seq'][:, 0],
-               sampled_mog_results['gaussian_samples_seq'][:, 1],
-               c=pred_cluster_labels)
-    ax.set_xlim(xmin=xmin, xmax=xmax)
-    ax.set_ylim(ymin=ymin, ymax=ymax)
-    ax.set_title(r'Predicted Cluster Labels')
+    axes[3].axis('off')
 
-    plt.savefig(os.path.join(plot_dir,
-                             '{}_alpha={:.2f}_pred_clusters.png'.format(inference_alg_str, concentration_param)),
+    dish_eating_posteriors[dish_eating_posteriors < cutoff] = np.nan
+    axes[4].set_title(r'$p(z_{tk}=1|o_{\leq t})$')
+    sns.heatmap(dish_eating_posteriors,
+                ax=axes[4],
+                mask=np.isnan(dish_eating_posteriors),
+                cmap='jet',
+                vmin=cutoff,
+                vmax=1.,
+                norm=LogNorm())
+    plt.savefig(os.path.join(plot_dir, 'actual_indicators_vs_inferred_indicators.png'),
                 bbox_inches='tight',
                 dpi=300)
-    # plt.show()
-    plt.close()
-
-    fig, axes = plt.subplots(nrows=1,
-                             ncols=2,
-                             figsize=(8, 4))
-
-    ax_idx = 0
-    # plot prior table assignments
-    ax = axes[ax_idx]
-    if 'table_assignment_priors' in inference_results:
-        sns.heatmap(inference_results['table_assignment_priors'][:, :num_tables_to_plot],
-                    ax=ax,
-                    cmap='Blues',
-                    xticklabels=1 + np.arange(num_tables_to_plot),
-                    # yticklabels=yticklabels
-                    mask=np.isnan(inference_results['table_assignment_priors'][:, :num_tables_to_plot]),
-                    vmin=0.,
-                    vmax=1.,
-                    )
-        ax.set_title(r'$P(z_t|o_{<t})$')
-        ax.set_ylabel('Observation Index')
-        ax.set_xlabel('Cluster Index')
-
-    # plot posterior table assignments
-    ax_idx += 1
-    ax = axes[ax_idx]
-    sns.heatmap(inference_results['table_assignment_posteriors'][:, :num_tables_to_plot],
-                ax=ax,
-                cmap='Blues',
-                xticklabels=1 + np.arange(num_tables_to_plot),
-                # yticklabels=yticklabels
-                vmin=0.,
-                vmax=1.
-                )
-    ax.set_title(r'$P(z_t|o_{\leq t})$')
-    ax.set_ylabel('Observation Index')
-    ax.set_xlabel('Cluster Index')
-
-    plt.savefig(os.path.join(plot_dir,
-                             '{}_alpha={:.2f}_pred_assignments.png'.format(inference_alg_str,
-                                                                           concentration_param)),
-                bbox_inches='tight',
-                dpi=300)
-    # plt.show()
+    plt.show()
     plt.close()
 
 
-def plot_sample_from_mixture_of_gaussians(assigned_table_seq,
-                                          gaussian_samples_seq,
-                                          plot_dir):
-    plt.scatter(x=gaussian_samples_seq[:, 0],
-                y=gaussian_samples_seq[:, 1],
-                c=assigned_table_seq)
-    plt.savefig(os.path.join(plot_dir, 'sample_from_mixture_of_gaussians.png'),
+def plot_num_dishes_by_observation(indicators,
+                                   num_dishes_poisson_rate_priors,
+                                   num_dishes_poisson_rate_posteriors,
+                                   plot_dir):
+
+    seq_length = indicators.shape[0]
+    obs_indices = np.arange(1 + seq_length)  # remember, we started with t = 0
+    real_num_dishes = np.concatenate(
+        [[0.], np.sum(np.minimum(np.cumsum(indicators, axis=0), 1), axis=1)])
+    plt.plot(real_num_dishes,
+             obs_indices,
+             label='True')
+    plt.plot(num_dishes_poisson_rate_priors[:, 0],
+             obs_indices,
+             label=r'$p(\Lambda_t|o_{< t})$')
+    plt.plot(num_dishes_poisson_rate_posteriors[:, 0],
+             obs_indices,
+             label=r'$p(\Lambda_t|o_{\leq t})$')
+    plt.ylabel('Customer Index')
+    plt.xlabel('Number of Dishes')
+    plt.legend()
+    # plt.gca().axis('equal')
+    plt.xlim(0, seq_length)
+    plt.ylim(0, seq_length)
+    plt.gca().invert_yaxis()
+    plt.savefig(os.path.join(plot_dir, 'inferred_number_dishes_poisson_rates.png'),
                 bbox_inches='tight',
                 dpi=300)
     # plt.show()

@@ -2,7 +2,7 @@ import joblib
 import os
 from timeit import default_timer as timer
 
-from exp_01_factor_analysis.plot import *
+from exp_02_factor_analysis.plot import *
 import utils.data
 import utils.inference
 import utils.metrics
@@ -10,7 +10,7 @@ import utils.plot
 
 
 def main():
-    plot_dir = 'exp_01_factor_analysis/plots'
+    plot_dir = 'exp_02_factor_analysis/plots'
     os.makedirs(plot_dir, exist_ok=True)
     np.random.seed(1)
 
@@ -106,7 +106,7 @@ def run_and_plot_inference_alg(sampled_factor_analysis_results,
             inference_alg_concentration_param_results = utils.inference.run_inference_alg(
                 inference_alg_str=inference_alg_str,
                 observations=sampled_factor_analysis_results['observations_seq'],
-                concentration_param=concentration_param,
+                inference_params=concentration_param,
                 likelihood_model='linear_gaussian',
                 learning_rate=1e0)
 
