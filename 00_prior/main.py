@@ -15,7 +15,7 @@ def main():
 
     # create directories
     exp_dir = 'exp_00_ibp_prior'
-    plot_dir = os.path.join(exp_dir, 'plots')
+    plot_dir = os.path.join(exp_dir, 'results')
     os.makedirs(plot_dir, exist_ok=True)
 
     T = 50  # max time
@@ -142,7 +142,7 @@ def construct_analytical_customers_dishes(T: int,
     dish_indices = np.arange(max_dishes + 1)
 
     # customer 1 samples only new dishes
-    new_dishes_rate = alpha / (beta + 1 - 1)
+    new_dishes_rate = alpha * beta / (beta + 1 - 1)
     analytical_customers_dishes[1, :] = np.cumsum(scipy.stats.poisson.pmf(dish_indices[::-1], mu=new_dishes_rate))[
                                         ::-1]
     analytical_customer_dishes_running_sum[1, :] = analytical_customers_dishes[1, :]

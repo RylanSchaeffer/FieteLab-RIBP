@@ -1,9 +1,17 @@
 import numpy as np
 import scipy.stats
+from typing import Dict
 
 
-def convert_binary_latent_features_to_left_order_form(indicators):
-    # reorder to "Left Ordered Form" i.e. permute columns such that column as binary integers are decreasing
+def convert_binary_latent_features_to_left_order_form(
+        indicators: np.ndarray) -> np.ndarray:
+    """
+    Reorder to "Left Ordered Form" i.e. permute columns such that column
+    as binary integers are decreasing
+
+    :param indicators: shape (num customers, num dishes) of binary values
+    """
+    #
     # def left_order_form_indices_recursion(indicators_matrix, indices, row_idx):
     #     # https://stackoverflow.com/a/67699595/4570472
     #     if indices.size <= 1 or row_idx >= indicators_matrix.shape[0]:
@@ -30,34 +38,66 @@ def convert_binary_latent_features_to_left_order_form(indicators):
     return left_ordered_indicators_2
 
 
-def sample_sequence_from_ibp(T: int,
-                             alpha: float,
-                             beta: float):
-    # shape: (number of customers, number of dishes)
-    # heuristic: 3 * expected number
-    max_dishes = int(3 * alpha * beta * np.sum(1 / (1 + np.arange(T))))
-    customers_dishes_draw = np.zeros(shape=(T, max_dishes), dtype=np.int)
+def sample_ibp(num_mc_sample: int,
+               num_customer: int,
+               alpha: float,
+               beta: float) -> Dict[str, np.ndarray]:
+    assert alpha > 0.
+    assert beta > 0.
 
-    current_num_dishes = 0
-    for t in range(1, T+1):
-        # sample old dishes for new customer
-        frac_prev_customers_sampling_dish = np.sum(customers_dishes_draw[:t-1, :], axis=0) / (beta + t - 1)
-        dishes_for_new_customer = np.random.binomial(n=1, p=frac_prev_customers_sampling_dish[np.newaxis, :])[0]
-        customers_dishes_draw[t-1, :] = dishes_for_new_customer.astype(np.int)
+    # preallocate results
+    # use 10 * expected number of dishes as heuristic
+    max_dishes = 10 * int(alpha * beta * np.sum(1 / (1 + np.arange(num_customer))))
+    sampled_dishes_by_customer_idx = np.zeros(
+        shape=(num_mc_sample, num_customer, max_dishes),
+        dtype=np.int8)
+    cum_sampled_dishes_by_customer_idx = np.zeros(
+        shape=(num_mc_sample, num_customer, max_dishes),
+        dtype=np.int8)
+    num_dishes_by_customer_idx = np.zeros(
+        shape=(num_mc_sample, num_customer, max_dishes),
+        dtype=np.int)
 
-        # sample number of new dishes for new customer
-        # subtract 1 from to t because of 1-based iterating
-        num_new_dishes = np.random.poisson(alpha * beta / (beta + t - 1))
-        customers_dishes_draw[t-1, current_num_dishes:current_num_dishes + num_new_dishes] = 1
+    for smpl_idx in range(num_mc_sample):
+        current_num_dishes = 0
+        for cstmr_idx in range(1, num_customer + 1):
 
-        # increment current num dishes
-        current_num_dishes += num_new_dishes
+            # sample existing dishes
+            prob_new_customer_sampling_dish = cum_sampled_dishes_by_customer_idx[smpl_idx, cstmr_idx-2, :] /\
+                                              (beta + cstmr_idx - 1)
+            existing_dishes_for_new_customer = np.random.binomial(
+                n=1,
+                p=prob_new_customer_sampling_dish[np.newaxis, :])[0]
+            sampled_dishes_by_customer_idx[smpl_idx, cstmr_idx-1, :] = existing_dishes_for_new_customer # .astype(np.int)
 
-    return customers_dishes_draw
+            # sample number of new dishes for new customer
+            # subtract 1 from to cstmr_idx because of 1-based iterating
+            num_new_dishes = np.random.poisson(alpha * beta / (beta + cstmr_idx - 1))
+            start_dish_idx = current_num_dishes
+            end_dish_idx = current_num_dishes + num_new_dishes
+            sampled_dishes_by_customer_idx[smpl_idx, cstmr_idx-1, start_dish_idx:end_dish_idx] = 1
 
+            # increment current num dishes
+            current_num_dishes += num_new_dishes
+            num_dishes_by_customer_idx[smpl_idx, cstmr_idx-1, current_num_dishes] = 1
 
-vectorized_sample_sequence_from_ibp = np.vectorize(sample_sequence_from_ibp,
-                                                   otypes=[np.ndarray])
+            # increment running sums
+            cum_sampled_dishes_by_customer_idx[smpl_idx, cstmr_idx-1, :] = np.add(
+                cum_sampled_dishes_by_customer_idx[smpl_idx, cstmr_idx-2, :],
+                sampled_dishes_by_customer_idx[smpl_idx, cstmr_idx-1, :])
+
+    sample_ibp_results = {
+        'cum_sampled_dishes_by_customer_idx': cum_sampled_dishes_by_customer_idx,
+        'sampled_dishes_by_customer_idx': sampled_dishes_by_customer_idx,
+        'num_dishes_by_customer_idx': num_dishes_by_customer_idx,
+    }
+
+    # import matplotlib.pyplot as plt
+    # mc_avg = np.mean(sample_ibp_results['sampled_dishes_by_customer_idx'], axis=0)
+    # plt.imshow(mc_avg)
+    # plt.show()
+
+    return sample_ibp_results
 
 
 def sample_sequence_from_binary_linear_gaussian(class_sampling: str = 'Uniform',
@@ -68,9 +108,9 @@ def sample_sequence_from_binary_linear_gaussian(class_sampling: str = 'Uniform',
                                                 alpha: float = None,
                                                 num_features: int = None):
     """
-    Draw sample from Binary Linear-Gaussian model, using either uniform sampling or
     IBP sampling.
-    
+    Draw sample from Binary Linear-Gaussian model, using either uniform sampling or
+
     Exactly one of alpha and num_latent_features must be specified.
 
 
@@ -100,7 +140,7 @@ def sample_sequence_from_binary_linear_gaussian(class_sampling: str = 'Uniform',
             binary_latent_features)
     elif class_sampling == 'IBP':
         assert alpha is not None
-        binary_latent_features = sample_sequence_from_ibp(T=seq_len, alpha=alpha)
+        binary_latent_features = sample_ibp(T=seq_len, alpha=alpha)
         # should be unnecessary, but just to check
         binary_latent_features = convert_binary_latent_features_to_left_order_form(
             binary_latent_features)
