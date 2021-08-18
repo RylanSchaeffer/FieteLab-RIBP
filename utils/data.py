@@ -38,6 +38,28 @@ def convert_binary_latent_features_to_left_order_form(
     return left_ordered_indicators_2
 
 
+def generate_gaussian_parameters(num_gaussians: int = 3,
+                                 gaussian_dim: int = 2,
+                                 gaussian_mean_prior_cov_scaling: float = 3.,
+                                 gaussian_cov_scaling: float = 0.3):
+
+    # sample Gaussians' means from prior = N(0, rho * I)
+    means = np.random.multivariate_normal(
+        mean=np.zeros(gaussian_dim),
+        cov=gaussian_mean_prior_cov_scaling * np.eye(gaussian_dim),
+        size=num_gaussians)
+
+    # all Gaussians have same covariance
+    cov = gaussian_cov_scaling * np.eye(gaussian_dim)
+    covs = np.repeat(cov[np.newaxis, :, :],
+                     repeats=num_gaussians,
+                     axis=0)
+
+    mixture_of_gaussians = dict(means=means, covs=covs)
+
+    return mixture_of_gaussians
+
+
 def sample_ibp(num_mc_sample: int,
                num_customer: int,
                alpha: float,
@@ -100,75 +122,98 @@ def sample_ibp(num_mc_sample: int,
     return sample_ibp_results
 
 
-def sample_sequence_from_binary_linear_gaussian(class_sampling: str = 'Uniform',
-                                                seq_len: int = 100,
-                                                sigma_x_squared: float = 0.45,
-                                                sigma_A: float = 10.94,
-                                                obs_dim: int = 2,
-                                                alpha: float = None,
-                                                num_features: int = None):
+def sample_from_linear_gaussian(num_obs: int = 100,
+                                indicator_sampling: str = 'categorical',
+                                indicator_sampling_params: Dict[str, float] = None,
+                                gaussian_prior_params: Dict[str, float] = None,
+                                gaussian_likelihood_params: Dict[str, float] = None) -> Dict[str, np.ndarray]:
+
     """
-    IBP sampling.
-    Draw sample from Binary Linear-Gaussian model, using either uniform sampling or
+    Draw sample from Binary Linear-Gaussian model.
 
-    Exactly one of alpha and num_latent_features must be specified.
-
-
-    :param alpha:
-    :param seq_len: desired sequence length
-    :param sigma_x_squared:
-    :param sigma_A:
-    :param obs_dim:
-    :param num_features:
     :return:
-        assigned_table_seq: NumPy array with shape (seq_len,) of (integer) sampled classes
+        sampled_indicators: NumPy array with shape (seq_len,) of (integer) sampled classes
         linear_gaussian_samples_seq: NumPy array with shape (seq_len, obs_dim) of
                                 binary linear-Gaussian samples
     """
 
-    assert (alpha is None and num_features is not None) or \
-           (alpha is not None and num_features is None)
+    if indicator_sampling not in {'categorical', 'IBP'}:
+        raise ValueError(f'Impermissible class sampling value: {indicator_sampling}')
 
-    # sample binary Z (seq len \times K)
-    if class_sampling == 'Uniform':
-        assert num_features is not None
-        binary_latent_features = np.random.randint(
-            low=0,
-            high=2,
-            size=(seq_len, num_features))  # high is exclusive
-        binary_latent_features = convert_binary_latent_features_to_left_order_form(
-            binary_latent_features)
-    elif class_sampling == 'IBP':
-        assert alpha is not None
-        binary_latent_features = sample_ibp(T=seq_len, alpha=alpha)
-        # should be unnecessary, but just to check
-        binary_latent_features = convert_binary_latent_features_to_left_order_form(
-            binary_latent_features)
-        num_features = np.sum(np.sum(binary_latent_features, axis=0) != 0)
+    if indicator_sampling is None:
+        indicator_sampling_params = dict()
+
+    if indicator_sampling == 'categorical':
+
+        # if probabilities per cluster aren't specified, go with uniform probabilities
+        if 'probs' not in indicator_sampling_params:
+            indicator_sampling_params['probs'] = np.ones(5) / 5
+
+        indicator_sampling_descr_str = '{}_probs={}'.format(
+            indicator_sampling,
+            list(indicator_sampling_params['probs']))
+        indicator_sampling_descr_str = indicator_sampling_descr_str.replace(' ', '')
+
+    elif indicator_sampling == 'IBP':
+        if 'alpha' not in indicator_sampling_params:
+            indicator_sampling_params['alpha'] = 3.98
+        if 'beta' not in indicator_sampling_params:
+            indicator_sampling_params['beta'] = 4.97
+        indicator_sampling_descr_str = '{}__a={}_b={}'.format(
+            indicator_sampling,
+            indicator_sampling_params['alpha'],
+            indicator_sampling_params['beta'])
+
     else:
-        raise ValueError(f'Impermissible class sampling: {class_sampling}')
+        raise NotImplementedError
 
-    # check all binary latent features are 0 or 1
-    assert np.all(np.logical_or(binary_latent_features == 0, binary_latent_features == 1))
+    if gaussian_prior_params is None:
+        gaussian_prior_params = {}
 
-    # sample A (K \times D) from matrix normal
-    feature_means = scipy.stats.matrix_normal.rvs(
-        mean=np.zeros(shape=(num_features, obs_dim)),
-        rowcov=sigma_A * np.eye(num_features),
-        size=1)
+    if gaussian_likelihood_params is None:
+        gaussian_likelihood_params = {'sigma_x': 1e-10}
 
-    obs_means = np.matmul(binary_latent_features, feature_means)
-    obs_cov = sigma_x_squared * np.eye(obs_dim)
+    if indicator_sampling == 'categorical':
+        num_gaussians = indicator_sampling_params['probs'].shape[0]
+        sampled_indicators = np.random.binomial(
+            n=1,
+            p=indicator_sampling_params['probs'][np.newaxis, :],
+            size=(num_obs, num_gaussians))
+    elif indicator_sampling == 'IBP':
+        sampled_indicators = sample_ibp(
+            num_mc_sample=1,
+            num_customer=num_obs,
+            alpha=indicator_sampling_params['alpha'],
+            beta=indicator_sampling_params['beta'])['sampled_dishes_by_customer_idx'][0, :, :]
+        num_gaussians = np.argwhere(np.sum(sampled_indicators, axis=0) == 0.)[0, 0]
+        sampled_indicators = sampled_indicators[:, :num_gaussians]
+    else:
+        raise ValueError(f'Impermissible class sampling: {indicator_sampling}')
+
+    gaussian_parameters = generate_gaussian_parameters(
+        num_gaussians=num_gaussians,
+        **gaussian_prior_params)
+
+    features = gaussian_parameters['means']
+    obs_dim = features.shape[1]
+    obs_means = np.matmul(sampled_indicators, features)
+    obs_cov = np.square(gaussian_likelihood_params['sigma_x']) * np.eye(obs_dim)
     observations_seq = np.array([
         np.random.multivariate_normal(
             mean=obs_means[obs_idx],
             cov=obs_cov)
-        for obs_idx in range(seq_len)])
+        for obs_idx in range(num_obs)])
 
     result = dict(
+        gaussian_parameters=gaussian_parameters,
+        sampled_indicators=sampled_indicators,
         observations_seq=observations_seq,
-        binary_latent_features=binary_latent_features,
-        feature_means=feature_means,
+        features=features,
+        indicator_sampling=indicator_sampling,
+        indicator_sampling_params=indicator_sampling_params,
+        indicator_sampling_descr_str=indicator_sampling_descr_str,
+        gaussian_prior_params=gaussian_prior_params,
+        gaussian_likelihood_params=gaussian_likelihood_params,
     )
 
     return result

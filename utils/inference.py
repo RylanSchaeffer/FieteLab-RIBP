@@ -8,6 +8,11 @@ from utils.helpers import assert_torch_no_nan_no_inf, torch_logits_to_probs, tor
 torch.set_default_tensor_type('torch.DoubleTensor')
 
 
+inference_alg_strs = [
+    'R-IBP',
+]
+
+
 def create_new_cluster_params_linear_gaussian(torch_observation,
                                               obs_idx,
                                               likelihood_params):

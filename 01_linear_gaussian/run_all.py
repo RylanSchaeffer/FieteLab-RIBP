@@ -13,7 +13,7 @@ import numpy as np
 import os
 import subprocess
 
-import utils
+import utils.data
 
 
 def run_all():
@@ -25,12 +25,12 @@ def run_all():
     feature_samplings = [
         ('categorical', dict(probs=np.ones(5) / 5.)),
         ('categorical', dict(probs=np.array([0.4, 0.25, 0.2, 0.1, 0.05]))),
-        ('D-CRP', dict(alpha=5.98, beta=0.)),
-        ('D-CRP', dict(alpha=5.98, beta=0.)),
-        ('D-CRP', dict(alpha=5.98, beta=0.))
+        ('IBP', dict(alpha=5.98, beta=2.4)),
+        ('IBP', dict(alpha=5.98, beta=7.1)),
+        ('IBP', dict(alpha=12.6, beta=7.1))
     ]
 
-    num_datasets = 10
+    num_datasets = 2
     gaussian_cov_scaling: float = 0.3
     gaussian_mean_prior_cov_scaling: float = 100.
     num_customers = 100
@@ -42,21 +42,21 @@ def run_all():
     hyperparams = [alphas, betas, inference_alg_strs]
 
     # generate several datasets and independently launch inference
-    for (feature_sampling, feature_sampling_params), dataset_idx in \
+    for (indicator_sampling, indicator_sampling_params), dataset_idx in \
             itertools.product(feature_samplings, range(num_datasets)):
 
-        logging.info(f'Sampling: {feature_sampling}, Dataset Index: {dataset_idx}')
-        sampled_linear_gaussian_data = utils.data.sample_from_mixture_of_gaussians(
+        logging.info(f'Sampling: {indicator_sampling}, Dataset Index: {dataset_idx}')
+        sampled_linear_gaussian_data = utils.data.sample_from_linear_gaussian(
             num_obs=num_customers,
-            cluster_assignment_sampling=feature_sampling,
-            cluster_assignment_sampling_parameters=feature_sampling_params,
-            gaussian_params=dict(gaussian_cov_scaling=gaussian_cov_scaling,
-                                 gaussian_mean_prior_cov_scaling=gaussian_mean_prior_cov_scaling))
+            indicator_sampling=indicator_sampling,
+            indicator_sampling_params=indicator_sampling_params,
+            gaussian_prior_params=dict(gaussian_cov_scaling=gaussian_cov_scaling,
+                                       gaussian_mean_prior_cov_scaling=gaussian_mean_prior_cov_scaling))
 
         # save dataset
         dataset_dir = os.path.join(
             results_dir_path,
-            sampled_linear_gaussian_data['cluster_assignment_sampling_descr_str'],
+            sampled_linear_gaussian_data['indicator_sampling_descr_str'],
             f'dataset={dataset_idx}')
         os.makedirs(dataset_dir, exist_ok=True)
         joblib.dump(sampled_linear_gaussian_data,
