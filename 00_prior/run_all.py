@@ -23,7 +23,7 @@ def run_all():
     os.makedirs(results_dir_path, exist_ok=True)
 
     num_customers = [50]
-    num_mc_samples = [10000]  # number of Monte Carlo samples to draw
+    num_mc_samples = [5000]  # number of Monte Carlo samples to draw
     alphas = [1.1, 10.78, 15.37, 30.91]
     betas = [0.3, 5.6, 12.9, 21.3]
 
