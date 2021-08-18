@@ -1,4 +1,3 @@
-import logging
 from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
 import numpy as np
@@ -71,7 +70,9 @@ def plot_customer_dishes_analytical_vs_monte_carlo(sampled_dishes_by_customer_id
                 ax=ax,
                 mask=np.isnan(avg_sampled_dishes_by_customer),
                 cmap='jet',
-                norm=LogNorm(vmin=cutoff, vmax=1.,))
+                vmin=cutoff,
+                vmax=1.,
+                norm=LogNorm())
 
     ax.set_title(rf'Monte Carlo ($\alpha=${alpha}, $\beta=${beta})')
     ax.set_ylabel(r'Customer Index')
@@ -84,7 +85,9 @@ def plot_customer_dishes_analytical_vs_monte_carlo(sampled_dishes_by_customer_id
                 ax=ax,
                 mask=np.isnan(analytical_dishes_by_customer_idx),
                 cmap='jet',
-                norm=LogNorm(vmin=cutoff, vmax=1.,),
+                norm=LogNorm(),
+                vmin=cutoff,
+                vmax=1.,
                 )
     ax.set_title(rf'Analytical ($\alpha=${alpha}, $\beta$={beta})')
     ax.set_xlabel(r'Dish Index')
@@ -114,8 +117,6 @@ def plot_num_dishes_analytical_vs_monte_carlo(sampled_num_dishes_by_customer_idx
     avg_sampled_num_tables_by_customer = avg_sampled_num_tables_by_customer[:, :max_dish_idx]
     analytical_num_dishes_by_customer = analytical_num_dishes_by_customer[:, :max_dish_idx]
 
-    logging.info(f'avg sampled num tables shape: {avg_sampled_num_tables_by_customer.shape}')
-
     # replace 0s with nans to allow for log scaling
     nan_idx = avg_sampled_num_tables_by_customer == 0.
     avg_sampled_num_tables_by_customer[nan_idx] = np.nan
@@ -128,7 +129,9 @@ def plot_num_dishes_analytical_vs_monte_carlo(sampled_num_dishes_by_customer_idx
                 ax=ax,
                 mask=np.isnan(avg_sampled_num_tables_by_customer),
                 cmap='jet',
-                norm=LogNorm(vmin=cutoff, vmax=1., ),
+                norm=LogNorm(),
+                vmin=cutoff,
+                vmax=1.,
                 )
 
     ax.set_title(rf'Monte Carlo ($\alpha=${alpha}, $\beta=${beta})')
@@ -142,7 +145,9 @@ def plot_num_dishes_analytical_vs_monte_carlo(sampled_num_dishes_by_customer_idx
                 ax=ax,
                 mask=np.isnan(analytical_num_dishes_by_customer),
                 cmap='jet',
-                norm=LogNorm(vmin=cutoff, vmax=1., ),
+                norm=LogNorm(),
+                vmin=cutoff,
+                vmax=1.,
                 )
     ax.set_title(rf'Analytical ($\alpha=${alpha}, $\beta=${beta})')
     ax.set_xlabel(r'Dish Index')
@@ -182,7 +187,8 @@ def plot_recursion_visualization(analytical_customers_dishes_by_alpha_beta,
             cbar_kws=dict(label=r'$\sum_{t^{\prime} = 1}^{t-1} p(z_{t^{\prime} k} = 1)$'),
             cmap='jet',
             mask=np.isnan(cum_customer_dish_eating_probs[:, :max_dish_idx]),
-            norm=LogNorm(vmin=cutoff),
+            vmin=cutoff,
+            norm=LogNorm(),
         )
         ax.set_xlabel('Dish Index')
         ax.set_ylabel('Customer Index')
@@ -203,7 +209,8 @@ def plot_recursion_visualization(analytical_customers_dishes_by_alpha_beta,
             cbar_kws=dict(label=r'$p(\Lambda_t = \ell)$'),
             cmap='jet',
             mask=np.isnan(table_distributions_by_T_array[:, :max_dish_idx]),
-            norm=LogNorm(vmin=cutoff),
+            vmin=cutoff,
+            norm=LogNorm(),
         )
         ax.set_title('Distribution over\nNumber of Dishes')
         ax.set_xlabel('Dish Index')
@@ -220,7 +227,8 @@ def plot_recursion_visualization(analytical_customers_dishes_by_alpha_beta,
             cbar_kws=dict(label='$p(z_{tk}=1)$'),
             cmap='jet',
             mask=np.isnan(analytical_customer_dishes[:, :max_dish_idx]),
-            norm=LogNorm(vmin=cutoff, ),
+            vmin=cutoff,
+            norm=LogNorm(),
         )
         ax.set_title('New Customer\'s Distribution')
         ax.set_xlabel('Dish Index')

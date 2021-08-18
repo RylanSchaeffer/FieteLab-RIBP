@@ -13,8 +13,6 @@ import logging
 import os
 import subprocess
 
-import utils.helpers
-
 
 def run_all():
     # create directory
@@ -24,8 +22,8 @@ def run_all():
 
     num_customers = [50]
     num_mc_samples = [5000]  # number of Monte Carlo samples to draw
-    alphas = [1.1, 10.78, 15.37, 30.91]
-    betas = [0.3, 5.6, 12.9, 21.3]
+    alphas = [1.1, 10.78, 15.37]
+    betas = [2.3, 5.6, 12.9]
 
     hyperparams = [num_customers, num_mc_samples, alphas, betas]
     for num_customer, num_mc_sample, alpha, beta in itertools.product(*hyperparams):
