@@ -13,6 +13,7 @@ import numpy as np
 import os
 import subprocess
 
+import plot
 import utils.data
 
 
@@ -62,6 +63,11 @@ def run_all():
         joblib.dump(sampled_linear_gaussian_data,
                     filename=os.path.join(dataset_dir, 'data.joblib'))
 
+        plot.plot_sample_from_linear_gaussian(
+            features=sampled_linear_gaussian_data['features'],
+            observations_seq=sampled_linear_gaussian_data['observations_seq'],
+            plot_dir=dataset_dir)
+
         for alpha, beta, inference_alg_str in itertools.product(*hyperparams):
             launch_run_one(
                 exp_dir_path=exp_dir_path,
@@ -69,6 +75,7 @@ def run_all():
                 inference_alg_str=inference_alg_str,
                 alpha=alpha,
                 beta=beta)
+            # continue
 
 
 def launch_run_one(exp_dir_path: str,

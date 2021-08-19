@@ -5,6 +5,7 @@ import os
 import pandas as pd
 import seaborn as sns
 
+
 # common plotting functions
 
 
@@ -14,7 +15,6 @@ def plot_inference_results(sampled_factor_analysis_results: dict,
                            inference_params: dict,
                            plot_dir,
                            num_tables_to_plot: int = 10):
-
     plot_inferred_dishes(
         indicators=sampled_factor_analysis_results['indicators'],
         dish_eating_priors=inference_results['dish_eating_priors'],
@@ -82,7 +82,6 @@ def plot_num_dishes_by_observation(indicators,
                                    num_dishes_poisson_rate_priors,
                                    num_dishes_poisson_rate_posteriors,
                                    plot_dir):
-
     seq_length = indicators.shape[0]
     obs_indices = np.arange(1 + seq_length)  # remember, we started with t = 0
     real_num_dishes = np.concatenate(
@@ -107,4 +106,34 @@ def plot_num_dishes_by_observation(indicators,
                 bbox_inches='tight',
                 dpi=300)
     # plt.show()
+    plt.close()
+
+
+def plot_sample_from_linear_gaussian(features,
+                                     observations_seq,
+                                     plot_dir):
+
+    fig, ax = plt.subplots(nrows=1,
+                           ncols=1,
+                           figsize=(6, 6))
+
+    sns.scatterplot(observations_seq[:, 0],
+                    observations_seq[:, 1],
+                    palette='Set1',
+                    ax=ax,
+                    color='k',
+                    legend=False,)
+
+    for feature_idx, feature in enumerate(features):
+        ax.plot([0, feature[0]],
+                [0, feature[1]],
+                alpha=0.5,
+                label=f'Feature {feature_idx + 1}')
+
+    ax.set_title('Ground Truth Data')
+    ax.legend()
+    plt.savefig(os.path.join(plot_dir, 'data.png'),
+                bbox_inches='tight',
+                dpi=300)
+    plt.show()
     plt.close()
