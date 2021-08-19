@@ -106,7 +106,7 @@ def run_and_plot_inference_alg(sampled_factor_analysis_results,
             inference_alg_particular_params_results = utils.inference.run_inference_alg(
                 inference_alg_str=inference_alg_str,
                 observations=sampled_factor_analysis_results['observations_seq'],
-                inference_params=inference_params,
+                inference_alg_params=inference_params,
                 likelihood_model='multivariate_normal',
                 learning_rate=1e0,
                 likelihood_known=True,
