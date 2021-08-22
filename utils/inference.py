@@ -13,16 +13,6 @@ inference_alg_strs = [
 ]
 
 
-def create_new_cluster_params_linear_gaussian(torch_observation,
-                                              obs_idx,
-                                              likelihood_params):
-    # data is necessary to not break backprop
-    # see https://stackoverflow.com/questions/53819383/how-to-assign-a-new-value-to-a-pytorch-variable-without-breaking-backpropagation
-    assert_torch_no_nan_no_inf(torch_observation)
-    likelihood_params['M'].data[obs_idx, :] = torch_observation
-    likelihood_params['stddevs'].data[obs_idx, :, :] = torch.eye(torch_observation.shape[0])
-
-
 def create_new_feature_params_multivariate_normal(torch_observation: torch.Tensor,
                                                   dish_eating_prior: torch.Tensor,
                                                   obs_idx: int,
@@ -36,8 +26,9 @@ def create_new_feature_params_multivariate_normal(torch_observation: torch.Tenso
     # subtract the contribution from existing likelihood params
     torch_residual = torch_observation - torch.matmul(dish_eating_prior, likelihood_params['means'])
 
-    # Create new params by regressing prior on residuals, with L1 regularization
-    # to encourage only minimal number of new features are introduced.
+    # Create new params by regressing prior on residuals with two additions:
+    #   1. L1 regularization to encourage fewer new features are introduced.
+    #   2. Divergence from
     cp_features_var = cp.Variable(shape=(max_num_features, obs_dim))
     cp_sse_fn = 0.5 * cp.sum_squares(
         torch_residual.detach().numpy() - cp.matmul(dish_eating_prior, cp_features_var))
@@ -50,6 +41,9 @@ def create_new_feature_params_multivariate_normal(torch_observation: torch.Tenso
 
     # frequently, we get small floating point content e.g. 1e-35. These are numerical errors.
     torch_features[torch_features < 1e-10] = 0.
+
+    # data is necessary to not break backprop
+    # see https://stackoverflow.com/questions/53819383/how-to-assign-a-new-value-to-a-pytorch-variable-without-breaking-backpropagation
     likelihood_params['means'].data[:, :] = torch_features
 
 
@@ -67,10 +61,11 @@ def recursive_ibp(observations,
 
     assert likelihood_model in {'multivariate_normal', 'dirichlet_multinomial',
                                 'bernoulli', 'continuous_bernoulli', 'linear_gaussian'}
+
     num_obs, obs_dim = observations.shape
 
     # Note: the expected number of latents grows logarithmically as a*b*log(b + T - 1)
-    # The 10 is a heuristic to be safe.
+    # The 10 is a hopefully conservative heuristic to preallocate.
     max_num_features = 10 * int(inference_params['alpha'] * inference_params['beta'] * \
                                 np.log(inference_params['beta'] + num_obs - 1))
 
@@ -205,7 +200,6 @@ def recursive_ibp(observations,
             # E step: infer posteriors using parameters
             posterior_fn(
                 torch_observation=torch_observation,
-                obs_idx=obs_idx,
                 likelihood_params=likelihood_params)
             assert torch.all(~torch.isnan(likelihoods_per_latent[:obs_idx + 1]))
             assert torch.all(~torch.isnan(log_likelihoods_per_latent[:obs_idx + 1]))
@@ -295,30 +289,6 @@ def recursive_ibp(observations,
 def posterior_multivariate_normal_linear_regression_simultaneous(torch_observation,
                                                                  likelihood_params,
                                                                  dish_eating_prior):
-    # TODO: explore switching to one of:
-    #   https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.lsq_linear.html#scipy.optimize.lsq_linear
-    #   https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.fmin_slsqp.html#scipy.optimize.fmin_slsqp
-    #   https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html
-    #
-    # def mse(X, Y, z):
-    #     return (1.0 / X.shape[0]) * cp.norm2(X @ z - Y) ** 2
-    #
-    # def regularizer_l1(z):
-    #     return cp.norm1(z)
-    #
-    # # def regularizer_ibp_prior(z):
-    # #     return cp.norm2(z - dish_eating_prior) ** 2
-    #
-    # def regularizer_ibp_prior(z):
-    #     return cp.sum(cp.kl_div(z, dish_eating_prior))
-    #
-    # # def regularizer_ibp_prior(z):
-    # #     cp.multiply(z, cp.log(cp.))
-    # # return cp.sum(cp.kl_div(z, dish_eating_prior))
-    #
-    # def objective_fn(X, Y, z, l1_coefficient, kl_div_coefficient):
-    #     return mse(X=X, Y=Y, z=z) + l1_coefficient * regularizer_l1(z=z) + kl_div_coefficient * regularizer_ibp_prior(z)
-
     max_num_dishes = dish_eating_prior.shape[0]
     cp_dish_eating_var = cp.Variable(shape=(1, max_num_dishes))
 
