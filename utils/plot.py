@@ -3,12 +3,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
+import seaborn as sns
 
 
 def plot_inference_algs_comparison(inference_algs_results_by_dataset_idx: dict,
                                    dataset_by_dataset_idx: dict,
                                    plot_dir: str):
-
     num_datasets = len(inference_algs_results_by_dataset_idx)
     num_clusters = len(np.unique(dataset_by_dataset_idx[0]['assigned_table_seq']))
 
@@ -53,7 +53,8 @@ def plot_inference_algs_comparison(inference_algs_results_by_dataset_idx: dict,
         for inference_alg in inference_algs:
             scores_by_dataset_by_inference_alg_by_scoring_metric[scoring_metric][inference_alg] = \
                 pd.DataFrame(
-                    [inference_algs_results_by_dataset_idx[dataset_idx][inference_alg]['scores_by_param'][scoring_metric]
+                    [inference_algs_results_by_dataset_idx[dataset_idx][inference_alg]['scores_by_param'][
+                         scoring_metric]
                      for dataset_idx in range(num_datasets)])
 
     plot_inference_algs_scores_by_param(
@@ -120,7 +121,6 @@ def plot_inference_algs_scores_by_param(scores_by_dataset_by_inference_alg_by_sc
 
 def plot_inference_algs_runtimes_by_param(runtimes_by_dataset_by_inference_alg: dict,
                                           plot_dir: str):
-
     for inference_alg_str, inference_alg_runtime_df in runtimes_by_dataset_by_inference_alg.items():
         print(f'{inference_alg_str} Average Runtime: {np.mean(inference_alg_runtime_df.values)}')
         means = inference_alg_runtime_df.mean()
@@ -147,50 +147,31 @@ def plot_inference_algs_runtimes_by_param(runtimes_by_dataset_by_inference_alg: 
     plt.close()
 
 
-def plot_num_clusters_by_num_obs(true_cluster_labels,
-                                 plot_dir: str):
+def plot_num_dishes_by_num_obs(dish_eating_array: np.ndarray,
+                               plot_dir: str,
+                               cutoff: float=1e-5):
+    """
+    Plot number of dishes (Y) vs number of observations (X).
 
-    # compute the empirical number of topics per number of posts
-    unique_labels = set()
-    empiric_num_unique_clusters_by_end_index = []
-    for cluster_label in true_cluster_labels:
-        unique_labels.add(cluster_label)
-        empiric_num_unique_clusters_by_end_index.append(len(unique_labels))
-    empiric_num_unique_clusters_by_end_index = np.array(empiric_num_unique_clusters_by_end_index)
+    Assumes dish_eating_array has shape (num obs, max num indicators)
+    """
 
-    obs_indices = 1 + np.arange(len(empiric_num_unique_clusters_by_end_index))
+    cum_dish_eating_array = np.cumsum(dish_eating_array, axis=0)
+    num_dishes_by_num_obs = np.sum(cum_dish_eating_array > cutoff, axis=1)
 
-    # fit alpha to the empirical number of topics per number of posts
-    def expected_num_tables(customer_idx, alpha):
-        return np.multiply(alpha, np.log(1 + customer_idx / alpha))
+    obs_indices = 1 + np.arange(len(num_dishes_by_num_obs))
 
-    from scipy.optimize import curve_fit
-    popt, pcov = curve_fit(f=expected_num_tables,
-                           xdata=obs_indices,
-                           ydata=empiric_num_unique_clusters_by_end_index)
-    fitted_alpha = popt[0]
-
-    fitted_num_unique_clusters_by_end_index = expected_num_tables(
-        customer_idx=obs_indices,
-        alpha=fitted_alpha)
-
-    plt.plot(obs_indices,
-             empiric_num_unique_clusters_by_end_index,
-             label='Empiric')
-    plt.plot(obs_indices,
-             fitted_num_unique_clusters_by_end_index,
-             label=f'Fit (alpha = {np.round(fitted_alpha, 2)})')
-    plt.xlabel('Observation Index')
-    plt.ylabel('New Cluster (Ground Truth)')
+    sns.lineplot(obs_indices,
+                 num_dishes_by_num_obs)
+    plt.xlabel('Number of Observations')
+    plt.ylabel(f'Total Number of Dishes (cutoff={cutoff})')
     plt.legend()
 
     # make axes equal
     plt.axis('square')
 
-    plt.savefig(os.path.join(plot_dir, 'fitted_alpha.png'),
+    plt.savefig(os.path.join(plot_dir, 'num_dishes_by_num_obs.png'),
                 bbox_inches='tight',
                 dpi=300)
     # plt.show()
     plt.close()
-
-

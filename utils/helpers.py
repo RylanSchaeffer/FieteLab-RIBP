@@ -214,6 +214,7 @@ def torch_entropy_bernoulli(probs: torch.Tensor) -> torch.Tensor:
     # we consequently need to mask
     probs_time_log_odds = torch.multiply(probs, log_odds)
     probs_time_log_odds[torch.isclose(probs, torch.zeros_like(probs))] = 0.
+    probs_time_log_odds[torch.isclose(probs, torch.ones_like(probs))] = 1.
     entropy = -torch.sum(torch.add(probs_time_log_odds,
                                    torch.log(one_minus_probs)))
     assert entropy >= 0.

@@ -27,6 +27,11 @@ def run_one(args: argparse.Namespace):
 
     setup_results = setup(args=args)
 
+    # plot.plot_sample_from_linear_gaussian(
+    #     features=setup_results['sampled_linear_gaussian_data']['features'],
+    #     observations_seq=setup_results['sampled_linear_gaussian_data']['observations_seq'],
+    #     plot_dir=setup_results['inference_results_dir'])
+
     logging.info('Running and plotting {} with params {} on dataset {}'.format(
         setup_results['inference_alg_str'],
         setup_results['inference_alg_params'],
@@ -49,12 +54,12 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
                                inference_alg_params,
                                inference_results_dir):
 
-    inference_results_path = os.path.join(inference_results_dir, 'inference_results.joblib')
+    inference_results_path = os.path.join(inference_results_dir, 'inference_alg_results.joblib')
 
     # run inference algorithm
     # time using timer because https://stackoverflow.com/a/25823885/4570472
     start_time = timer()
-    inference_results = utils.inference.run_inference_alg(
+    inference_alg_results = utils.inference.run_inference_alg(
         inference_alg_str=inference_alg_str,
         observations=sampled_linear_gaussian_data['observations_seq'],
         inference_alg_params=inference_alg_params,
@@ -68,16 +73,16 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
     # record scores
     # scores, pred_cluster_labels = utils.metrics.score_predicted_clusters(
     #     true_cluster_labels=sampled_linear_gaussian_data['assigned_table_seq'],
-    #     table_assignment_posteriors=inference_results['table_assignment_posteriors'])
+    #     table_assignment_posteriors=inference_alg_results['table_assignment_posteriors'])
 
-    # count number of clusters
-    # num_clusters = len(np.unique(pred_cluster_labels))
-    num_indicators = len(np.unique(pred_indicators))
+    # count number of indicators
+    num_indicators = np.sum(
+        np.sum(inference_alg_results['dish_eating_posteriors'], axis=0) > 0.)
 
     data_to_store = dict(
         inference_alg_str=inference_alg_str,
         inference_alg_params=inference_alg_params,
-        inference_results=inference_results,
+        inference_alg_results=inference_alg_results,
         num_indicators=num_indicators,
         # scores=scores,
         runtime=runtime)
@@ -88,12 +93,12 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
     # read results from disk
     stored_data = joblib.load(inference_results_path)
 
-    # plot.plot_inference_results(
-    #     sampled_linear_gaussian_data=sampled_linear_gaussian_data,
-    #     inference_results=stored_data['inference_results'],
-    #     inference_alg_str=stored_data['inference_alg_str'],
-    #     inference_alg_param=stored_data['inference_alg_params'],
-    #     plot_dir=inference_results_dir)
+    plot.plot_inference_results(
+        sampled_linear_gaussian_data=sampled_linear_gaussian_data,
+        inference_alg_results=stored_data['inference_alg_results'],
+        inference_alg_str=stored_data['inference_alg_str'],
+        inference_alg_params=stored_data['inference_alg_params'],
+        plot_dir=inference_results_dir)
 
 
 def setup(args: argparse.Namespace):

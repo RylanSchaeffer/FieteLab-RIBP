@@ -106,7 +106,7 @@ def run_and_plot_inference_alg(sampled_factor_analysis_results,
             inference_alg_concentration_param_results = utils.inference.run_inference_alg(
                 inference_alg_str=inference_alg_str,
                 observations=sampled_factor_analysis_results['observations_seq'],
-                inference_params=concentration_param,
+                inference_alg_params=concentration_param,
                 likelihood_model='linear_gaussian',
                 learning_rate=1e0)
 

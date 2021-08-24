@@ -5,27 +5,38 @@ import os
 import pandas as pd
 import seaborn as sns
 
-
 # common plotting functions
+import utils.plot
 
 
-def plot_inference_results(sampled_factor_analysis_results: dict,
-                           inference_results: dict,
+def plot_inference_results(sampled_linear_gaussian_data: dict,
+                           inference_alg_results: dict,
                            inference_alg_str: str,
-                           inference_params: dict,
-                           plot_dir,
-                           num_tables_to_plot: int = 10):
-    plot_inferred_dishes(
-        indicators=sampled_factor_analysis_results['indicators'],
-        dish_eating_priors=inference_results['dish_eating_priors'],
-        dish_eating_posteriors=inference_results['dish_eating_posteriors'],
+                           inference_alg_params: dict,
+                           plot_dir):
+
+    utils.plot.plot_num_dishes_by_num_obs(
+        dish_eating_array=inference_alg_results['dish_eating_posteriors'],
         plot_dir=plot_dir)
 
-    plot_num_dishes_by_observation(
-        indicators=sampled_factor_analysis_results['indicators'],
-        num_dishes_poisson_rate_priors=inference_results['num_dishes_poisson_rate_priors'],
-        num_dishes_poisson_rate_posteriors=inference_results['num_dishes_poisson_rate_posteriors'],
-        plot_dir=plot_dir)
+    plt.title(f'Obs Idx: {obs_idx}, VI Idx: {vi_idx + 1}')
+    plt.scatter(np.arange(len(dish_eating_prior)), dish_eating_prior, label='prior')
+    plt.scatter(np.arange(len(dish_eating_prior)), Z_probs.detach().numpy(), label='posterior')
+    plt.legend()
+    plt.xlim(0, 15)
+    plt.show()
+
+    plt.title(f'Obs Idx: {obs_idx}, VI Idx: {vi_idx + 1}')
+    plt.scatter(observations[:obs_idx, 0],
+                observations[:obs_idx, 1],
+                color='k',
+                label='Observations')
+    for feature_idx in range(15):
+        plt.plot([0, variable_variational_params['A']['mean'][obs_idx, feature_idx, 0].data],
+                 [0, variable_variational_params['A']['mean'][obs_idx, feature_idx, 1].data],
+                 label=f'{feature_idx}')
+    # plt.legend()
+    plt.show()
 
 
 def plot_inferred_dishes(indicators,
