@@ -27,11 +27,6 @@ def run_one(args: argparse.Namespace):
 
     setup_results = setup(args=args)
 
-    # plot.plot_sample_from_linear_gaussian(
-    #     features=setup_results['sampled_linear_gaussian_data']['features'],
-    #     observations_seq=setup_results['sampled_linear_gaussian_data']['observations_seq'],
-    #     plot_dir=setup_results['inference_results_dir'])
-
     logging.info('Running and plotting {} with params {} on dataset {}'.format(
         setup_results['inference_alg_str'],
         setup_results['inference_alg_params'],
@@ -54,7 +49,9 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
                                inference_alg_params,
                                inference_results_dir):
 
-    inference_results_path = os.path.join(inference_results_dir, 'inference_alg_results.joblib')
+    inference_results_path = os.path.join(
+        inference_results_dir,
+        'inference_alg_results.joblib')
 
     # run inference algorithm
     # time using timer because https://stackoverflow.com/a/25823885/4570472

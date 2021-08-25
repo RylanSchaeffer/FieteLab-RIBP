@@ -149,7 +149,7 @@ def plot_inference_algs_runtimes_by_param(runtimes_by_dataset_by_inference_alg: 
 
 def plot_num_dishes_by_num_obs(dish_eating_array: np.ndarray,
                                plot_dir: str,
-                               cutoff: float=1e-5):
+                               cutoff: float = 1e-5):
     """
     Plot number of dishes (Y) vs number of observations (X).
 
@@ -174,4 +174,101 @@ def plot_num_dishes_by_num_obs(dish_eating_array: np.ndarray,
                 bbox_inches='tight',
                 dpi=300)
     # plt.show()
+    plt.close()
+
+
+def plot_poisson_rates_by_num_obs(indicators,
+                                  num_dishes_poisson_rate_priors,
+                                  num_dishes_poisson_rate_posteriors,
+                                  plot_dir):
+    seq_length = indicators.shape[0]
+    obs_indices = 1 + np.arange(seq_length)  # remember, we started with t = 0
+    real_num_dishes = np.concatenate(
+        [np.sum(np.minimum(np.cumsum(indicators, axis=0), 1), axis=1)])
+
+    # r'$q(\Lambda_t|o_{< t})$'
+    # r'$q(\Lambda_t|o_{\leq t})$'
+    data_to_plot = pd.DataFrame.from_dict({
+        'obs_idx': obs_indices,
+        'True': real_num_dishes,
+        'Prior': num_dishes_poisson_rate_priors[:, 0],
+        'Posterior': num_dishes_poisson_rate_posteriors[:, 0],
+    })
+
+    melted_data_to_plot = data_to_plot.melt(
+        id_vars=['obs_idx'],  # columns to keep
+        var_name='quantity',  # new column name for previous columns' headers
+        value_name='num_dishes',  # new column name for values
+    )
+
+    g = sns.lineplot(x='obs_idx', y='num_dishes', data=melted_data_to_plot,
+                     hue='quantity')
+
+    # Remove "quantity" from legend title
+    # see https://stackoverflow.com/questions/51579215/remove-seaborn-lineplot-legend-title
+    handles, labels = g.get_legend_handles_labels()
+    g.legend(handles=handles[1:], labels=labels[1:])
+
+    # remove quantity from title
+    plt.xlabel('Number of Observations')
+    plt.ylabel('Inferred Number of Features')
+    # plt.gca().axis('equal')
+    # plt.xlim(0, seq_length)
+    # plt.ylim(0, seq_length)
+    # plt.gca().invert_yaxis()
+    g.get_legend().set_title(None)
+    plt.savefig(os.path.join(plot_dir, 'poisson_rates_by_num_obs.png'),
+                bbox_inches='tight',
+                dpi=300)
+    # plt.show()
+    plt.close()
+
+
+def plot_inferred_dishes(indicators,
+                         dish_eating_priors,
+                         dish_eating_posteriors,
+                         plot_dir):
+    fig, axes = plt.subplots(nrows=1,
+                             ncols=5,
+                             figsize=(12, 5),
+                             gridspec_kw={'width_ratios': [1, 0.25, 1, 0.25, 1]})
+    cutoff = 1e-2
+    indicators = indicators.astype(float)
+    indicators[indicators < cutoff] = np.nan
+    axes[0].set_title(r'$z_{tk}$')
+    sns.heatmap(indicators,
+                ax=axes[0],
+                mask=np.isnan(indicators),
+                cmap='jet',
+                vmin=cutoff,
+                vmax=1.,
+                norm=LogNorm())
+
+    axes[1].axis('off')
+
+    dish_eating_priors[dish_eating_priors < cutoff] = np.nan
+    axes[2].set_title(r'$p(z_{tk}=1|o_{<t})$')
+    sns.heatmap(dish_eating_priors,
+                ax=axes[2],
+                mask=np.isnan(dish_eating_priors),
+                cmap='jet',
+                vmin=cutoff,
+                vmax=1.,
+                norm=LogNorm())
+
+    axes[3].axis('off')
+
+    dish_eating_posteriors[dish_eating_posteriors < cutoff] = np.nan
+    axes[4].set_title(r'$p(z_{tk}=1|o_{\leq t})$')
+    sns.heatmap(dish_eating_posteriors,
+                ax=axes[4],
+                mask=np.isnan(dish_eating_posteriors),
+                cmap='jet',
+                vmin=cutoff,
+                vmax=1.,
+                norm=LogNorm())
+    plt.savefig(os.path.join(plot_dir, 'actual_indicators_vs_inferred_indicators.png'),
+                bbox_inches='tight',
+                dpi=300)
+    plt.show()
     plt.close()
