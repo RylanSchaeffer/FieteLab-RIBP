@@ -295,7 +295,7 @@ def recursive_ibp(observations,
         non_eaten_dishes_posteriors_running_prod=non_eaten_dishes_posteriors_running_prod.numpy()[1:],
         num_dishes_poisson_rate_priors=num_dishes_poisson_rate_priors.numpy()[1:],
         num_dishes_poisson_rate_posteriors=num_dishes_poisson_rate_posteriors.numpy()[1:],
-        variational_parameters=numpy_variable_variational_params,
+        variable_variational_params=numpy_variable_variational_params,
     )
 
     return bayesian_recursion_results

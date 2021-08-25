@@ -1,4 +1,4 @@
-from matplotlib.colors import LogNorm
+from matplotlib.animation import FuncAnimation
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -9,13 +9,72 @@ import seaborn as sns
 import utils.plot
 
 
+def plot_gaussian_features_by_num_obs(observations: np.ndarray,
+                                      gaussian_features: np.ndarray,
+                                      dish_eating_posteriors: np.ndarray,
+                                      plot_dir: str,
+                                      max_obs_idx: int = 20,
+                                      max_num_features: int = 15):
+    """
+    Plot Gaussian 2-D features in grid, where each subplot in the grid
+    is a different observation. Only plot the first max_obs_idx.
+
+    Alpha is proportional to probability.
+    """
+    num_cols = 5
+    num_rows = int(max_obs_idx / num_cols)
+
+    fig, axes = plt.subplots(
+        nrows=num_rows,
+        ncols=num_cols,
+        figsize=(3*num_cols, 3*num_rows),
+        sharex=True,
+        sharey=True)
+
+    for obs_idx in range(max_obs_idx):
+        row_idx, col_idx = int(obs_idx / num_cols), obs_idx % num_cols
+        ax = axes[row_idx, col_idx]
+        ax.scatter(observations[:obs_idx + 1, 0],
+                   observations[:obs_idx + 1, 1],
+                   color='k',
+                   label='Observations')
+        ax.set_title(f'Obs {obs_idx+1}')
+        for feature_idx in range(max_num_features):
+            ax.plot([0, gaussian_features[obs_idx, feature_idx, 0]],
+                    [0, gaussian_features[obs_idx, feature_idx, 1]],
+                    label=f'{feature_idx}',
+                    alpha=dish_eating_posteriors[obs_idx, feature_idx])
+        if row_idx == (num_rows - 1):
+            ax.set_xlabel(r'$o_{1}$')
+        if col_idx == 0:
+            ax.set_ylabel(r'$o_{2}$')
+    # plt.legend()
+    plt.savefig(os.path.join(plot_dir, 'gaussian_features_by_num_obs.png'),
+                bbox_inches='tight',
+                dpi=300)
+    # plt.show()
+    plt.close()
+
+
+def plot_animation_gaussian_features_by_num_obs(observations: np.ndarray,
+                                                gaussian_features: np.ndarray,
+                                                plot_dir: str):
+    """Create an animation of how Gaussian features evolve per observation"""
+    print(10)
+
+    fig, ax = plt.subplots()
+    ud = UpdateDist(ax, prob=0.7)
+    anim = FuncAnimation(fig, ud, frames=100, interval=100, blit=True)
+    plt.show()
+
+
 def plot_inference_results(sampled_linear_gaussian_data: dict,
                            inference_alg_results: dict,
                            inference_alg_str: str,
                            inference_alg_params: dict,
                            plot_dir):
 
-    utils.plot.plot_num_dishes_by_num_obs(
+    utils.plot.plot_posterior_num_dishes_by_num_obs(
         dish_eating_array=inference_alg_results['dish_eating_posteriors'],
         plot_dir=plot_dir)
 
@@ -25,30 +84,27 @@ def plot_inference_results(sampled_linear_gaussian_data: dict,
         indicators=sampled_linear_gaussian_data['sampled_indicators'],
         plot_dir=plot_dir)
 
-    plt.title(f'Obs Idx: {obs_idx}, VI Idx: {vi_idx + 1}')
-    plt.scatter(np.arange(len(dish_eating_prior)), dish_eating_prior, label='prior')
-    plt.scatter(np.arange(len(dish_eating_prior)), Z_probs.detach().numpy(), label='posterior')
-    plt.legend()
-    plt.xlim(0, 15)
-    plt.show()
+    utils.plot.plot_indicators_by_num_obs(
+        dish_eating_priors=inference_alg_results['dish_eating_priors'],
+        dish_eating_posteriors=inference_alg_results['dish_eating_posteriors'],
+        indicators=sampled_linear_gaussian_data['sampled_indicators'],
+        plot_dir=plot_dir)
 
-    plt.title(f'Obs Idx: {obs_idx}, VI Idx: {vi_idx + 1}')
-    plt.scatter(observations[:obs_idx, 0],
-                observations[:obs_idx, 1],
-                color='k',
-                label='Observations')
-    for feature_idx in range(15):
-        plt.plot([0, variable_variational_params['A']['mean'][obs_idx, feature_idx, 0].data],
-                 [0, variable_variational_params['A']['mean'][obs_idx, feature_idx, 1].data],
-                 label=f'{feature_idx}')
-    # plt.legend()
-    plt.show()
+    plot_gaussian_features_by_num_obs(
+        observations=sampled_linear_gaussian_data['observations_seq'],
+        gaussian_features=inference_alg_results['variable_variational_params']['A']['mean'],
+        dish_eating_posteriors=inference_alg_results['dish_eating_posteriors'],
+        plot_dir=plot_dir)
+
+    # plot_animation_gaussian_features_by_num_obs(
+    #     observations=sampled_linear_gaussian_data['observations_seq'],
+    #     gaussian_features=inference_alg_results['variable_variational_params']['A']['mean'],
+    #     plot_dir=plot_dir)
 
 
 def plot_sample_from_linear_gaussian(features,
                                      observations_seq,
                                      plot_dir):
-
     fig, ax = plt.subplots(nrows=1,
                            ncols=1,
                            figsize=(6, 6))
@@ -58,7 +114,7 @@ def plot_sample_from_linear_gaussian(features,
                     palette='Set1',
                     ax=ax,
                     color='k',
-                    legend=False,)
+                    legend=False, )
 
     for feature_idx, feature in enumerate(features):
         ax.plot([0, feature[0]],
@@ -71,5 +127,5 @@ def plot_sample_from_linear_gaussian(features,
     plt.savefig(os.path.join(plot_dir, 'data.png'),
                 bbox_inches='tight',
                 dpi=300)
-    plt.show()
+    # plt.show()
     plt.close()

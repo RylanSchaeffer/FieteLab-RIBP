@@ -1,9 +1,79 @@
 # Common plotting functions
+from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
 import seaborn as sns
+
+
+def plot_indicators_by_num_obs(indicators: np.ndarray,
+                               dish_eating_priors,
+                               dish_eating_posteriors,
+                               plot_dir,
+                               cutoff: float = 1e-2):
+    """
+    Plot three heatmaps together. The left is the ground truth indicators (y)
+    vs observation index (x). The middle is the prior over indicators and the
+    right is posterior over indicators.
+
+    The first three 3 inputs are expected to have shape
+    (number of obs, number indicators)
+    """
+
+    fig, axes = plt.subplots(nrows=1,
+                             ncols=5,
+                             figsize=(12, 5),
+                             gridspec_kw={'width_ratios': [1, 0.25, 1, 0.25, 1]})
+    indicators = indicators.astype(float)
+    indicators[indicators < cutoff] = np.nan
+    axes[0].set_title(r'$z_{tk}$')
+    sns.heatmap(indicators,
+                ax=axes[0],
+                mask=np.isnan(indicators),
+                cmap='jet',
+                vmin=cutoff,
+                vmax=1.,
+                norm=LogNorm())
+
+    axes[1].axis('off')
+
+    dish_eating_priors[dish_eating_priors < cutoff] = np.nan
+    axes[2].set_title(r'$p(z_{tk}=1|o_{<t})$')
+    sns.heatmap(dish_eating_priors,
+                ax=axes[2],
+                mask=np.isnan(dish_eating_priors),
+                cmap='jet',
+                vmin=cutoff,
+                vmax=1.,
+                norm=LogNorm())
+
+    axes[3].axis('off')
+
+    dish_eating_posteriors[dish_eating_posteriors < cutoff] = np.nan
+    axes[4].set_title(r'$p(z_{tk}=1|o_{\leq t})$')
+    sns.heatmap(dish_eating_posteriors,
+                ax=axes[4],
+                mask=np.isnan(dish_eating_posteriors),
+                cmap='jet',
+                vmin=cutoff,
+                vmax=1.,
+                norm=LogNorm())
+    plt.savefig(os.path.join(plot_dir, 'indicators_by_num_obs.png'),
+                bbox_inches='tight',
+                dpi=300)
+    # plt.show()
+    plt.close()
+
+
+def plot_indicators_by_index_over_many_observations(indicators,):
+    # plt.title(f'Obs Idx: {obs_idx}, VI Idx: {vi_idx + 1}')
+    # plt.scatter(np.arange(len(dish_eating_prior)), dish_eating_prior, label='prior')
+    # plt.scatter(np.arange(len(dish_eating_prior)), Z_probs.detach().numpy(), label='posterior')
+    # plt.legend()
+    # plt.xlim(0, 15)
+    # plt.show()
+    raise NotImplementedError
 
 
 def plot_inference_algs_comparison(inference_algs_results_by_dataset_idx: dict,
@@ -147,40 +217,13 @@ def plot_inference_algs_runtimes_by_param(runtimes_by_dataset_by_inference_alg: 
     plt.close()
 
 
-def plot_num_dishes_by_num_obs(dish_eating_array: np.ndarray,
-                               plot_dir: str,
-                               cutoff: float = 1e-5):
-    """
-    Plot number of dishes (Y) vs number of observations (X).
-
-    Assumes dish_eating_array has shape (num obs, max num indicators)
-    """
-
-    cum_dish_eating_array = np.cumsum(dish_eating_array, axis=0)
-    num_dishes_by_num_obs = np.sum(cum_dish_eating_array > cutoff, axis=1)
-
-    obs_indices = 1 + np.arange(len(num_dishes_by_num_obs))
-
-    sns.lineplot(obs_indices,
-                 num_dishes_by_num_obs)
-    plt.xlabel('Number of Observations')
-    plt.ylabel(f'Total Number of Dishes (cutoff={cutoff})')
-    plt.legend()
-
-    # make axes equal
-    plt.axis('square')
-
-    plt.savefig(os.path.join(plot_dir, 'num_dishes_by_num_obs.png'),
-                bbox_inches='tight',
-                dpi=300)
-    # plt.show()
-    plt.close()
-
-
 def plot_poisson_rates_by_num_obs(indicators,
                                   num_dishes_poisson_rate_priors,
                                   num_dishes_poisson_rate_posteriors,
                                   plot_dir):
+    """
+    Plot inferred Poisson rates of number of dishes (Y) vs number of observations (X).
+    """
     seq_length = indicators.shape[0]
     obs_indices = 1 + np.arange(seq_length)  # remember, we started with t = 0
     real_num_dishes = np.concatenate(
@@ -224,51 +267,32 @@ def plot_poisson_rates_by_num_obs(indicators,
     plt.close()
 
 
-def plot_inferred_dishes(indicators,
-                         dish_eating_priors,
-                         dish_eating_posteriors,
-                         plot_dir):
-    fig, axes = plt.subplots(nrows=1,
-                             ncols=5,
-                             figsize=(12, 5),
-                             gridspec_kw={'width_ratios': [1, 0.25, 1, 0.25, 1]})
-    cutoff = 1e-2
-    indicators = indicators.astype(float)
-    indicators[indicators < cutoff] = np.nan
-    axes[0].set_title(r'$z_{tk}$')
-    sns.heatmap(indicators,
-                ax=axes[0],
-                mask=np.isnan(indicators),
-                cmap='jet',
-                vmin=cutoff,
-                vmax=1.,
-                norm=LogNorm())
+def plot_posterior_num_dishes_by_num_obs(dish_eating_array: np.ndarray,
+                                         plot_dir: str,
+                                         cutoff: float = 1e-5):
+    """
+    Plot number of dishes (Y) vs number of observations (X).
 
-    axes[1].axis('off')
+    Assumes dish_eating_array has shape (num obs, max num indicators)
+    """
 
-    dish_eating_priors[dish_eating_priors < cutoff] = np.nan
-    axes[2].set_title(r'$p(z_{tk}=1|o_{<t})$')
-    sns.heatmap(dish_eating_priors,
-                ax=axes[2],
-                mask=np.isnan(dish_eating_priors),
-                cmap='jet',
-                vmin=cutoff,
-                vmax=1.,
-                norm=LogNorm())
+    cum_dish_eating_array = np.cumsum(dish_eating_array, axis=0)
+    num_dishes_by_num_obs = np.sum(cum_dish_eating_array > cutoff, axis=1)
 
-    axes[3].axis('off')
+    obs_indices = 1 + np.arange(len(num_dishes_by_num_obs))
 
-    dish_eating_posteriors[dish_eating_posteriors < cutoff] = np.nan
-    axes[4].set_title(r'$p(z_{tk}=1|o_{\leq t})$')
-    sns.heatmap(dish_eating_posteriors,
-                ax=axes[4],
-                mask=np.isnan(dish_eating_posteriors),
-                cmap='jet',
-                vmin=cutoff,
-                vmax=1.,
-                norm=LogNorm())
-    plt.savefig(os.path.join(plot_dir, 'actual_indicators_vs_inferred_indicators.png'),
+    sns.lineplot(obs_indices,
+                 num_dishes_by_num_obs)
+    plt.xlabel('Number of Observations')
+    plt.ylabel(f'Total Number of Dishes (cutoff={cutoff})')
+    plt.legend()
+
+    # make axes equal
+    plt.axis('square')
+
+    plt.savefig(os.path.join(plot_dir, 'num_dishes_by_num_obs.png'),
                 bbox_inches='tight',
                 dpi=300)
-    plt.show()
+    # plt.show()
     plt.close()
+
