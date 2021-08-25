@@ -1,4 +1,5 @@
 import cvxpy as cp
+import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import poisson
 import torch
@@ -55,7 +56,8 @@ def recursive_ibp(observations,
                   likelihood_known: bool = False,
                   variable_variational_params: dict = None,
                   learning_rate: float = 1e0,
-                  num_vi_steps: int = 3):
+                  num_vi_steps: int = 5,
+                  plot_dir: str = None):
     for param, param_value in inference_params.items():
         assert param_value > 0
     alpha = inference_params['alpha']
@@ -201,6 +203,10 @@ def recursive_ibp(observations,
         for param_name, param_tensor in variable_variational_params['A'].items():
             param_tensor.data[obs_idx, :] = param_tensor.data[obs_idx - 1, :]
 
+        if plot_dir is not None:
+            fig, axes = plt.subplots(nrows=num_vi_steps, ncols=3, sharex=True, sharey=True,
+                                     figsize=(3 * 4, num_vi_steps * 4))
+
         for vi_idx in range(num_vi_steps):
 
             # if first observation, use closed form expression for features A
@@ -268,11 +274,65 @@ def recursive_ibp(observations,
                 dish_eating_posteriors_running_sum[obs_idx - 1, :],
                 dish_eating_posteriors[obs_idx, :])
 
-        # update how many dishes have been sampled
-        non_eaten_dishes_posteriors_running_prod[obs_idx, :] = np.multiply(
-            non_eaten_dishes_posteriors_running_prod[obs_idx - 1, :],
-            1. - dish_eating_posteriors[obs_idx, :],  # p(z_{tk} = 0|o_{\leq t}) = 1 - p(z_{tk} = 1|o_{\leq t})
-        )
+            # update how many dishes have been sampled
+            non_eaten_dishes_posteriors_running_prod[obs_idx, :] = np.multiply(
+                non_eaten_dishes_posteriors_running_prod[obs_idx - 1, :],
+                1. - dish_eating_posteriors[obs_idx, :],  # p(z_{tk} = 0|o_{\leq t}) = 1 - p(z_{tk} = 1|o_{\leq t})
+            )
+
+            if plot_dir is not None:
+
+                fig.suptitle(f'Obs: {obs_idx}')
+                axes[vi_idx, 0].set_ylabel(f'VI Step: {vi_idx + 1}')
+                axes[vi_idx, 0].set_title('Individual Features')
+                axes[vi_idx, 0].scatter(observations[:obs_idx, 0],
+                                        observations[:obs_idx, 1],
+                                        s=3,
+                                        color='k',
+                                        label='Observations')
+                for feature_idx in range(10):
+                    axes[vi_idx, 0].plot(
+                        [0, variable_variational_params['A']['mean'][obs_idx, feature_idx, 0].item()],
+                        [0, variable_variational_params['A']['mean'][obs_idx, feature_idx, 1].item()],
+                        label=f'{feature_idx}',
+                        alpha=dish_eating_posteriors[obs_idx, feature_idx].item())
+                # axes[0].legend()
+
+                weighted_features = np.multiply(
+                    variable_variational_params['A']['mean'][obs_idx, :, :].detach().numpy(),
+                    dish_eating_posteriors[obs_idx].unsqueeze(1).detach().numpy(),
+                )
+                axes[vi_idx, 1].set_title('Weighted Features')
+                axes[vi_idx, 1].scatter(observations[:obs_idx, 0],
+                                        observations[:obs_idx, 1],
+                                        s=3,
+                                        color='k',
+                                        label='Observations')
+                for feature_idx in range(10):
+                    axes[vi_idx, 1].plot([0, weighted_features[feature_idx, 0]],
+                                         [0, weighted_features[feature_idx, 1]],
+                                         label=f'{feature_idx}',
+                                         zorder=feature_idx + 1,
+                                         alpha=dish_eating_posteriors[obs_idx, feature_idx].item())
+
+                cumulative_weighted_features = np.cumsum(weighted_features, axis=0)
+                axes[vi_idx, 2].set_title('Cumulative Weighted Features')
+                axes[vi_idx, 2].scatter(observations[:obs_idx, 0],
+                                        observations[:obs_idx, 1],
+                                        s=3,
+                                        color='k',
+                                        label='Observations')
+                for feature_idx in range(10):
+                    axes[vi_idx, 2].plot(
+                        [0 if feature_idx == 0 else cumulative_weighted_features[feature_idx - 1, 0],
+                         cumulative_weighted_features[feature_idx, 0]],
+                        [0 if feature_idx == 0 else cumulative_weighted_features[feature_idx - 1, 1],
+                         cumulative_weighted_features[feature_idx, 1]],
+                        label=f'{feature_idx}',
+                        alpha=dish_eating_posteriors[obs_idx, feature_idx].item())
+
+        if plot_dir is not None:
+            plt.show()
 
         num_dishes_poisson_rate_posteriors[obs_idx] = torch.sum(
             1. - non_eaten_dishes_posteriors_running_prod[obs_idx, :])
@@ -282,7 +342,7 @@ def recursive_ibp(observations,
             dish_eating_posteriors_running_sum[obs_idx - 1, :],
             dish_eating_posteriors[obs_idx, :])
 
-    # Remember to cut off the first index.
+    # Remember to cut off the first index.y
     numpy_variable_variational_params = {
         var_name: {param_name: param_tensor.detach().numpy()[1:]
                    for param_name, param_tensor in var_params.items()}
@@ -371,10 +431,10 @@ def recursive_ibp_optimize_bernoulli_variables(torch_observation: torch.Tensor,
             variable_variational_params['Z']['prob'][obs_idx, :],
             variable_variational_params['A']['mean'][obs_idx, :]))
     term_three_self_pairs = torch.einsum(
-            'b,bk,bk->b',
-            variable_variational_params['Z']['prob'][obs_idx, :],
-            variable_variational_params['A']['mean'][obs_idx, :],
-            variable_variational_params['A']['mean'][obs_idx, :])
+        'b,bk,bk->b',
+        variable_variational_params['Z']['prob'][obs_idx, :],
+        variable_variational_params['A']['mean'][obs_idx, :],
+        variable_variational_params['A']['mean'][obs_idx, :])
     term_three = 2. * (term_three_all_pairs - term_three_self_pairs)
 
     num_features = dish_eating_prior.shape[0]
@@ -590,6 +650,7 @@ def run_inference_alg(inference_alg_str: str,
                       observations: np.ndarray,
                       inference_alg_params: dict,
                       likelihood_model: str,
+                      plot_dir: str = None,
                       learning_rate: float = 1e0):
     # if likelihood_known:
     #     assert likelihood_params is not None
@@ -670,6 +731,7 @@ def run_inference_alg(inference_alg_str: str,
         inference_params=inference_alg_params,
         likelihood_model=likelihood_model,
         learning_rate=learning_rate,
+        plot_dir=plot_dir,
         **inference_alg_kwargs)
 
     return inference_alg_results

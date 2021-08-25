@@ -36,6 +36,7 @@ def plot_gaussian_features_by_num_obs(observations: np.ndarray,
         ax = axes[row_idx, col_idx]
         ax.scatter(observations[:obs_idx + 1, 0],
                    observations[:obs_idx + 1, 1],
+                   s=1,
                    color='k',
                    label='Observations')
         ax.set_title(f'Obs {obs_idx+1}')
