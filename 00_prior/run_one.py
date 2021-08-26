@@ -19,7 +19,7 @@ from sympy.functions.combinatorial.numbers import stirling
 from typing import Dict
 
 
-import plot
+import plot_prior
 import utils.data
 import utils.helpers
 
@@ -41,21 +41,21 @@ def run_one(args: argparse.Namespace):
         beta=args.beta,
         run_one_results_dir=run_one_results_dir)
 
-    plot.plot_customer_dishes_analytical_vs_monte_carlo(
+    plot_prior.plot_customer_dishes_analytical_vs_monte_carlo(
         sampled_dishes_by_customer_idx=sample_ibp_results['sampled_dishes_by_customer_idx'],
         analytical_dishes_by_customer_idx=analytical_ibp_results['analytical_dishes_by_customer_idx'],
         alpha=args.alpha,
         beta=args.beta,
         plot_dir=run_one_results_dir)
 
-    plot.plot_num_dishes_analytical_vs_monte_carlo(
+    plot_prior.plot_num_dishes_analytical_vs_monte_carlo(
         sampled_num_dishes_by_customer_idx=sample_ibp_results['num_dishes_by_customer_idx'],
         analytical_num_dishes_by_customer=analytical_ibp_results['num_dishes_by_customer_idx'],
         alpha=args.alpha,
         beta=args.beta,
         plot_dir=run_one_results_dir)
 
-    # plot.plot_recursion_visualization(
+    # plot_prior.plot_recursion_visualization(
     #     anal
     # )
 

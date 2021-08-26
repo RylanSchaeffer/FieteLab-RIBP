@@ -16,7 +16,7 @@ import os
 from timeit import default_timer as timer
 import torch
 
-import plot
+import plot_linear_gaussian
 import utils.data
 import utils.helpers
 import utils.inference
@@ -91,7 +91,7 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
     # read results from disk
     stored_data = joblib.load(inference_results_path)
 
-    plot.plot_inference_results(
+    plot_linear_gaussian.plot_inference_results(
         sampled_linear_gaussian_data=sampled_linear_gaussian_data,
         inference_alg_results=stored_data['inference_alg_results'],
         inference_alg_str=stored_data['inference_alg_str'],

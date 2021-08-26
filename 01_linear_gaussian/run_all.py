@@ -13,7 +13,7 @@ import numpy as np
 import os
 import subprocess
 
-import plot
+import plot_linear_gaussian
 import utils.data
 
 
@@ -63,7 +63,7 @@ def run_all():
         joblib.dump(sampled_linear_gaussian_data,
                     filename=os.path.join(dataset_dir, 'data.joblib'))
 
-        plot.plot_sample_from_linear_gaussian(
+        plot_linear_gaussian.plot_sample_from_linear_gaussian(
             features=sampled_linear_gaussian_data['features'],
             observations_seq=sampled_linear_gaussian_data['observations_seq'],
             plot_dir=dataset_dir)

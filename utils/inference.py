@@ -19,7 +19,7 @@ def create_new_feature_params_multivariate_normal(torch_observation: torch.Tenso
                                                   dish_eating_prior: torch.Tensor,
                                                   obs_idx: int,
                                                   likelihood_params: Dict[str, torch.Tensor],
-                                                  sigma_obs_var: int = 1.):
+                                                  sigma_obs_squared: int = 1.):
     # data is necessary to not break backprop
     # see https://stackoverflow.com/questions/53819383/how-to-assign-a-new-value-to-a-pytorch-variable-without-breaking-backpropagation
     utils.helpers.torch_assert_no_nan_no_inf(torch_observation)
@@ -204,9 +204,15 @@ def recursive_ibp(observations,
             param_tensor.data[obs_idx, :] = param_tensor.data[obs_idx - 1, :]
 
         if plot_dir is not None:
-            fig, axes = plt.subplots(nrows=num_vi_steps, ncols=3, sharex=True, sharey=True,
-                                     figsize=(3 * 4, num_vi_steps * 4))
+            num_cols = 4
+            fig, axes = plt.subplots(
+                nrows=num_vi_steps,
+                ncols=num_cols,
+                # sharex=True,
+                # sharey=True,
+                figsize=(num_cols * 4, num_vi_steps * 4))
 
+        approx_lower_bounds = []
         for vi_idx in range(num_vi_steps):
 
             # if first observation, use closed form expression for features A
@@ -221,6 +227,7 @@ def recursive_ibp(observations,
                 obs_idx=obs_idx,
                 dish_eating_prior=dish_eating_prior,
                 variable_variational_params=variable_variational_params)
+            approx_lower_bounds.append(approx_lower_bound.item())
             approx_lower_bound.backward()
 
             # scale learning rate by posterior(A_k) / sum_n prev_posteriors(A_k)
@@ -287,7 +294,7 @@ def recursive_ibp(observations,
                 axes[vi_idx, 0].set_title('Individual Features')
                 axes[vi_idx, 0].scatter(observations[:obs_idx, 0],
                                         observations[:obs_idx, 1],
-                                        s=3,
+                                        # s=3,
                                         color='k',
                                         label='Observations')
                 for feature_idx in range(10):
@@ -305,7 +312,7 @@ def recursive_ibp(observations,
                 axes[vi_idx, 1].set_title('Weighted Features')
                 axes[vi_idx, 1].scatter(observations[:obs_idx, 0],
                                         observations[:obs_idx, 1],
-                                        s=3,
+                                        # s=3,
                                         color='k',
                                         label='Observations')
                 for feature_idx in range(10):
@@ -319,7 +326,7 @@ def recursive_ibp(observations,
                 axes[vi_idx, 2].set_title('Cumulative Weighted Features')
                 axes[vi_idx, 2].scatter(observations[:obs_idx, 0],
                                         observations[:obs_idx, 1],
-                                        s=3,
+                                        # s=3,
                                         color='k',
                                         label='Observations')
                 for feature_idx in range(10):
@@ -331,7 +338,24 @@ def recursive_ibp(observations,
                         label=f'{feature_idx}',
                         alpha=dish_eating_posteriors[obs_idx, feature_idx].item())
 
+                axes[vi_idx, 3].set_title('Inferred Indicator Probabilities')
+                # axes[vi_idx, 3].set_xlabel('Indicator Index')
+                axes[vi_idx, 3].plot(
+                    dish_eating_priors[obs_idx, :10].detach().numpy(),
+                    label='Prior')
+                axes[vi_idx, 3].plot(
+                    dish_eating_posteriors[obs_idx, :10].detach().numpy(),
+                    label='Posterior')
+                axes[vi_idx, 3].legend()
+
         if plot_dir is not None:
+            plt.show()
+            plt.close()
+
+            plt.scatter(1 + np.arange(len(approx_lower_bounds)),
+                        approx_lower_bounds)
+            plt.xlabel('VI Iteration')
+            plt.ylabel('VI Approx Lower Bound')
             plt.show()
 
         num_dishes_poisson_rate_posteriors[obs_idx] = torch.sum(
@@ -392,6 +416,8 @@ def recursive_ibp_compute_approx_lower_bound(torch_observation,
 
     lower_bound = indicators_term + gaussian_term + likelihood_term + bernoulli_entropy + gaussian_entropy
 
+    utils.helpers.torch_assert_no_nan_no_inf(lower_bound)
+
     return lower_bound
 
 
@@ -400,7 +426,7 @@ def recursive_ibp_optimize_bernoulli_variables(torch_observation: torch.Tensor,
                                                dish_eating_prior: torch.Tensor,
                                                variable_variational_params: Dict[str, dict],
                                                var_name: str = 'Z',
-                                               sigma_obs_squared: int = 1.):
+                                               sigma_obs_squared: int = 1e-0):
     # term_to_exponentiate = torch.zeros_like(
     #     variable_variational_params[var_name]['prob'][obs_idx, :])
     log_bernoulli_prior_term = torch.log(torch.divide(dish_eating_prior, 1. - dish_eating_prior))
@@ -454,6 +480,7 @@ def recursive_ibp_optimize_bernoulli_variables(torch_observation: torch.Tensor,
     bernoulli_probs = 1. / (1. + torch.exp(-term_to_exponentiate))
 
     # check that Bernoulli probs are all valid
+    utils.helpers.torch_assert_no_nan_no_inf(bernoulli_probs)
     assert torch.all(0. <= bernoulli_probs)
     assert torch.all(bernoulli_probs <= 1.)
 

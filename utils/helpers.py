@@ -48,6 +48,7 @@ def torch_convert_half_cov_to_cov(half_cov: torch.Tensor) -> torch.Tensor:
     if len(half_cov.shape) == 2:
         cov = torch.squeeze(cov, dim=0)
 
+    torch_assert_no_nan_no_inf(cov)
     return cov
 
 
@@ -59,13 +60,18 @@ def torch_expected_log_bernoulli_under_bernoulli(p_prob: torch.Tensor,
     All inputs are expected to have a batch dimension, then appropriate shape dimensions
     i.e. if p_probs is (batch, 3), then q_probs should be (batch, 3).
     """
+    assert p_prob.shape == q_prob.shape
 
-    one_minus_p_probs = 1. - p_prob
-    term_one = torch.sum(torch.multiply(q_prob,
-                                        torch.log(torch.divide(p_prob,
-                                                               one_minus_p_probs))))
-    term_two = torch.sum(torch.log(one_minus_p_probs))
-    total = term_one + term_two
+    term_one = torch.multiply(q_prob, torch.log(p_prob))
+    term_two = torch.multiply(1. - q_prob, torch.log(1. - p_prob))
+
+    # Recall: 0 log 0 should be 0, but numerically, torch sets to NaN.
+    # Consequently, we mask these terms.
+    term_one[q_prob == 0.] = 0.
+    term_two[q_prob == 1.] = 0.
+
+    total = torch.sum(torch.add(term_one, term_two))
+    torch_assert_no_nan_no_inf(total)
     return total
 
 
@@ -134,6 +140,7 @@ def torch_expected_log_gaussian_under_gaussian(p_mean: torch.Tensor,
          for k in range(batch_dim)]))
     assert torch.isclose(term_four, term_four_check)
     total = term_one + term_two + term_three + term_four
+    torch_assert_no_nan_no_inf(total)
     return total
 
 
@@ -141,7 +148,7 @@ def torch_expected_log_gaussian_under_linear_gaussian(observation: torch.Tensor,
                                                       q_A_mean: torch.Tensor,
                                                       q_A_cov: torch.Tensor,
                                                       q_Z_mean: torch.Tensor,
-                                                      sigma_obs: float = 1.) -> torch.Tensor:
+                                                      sigma_obs_squared: float = 1e0) -> torch.Tensor:
     """
     Compute E_{q(A, Z)}[log p(x|A, Z)] where p(x) = Gaussian(Z @ A, sigma_obs^2 I)
     and q(A, Z) = q(A) q(Z) are both Gaussian.
@@ -150,8 +157,6 @@ def torch_expected_log_gaussian_under_linear_gaussian(observation: torch.Tensor,
     """
     obs_dim = observation.shape[0]
     num_features = q_A_mean.shape[0]
-
-    sigma_obs_squared = sigma_obs * sigma_obs
 
     # -0.5 * log (2 * pi * |sigma_o^2 I|)
     term_one = -0.5 * torch.log(
@@ -198,6 +203,7 @@ def torch_expected_log_gaussian_under_linear_gaussian(observation: torch.Tensor,
     assert torch.isclose(torch.sum(term_five_all_pairs), term_five_all_pairs_sum_check)
 
     total = term_one - 0.5 * (term_two + term_three + term_four + term_five) / sigma_obs_squared
+    torch_assert_no_nan_no_inf(total)
     return total
 
 
@@ -208,15 +214,18 @@ def torch_entropy_bernoulli(probs: torch.Tensor) -> torch.Tensor:
     All inputs are expected to have a batch dimension.
     """
     one_minus_probs = 1. - probs
-    log_odds = torch.log(torch.divide(probs, one_minus_probs))
 
-    # 0 * log 0 should defined as 0, but torch will set equal to NaN
-    # we consequently need to mask
-    probs_time_log_odds = torch.multiply(probs, log_odds)
-    probs_time_log_odds[torch.isclose(probs, torch.zeros_like(probs))] = 0.
-    probs_time_log_odds[torch.isclose(probs, torch.ones_like(probs))] = 1.
-    entropy = -torch.sum(torch.add(probs_time_log_odds,
-                                   torch.log(one_minus_probs)))
+    term_one = torch.multiply(probs, torch.log(probs))
+
+    term_two = torch.multiply(one_minus_probs, torch.log(one_minus_probs))
+
+    # 0 * log 0 should be 0, but torch will numerically set a NaN.
+    # Therefore, we mask these entries.
+    term_one[probs == 0.] = 0.
+    term_two[one_minus_probs == 0.] = 0.
+
+    entropy = -torch.sum(torch.add(term_one, term_two))
+    torch_assert_no_nan_no_inf(entropy)
     assert entropy >= 0.
     return entropy
 
@@ -234,15 +243,18 @@ def torch_entropy_gaussian(mean: torch.Tensor,
     entropy = 0.5 * torch.sum(
         dim + dim * torch.log(torch.full(fill_value=2., size=()) * np.pi)
         + torch.log(torch.linalg.det(cov)))
+    torch_assert_no_nan_no_inf(entropy)
     assert entropy >= 0.
     return entropy
 
 
 def torch_logits_to_probs(logits):
     probs = 1. / (1. + torch.exp(-logits))
+    torch_assert_no_nan_no_inf(probs)
     return probs
 
 
 def torch_probs_to_logits(probs):
     logits = - torch.log(1. / probs - 1.)
+    torch_assert_no_nan_no_inf(logits)
     return logits
