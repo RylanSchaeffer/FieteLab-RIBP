@@ -4,7 +4,7 @@ import os
 import scipy.stats
 import torch
 import torchvision
-from typing import Dict
+from typing import Dict, Union
 
 
 def convert_binary_latent_features_to_left_order_form(
@@ -362,6 +362,8 @@ def load_yale_dataset(num_data: int,
     # these are those pixels
     test_mask = data['test_mask']
 
+    # image size is 32x32. Reshape or no?
+
     yale_dataset_results = dict(
         train_data=train_data,
         test_data=test_data,
@@ -522,6 +524,77 @@ def sample_from_linear_gaussian(num_obs: int = 100,
         indicator_sampling_params=indicator_sampling_params,
         indicator_sampling_descr_str=indicator_sampling_descr_str,
         gaussian_prior_params=gaussian_prior_params,
+        gaussian_likelihood_params=gaussian_likelihood_params,
+    )
+
+    return result
+
+
+def sample_from_griffiths_ghahramani_2005(num_obs: int = 100,
+                                          indicator_sampling_params: Dict[str, Union[float, np.ndarray]] = None,
+                                          gaussian_likelihood_params: Dict[str, float] = None):
+    """
+    Draw a sample from synthetic observations_seq set used by Griffiths and Ghahramani 2005.
+
+    Also used by Widjaja 2017 Stremaing VI for IBP.
+    """
+
+    if indicator_sampling_params is None:
+        indicator_sampling_params = dict(probs=np.array([0.5, 0.5, 0.5, 0.5]))
+
+    if gaussian_likelihood_params is None:
+        gaussian_likelihood_params = dict(sigma_x=0.5)
+
+    num_features = 4
+    feature_dim = 36
+    features = np.array([
+        [
+            [0, 1, 0, 0, 0, 0],
+            [1, 1, 1, 0, 0, 0],
+            [0, 1, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0]
+        ],
+        [
+            [0, 0, 0, 1, 1, 1],
+            [0, 0, 0, 1, 0, 1],
+            [0, 0, 0, 1, 1, 1],
+            [0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0]
+        ],
+        [
+            [0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+            [1, 0, 0, 0, 0, 0],
+            [1, 1, 0, 0, 0, 0],
+            [1, 1, 1, 0, 0, 0]
+        ],
+        [
+            [0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 1, 1, 1],
+            [0, 0, 0, 0, 1, 0],
+            [0, 0, 0, 0, 1, 0]
+        ]
+    ], dtype='float64').reshape((num_features, feature_dim))
+
+    # shape: 100 by number of features
+    sampled_indicators = np.random.binomial(
+        n=1,
+        p=indicator_sampling_params['probs'][np.newaxis, :],
+        size=(num_obs, num_features))
+    observations_seq = np.matmul(sampled_indicators, features)
+    observations_seq += scipy.stats.norm.rvs(loc=0.0, scale=gaussian_likelihood_params['sigma_x'], size=observations_seq.shape)
+
+    result = dict(
+        sampled_indicators=sampled_indicators,
+        observations_seq=observations_seq,
+        features=features,
+        indicator_sampling_params=indicator_sampling_params,
         gaussian_likelihood_params=gaussian_likelihood_params,
     )
 
