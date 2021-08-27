@@ -26,6 +26,7 @@ def run_all():
     feature_samplings = [
         ('categorical', dict(probs=np.ones(5) / 5.)),
         ('categorical', dict(probs=np.array([0.4, 0.25, 0.2, 0.1, 0.05]))),
+        ('IBP', dict(alpha=0.67, beta=0.58)),
         ('IBP', dict(alpha=5.98, beta=2.4)),
         ('IBP', dict(alpha=5.98, beta=7.1)),
         ('IBP', dict(alpha=12.6, beta=7.1))

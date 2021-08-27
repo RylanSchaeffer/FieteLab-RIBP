@@ -42,10 +42,10 @@ def convert_binary_latent_features_to_left_order_form(
     return left_ordered_indicators_2
 
 
-def generate_gaussian_parameters(num_gaussians: int = 3,
-                                 gaussian_dim: int = 2,
-                                 gaussian_mean_prior_cov_scaling: float = 3.,
-                                 gaussian_cov_scaling: float = 0.3):
+def generate_gaussian_parameters_from_gaussian_prior(num_gaussians: int = 3,
+                                                     gaussian_dim: int = 2,
+                                                     gaussian_mean_prior_cov_scaling: float = 3.,
+                                                     gaussian_cov_scaling: float = 0.3):
     # sample Gaussians' means from prior = N(0, rho * I)
     means = np.random.multivariate_normal(
         mean=np.zeros(gaussian_dim),
@@ -352,6 +352,24 @@ def load_reddit_dataset(num_data: int,
     return reddit_dataset_results
 
 
+def load_yale_dataset(num_data: int,
+                      data_dir='data'):
+    npzfile = np.load(os.path.join('data', 'yale_faces', 'yale_faces.npz'))
+    data = dict(npzfile)
+    train_data = data['train_data']
+    test_data = data['test_data']
+    # authors suggest withholding pixels from testing set with 0.3% probability
+    # these are those pixels
+    test_mask = data['test_mask']
+
+    yale_dataset_results = dict(
+        train_data=train_data,
+        test_data=test_data,
+        test_mask=test_mask)
+
+    return yale_dataset_results
+
+
 def sample_ibp(num_mc_sample: int,
                num_customer: int,
                alpha: float,
@@ -364,13 +382,13 @@ def sample_ibp(num_mc_sample: int,
     max_dishes = 10 * int(alpha * beta * np.sum(1 / (1 + np.arange(num_customer))))
     sampled_dishes_by_customer_idx = np.zeros(
         shape=(num_mc_sample, num_customer, max_dishes),
-        dtype=np.int8)
+        dtype=np.int16)
     cum_sampled_dishes_by_customer_idx = np.zeros(
         shape=(num_mc_sample, num_customer, max_dishes),
-        dtype=np.int8)
+        dtype=np.int16)
     num_dishes_by_customer_idx = np.zeros(
         shape=(num_mc_sample, num_customer, max_dishes),
-        dtype=np.int)
+        dtype=np.int16)
 
     for smpl_idx in range(num_mc_sample):
         current_num_dishes = 0
@@ -450,7 +468,7 @@ def sample_from_linear_gaussian(num_obs: int = 100,
             indicator_sampling_params['alpha'] = 3.98
         if 'beta' not in indicator_sampling_params:
             indicator_sampling_params['beta'] = 4.97
-        indicator_sampling_descr_str = '{}__a={}_b={}'.format(
+        indicator_sampling_descr_str = '{}_a={}_b={}'.format(
             indicator_sampling,
             indicator_sampling_params['alpha'],
             indicator_sampling_params['beta'])
@@ -481,7 +499,7 @@ def sample_from_linear_gaussian(num_obs: int = 100,
     else:
         raise ValueError(f'Impermissible class sampling: {indicator_sampling}')
 
-    gaussian_parameters = generate_gaussian_parameters(
+    gaussian_parameters = generate_gaussian_parameters_from_gaussian_prior(
         num_gaussians=num_gaussians,
         **gaussian_prior_params)
 
