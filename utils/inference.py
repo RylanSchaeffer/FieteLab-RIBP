@@ -182,6 +182,9 @@ def recursive_ibp(observations,
     # before the first observation, there are exactly 0 dishes
     num_dishes_poisson_rate_posteriors[0, 0] = 0.
 
+    simultaneous_or_sequential = 'simultaneous'
+    # simultaneous_or_sequential = 'sequential'
+
     # REMEMBER: we added +1 to all the record-keeping arrays. Starting with 1
     # makes indexing consistent with the paper notation.
     for obs_idx, torch_observation in enumerate(torch_observations[:13], start=1):
@@ -282,7 +285,7 @@ def recursive_ibp(observations,
                     obs_idx=obs_idx,
                     vi_idx=vi_idx,
                     variable_variational_params=variable_variational_params,
-                    simultaneous_or_sequential='sequential')
+                    simultaneous_or_sequential=simultaneous_or_sequential)
                 if ossify_features:
                     # TODO: refactor into own function
                     normalizing_const = torch.add(
@@ -300,6 +303,14 @@ def recursive_ibp(observations,
                                        variable_variational_params['A']['half_cov'].data[obs_idx-1, :]))
                     A_means = torch.divide(history_weighted_A_means, normalizing_const[:, None])
                     A_half_covs = torch.divide(history_weighted_A_half_covs, normalizing_const[:, None, None])
+                    # if cumulative probability mass is 0, we compute 0/0 and get NaN. Need to mask
+                    A_means[dish_eating_posteriors_running_sum[obs_idx - 1] == 0.] = \
+                        variable_variational_params['A']['mean'][obs_idx-1][dish_eating_posteriors_running_sum[obs_idx - 1] == 0.]
+                    A_half_covs[dish_eating_posteriors_running_sum[obs_idx - 1] == 0.] = \
+                        variable_variational_params['A']['half_cov'][obs_idx - 1][dish_eating_posteriors_running_sum[obs_idx - 1] == 0.]
+
+                    utils.helpers.torch_assert_no_nan_no_inf(A_means)
+                    utils.helpers.torch_assert_no_nan_no_inf(A_half_covs)
 
                 variable_variational_params['A']['mean'].data[obs_idx, :] = A_means
                 variable_variational_params['A']['half_cov'].data[obs_idx, :] = A_half_covs
@@ -308,8 +319,10 @@ def recursive_ibp(observations,
                 Z_probs = recursive_ibp_optimize_bernoulli_params(
                     torch_observation=torch_observation,
                     obs_idx=obs_idx,
+                    vi_idx=vi_idx,
                     dish_eating_prior=dish_eating_prior,
-                    variable_variational_params=variable_variational_params)
+                    variable_variational_params=variable_variational_params,
+                    simultaneous_or_sequential=simultaneous_or_sequential)
                 variable_variational_params['Z']['prob'].data[obs_idx, :] = Z_probs
 
                 # record dish-eating posterior
@@ -420,7 +433,6 @@ def recursive_ibp(observations,
             # plt.show()
             plt.close()
 
-
     # Remember to cut off the first index.y
     numpy_variable_variational_params = {
         var_name: {param_name: param_tensor.detach().numpy()[1:]
@@ -478,61 +490,82 @@ def recursive_ibp_compute_approx_lower_bound(torch_observation,
 
 def recursive_ibp_optimize_bernoulli_params(torch_observation: torch.Tensor,
                                             obs_idx: int,
+                                            vi_idx: int,
                                             dish_eating_prior: torch.Tensor,
                                             variable_variational_params: Dict[str, dict],
-                                            sigma_obs_squared: int = 1e-0) -> torch.Tensor:
+                                            sigma_obs_squared: int = 1e-0,
+                                            simultaneous_or_sequential: str = 'sequential') -> torch.Tensor:
+
+    assert simultaneous_or_sequential in {'sequential', 'simultaneous'}
+
     A_cov = utils.helpers.torch_convert_half_cov_to_cov(
         variable_variational_params['A']['half_cov'][obs_idx, :])
 
-    # term_to_exponentiate = torch.zeros_like(
-    #     variable_variational_params[var_name]['prob'][obs_idx, :])
-    log_bernoulli_prior_term = torch.log(torch.divide(dish_eating_prior, 1. - dish_eating_prior))
+    num_features = A_cov.shape[0]
 
-    # -2 mu_{nk}^T o_n
-    term_one = -2. * torch.einsum(
-        'bk,k->b',
-        variable_variational_params['A']['mean'][obs_idx, :],
-        torch_observation)
+    if simultaneous_or_sequential == 'simultaneous':
+        slices_indices = [slice(0, num_features, 1)]
+    elif simultaneous_or_sequential == 'sequential':
+        slices_indices = [slice(k_idx, k_idx + 1, 1) for k_idx in range(num_features)]
+        # switch up the order every now and again
+        if vi_idx % 2 == 1:
+            slices_indices = list(reversed(slices_indices))
+    else:
+        raise ValueError(f'Impermissible value for simultaneous_or_sequential: {simultaneous_or_sequential}')
 
-    # Tr[\Sigma_{nk} + \mu_{nk} \mu_{nk}^T]
-    term_two = torch.einsum(
-        'bii->b',
-        torch.add(A_cov,
-                  torch.einsum('bi,bj->bij',
-                               variable_variational_params['A']['mean'][obs_idx, :],
-                               variable_variational_params['A']['mean'][obs_idx, :])))
+    bernoulli_probs = torch.zeros_like(variable_variational_params['Z']['prob'][obs_idx])
+    # either do 1 iteration of all indices (simultaneous) or do K iterations of each index (sequential)
+    for slice_idx in slices_indices:
 
-    # \mu_{nk}^T (\sum_{k': k' \neq k} b_{nk'} \mu_{nk'})
-    # = \mu_{nk}^T (\sum_{k'} b_{nk'} \mu_{nk'}) - b_{nk} \mu_{nk}^T \mu_{nk}
-    term_three_all_pairs = torch.einsum(
-        'bi, i->b',
-        variable_variational_params['A']['mean'][obs_idx, :],
-        torch.einsum(
-            'b, bi->i',
-            variable_variational_params['Z']['prob'][obs_idx, :],
-            variable_variational_params['A']['mean'][obs_idx, :]))
-    term_three_self_pairs = torch.einsum(
-        'b,bk,bk->b',
-        variable_variational_params['Z']['prob'][obs_idx, :],
-        variable_variational_params['A']['mean'][obs_idx, :],
-        variable_variational_params['A']['mean'][obs_idx, :])
-    term_three = term_three_all_pairs - term_three_self_pairs
+        log_bernoulli_prior_term = torch.log(
+            torch.divide(dish_eating_prior[slice_idx],
+                         1. - dish_eating_prior[slice_idx]))
 
-    num_features = dish_eating_prior.shape[0]
-    mu = variable_variational_params['A']['mean'][obs_idx, :]
-    b = variable_variational_params['Z']['prob'][obs_idx, :]
-    term_three_check = torch.stack([
-        torch.inner(mu[k],
-                    torch.sum(torch.stack([b[kprime] * mu[kprime]
-                                           for kprime in range(num_features)
-                                           if kprime != k]),
-                              dim=0))
-        for k in range(num_features)
-    ])
-    assert torch.allclose(term_three, term_three_check)
+        # -2 mu_{nk}^T o_n
+        term_one = -2. * torch.einsum(
+            'bk,k->b',
+            variable_variational_params['A']['mean'][obs_idx, slice_idx],
+            torch_observation)
 
-    term_to_exponentiate = log_bernoulli_prior_term - 0.5 * (term_one + term_two + term_three) / sigma_obs_squared
-    bernoulli_probs = 1. / (1. + torch.exp(-term_to_exponentiate))
+        # Tr[\Sigma_{nk} + \mu_{nk} \mu_{nk}^T]
+        term_two = torch.einsum(
+            'bii->b',
+            torch.add(A_cov[obs_idx],
+                      torch.einsum('bi,bj->bij',
+                                   variable_variational_params['A']['mean'][obs_idx, slice_idx],
+                                   variable_variational_params['A']['mean'][obs_idx, slice_idx])))
+
+        # \mu_{nk}^T (\sum_{k': k' \neq k} b_{nk'} \mu_{nk'})
+        # = \mu_{nk}^T (\sum_{k'} b_{nk'} \mu_{nk'}) - b_{nk} \mu_{nk}^T \mu_{nk}
+        term_three_all_pairs = torch.einsum(
+            'bi, i->b',
+            variable_variational_params['A']['mean'][obs_idx, slice_idx],
+            torch.einsum(
+                'b, bi->i',
+                variable_variational_params['Z']['prob'][obs_idx, slice_idx],
+                variable_variational_params['A']['mean'][obs_idx, slice_idx]))
+        term_three_self_pairs = torch.einsum(
+            'b,bk,bk->b',
+            variable_variational_params['Z']['prob'][obs_idx, slice_idx],
+            variable_variational_params['A']['mean'][obs_idx, slice_idx],
+            variable_variational_params['A']['mean'][obs_idx, slice_idx])
+        term_three = term_three_all_pairs - term_three_self_pairs
+
+        # num_features = dish_eating_prior.shape[0]
+        # mu = variable_variational_params['A']['mean'][obs_idx, slice_idx]
+        # b = variable_variational_params['Z']['prob'][obs_idx, slice_idx]
+        # term_three_check = torch.stack([
+        #     torch.inner(mu[k],
+        #                 torch.sum(torch.stack([b[kprime] * mu[kprime]
+        #                                        for kprime in range(num_features)
+        #                                        if kprime != k]),
+        #                           dim=0))
+        #     for k in range(num_features)
+        # ])
+        # assert torch.allclose(term_three, term_three_check)
+
+        term_to_exponentiate = log_bernoulli_prior_term - 0.5 * (term_one + term_two + term_three) / sigma_obs_squared
+        bernoulli_probs[slice_idx] = 1. / (1. + torch.exp(-term_to_exponentiate))
 
     # check that Bernoulli probs are all valid
     utils.helpers.torch_assert_no_nan_no_inf(bernoulli_probs)
@@ -595,48 +628,59 @@ def recursive_ibp_optimize_gaussian_params(torch_observation: torch.Tensor,
     # to a pathology: the inferred means will oscillate and never converge. What happens is if 2
     # features summed are too big, then both shrink, and then their sum is too small, so they both
     # grow. This can repeat forever.
+
     if simultaneous_or_sequential == 'simultaneous':
+        slices_indices = [slice(0, num_features, 1)]
+    elif simultaneous_or_sequential == 'sequential':
+        slices_indices = [slice(k_idx, k_idx + 1, 1) for k_idx in range(num_features)]
+        # switch up the order every now and again
+        if vi_idx % 2 == 1:
+            slices_indices = list(reversed(slices_indices))
+    else:
+        raise ValueError(f'Impermissible value for simultaneous_or_sequential: {simultaneous_or_sequential}')
+
+    # either do 1 iteration of all indices (simultaneous) or do K iterations of each index (sequential)
+    for slice_idx in slices_indices:
         weighted_all_curr_means = torch.multiply(
             gaussian_means,
             variable_variational_params['Z']['prob'][obs_idx, :, None])
         weighted_non_l_curr_means = torch.subtract(
             torch.sum(weighted_all_curr_means, dim=0)[None, :],
-            weighted_all_curr_means)
+            weighted_all_curr_means[slice_idx])
         obs_minus_weighted_non_l_means = torch.subtract(
             torch_observation,
             weighted_non_l_curr_means)
         term_two = torch.multiply(
             obs_minus_weighted_non_l_means,
-            variable_variational_params['Z']['prob'][obs_idx, :, None]) / sigma_obs_squared
-        gaussian_means = torch.einsum(
+            variable_variational_params['Z']['prob'][obs_idx, slice_idx, None]) / sigma_obs_squared
+        gaussian_means[slice_idx] = torch.einsum(
             'aij,aj->ai',
-            gaussian_covs,
-            torch.add(term_one, term_two))
-    elif simultaneous_or_sequential == 'sequential':
-        if vi_idx % 2 == 0:
-            l_indices = np.arange(num_features)
-        else:
-            l_indices = np.arange(num_features)[::-1]
-        for l_idx in l_indices:
-            weighted_all_curr_means = torch.multiply(
-                gaussian_means,
-                variable_variational_params['Z']['prob'][obs_idx, :, None])
-            weighted_non_l_curr_means = torch.subtract(
-                torch.sum(weighted_all_curr_means, dim=0),
-                weighted_all_curr_means[l_idx, :])
-            obs_minus_weighted_non_l_means = torch.subtract(
-                torch_observation,
-                weighted_non_l_curr_means)
-            term_two_l_idx = variable_variational_params['Z']['prob'][obs_idx, l_idx] * obs_minus_weighted_non_l_means
-            gaussian_means[l_idx, :] = torch.einsum(
-                'ij,j->i',
-                gaussian_covs[l_idx],
-                torch.add(term_one[l_idx], term_two_l_idx))
-    else:
-        raise ValueError(f'Impermissible simultaneous_or_sequential value: {simultaneous_or_sequential}')
+            gaussian_covs[slice_idx, :, :],
+            torch.add(term_one[slice_idx], term_two))
+    # elif simultaneous_or_sequential == 'sequential':
+    #     if vi_idx % 2 == 0:
+    #         l_indices = np.arange(num_features)
+    #     else:
+    #         l_indices = np.arange(num_features)[::-1]
+    #     for l_idx in l_indices:
+    #         weighted_all_curr_means = torch.multiply(
+    #             gaussian_means,
+    #             variable_variational_params['Z']['prob'][obs_idx, :, None])
+    #         weighted_non_l_curr_means = torch.subtract(
+    #             torch.sum(weighted_all_curr_means, dim=0),
+    #             weighted_all_curr_means[l_idx, :])
+    #         obs_minus_weighted_non_l_means = torch.subtract(
+    #             torch_observation,
+    #             weighted_non_l_curr_means)
+    #         term_two_l_idx = variable_variational_params['Z']['prob'][obs_idx, l_idx] * obs_minus_weighted_non_l_means
+    #         gaussian_means[l_idx, :] = torch.einsum(
+    #             'ij,j->i',
+    #             gaussian_covs[l_idx],
+    #             torch.add(term_one[l_idx], term_two_l_idx))
 
     # gaussian_update_norm = torch.linalg.norm(gaussian_means - prev_gaussian_means)
-
+    utils.helpers.torch_assert_no_nan_no_inf(gaussian_means)
+    utils.helpers.torch_assert_no_nan_no_inf(gaussian_half_covs)
     return gaussian_means, gaussian_half_covs
 
 
