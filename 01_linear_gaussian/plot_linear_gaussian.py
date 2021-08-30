@@ -44,7 +44,8 @@ def plot_gaussian_features_by_num_obs(observations: np.ndarray,
             ax.plot([0, gaussian_features[obs_idx, feature_idx, 0]],
                     [0, gaussian_features[obs_idx, feature_idx, 1]],
                     label=f'{feature_idx}',
-                    alpha=dish_eating_posteriors[obs_idx, feature_idx])
+                    # alpha=dish_eating_posteriors[obs_idx, feature_idx],
+                    )
         if row_idx == (num_rows - 1):
             ax.set_xlabel(r'$o_{1}$')
         if col_idx == 0:
