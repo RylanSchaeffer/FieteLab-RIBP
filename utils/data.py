@@ -596,6 +596,7 @@ def sample_from_griffiths_ghahramani_2005(num_obs: int = 100,
         features=features,
         indicator_sampling_params=indicator_sampling_params,
         gaussian_likelihood_params=gaussian_likelihood_params,
+        original_features_shape=(num_features, 6, 6),  # sqrt(36)
     )
 
     return result

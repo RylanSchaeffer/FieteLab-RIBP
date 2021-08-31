@@ -9,3 +9,4 @@ ribp
 *.csv
 *.joblib
 **/__pycache__/
+/tmp.py
