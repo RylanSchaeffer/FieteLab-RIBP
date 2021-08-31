@@ -23,6 +23,8 @@ def plot_gaussian_features_by_num_obs(observations: np.ndarray,
     """
     num_cols = 5
     num_rows = int(max_obs_idx / num_cols)
+    actual_num_features = gaussian_features.shape[1]
+    max_num_features = min(max_num_features, actual_num_features)
 
     fig, axes = plt.subplots(
         nrows=num_rows,

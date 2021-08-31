@@ -12,7 +12,8 @@ from typing import Dict, Tuple
 import utils.helpers
 import utils.variational_params
 
-torch.set_default_tensor_type('torch.DoubleTensor')
+# torch.set_default_tensor_type('torch.DoubleTensor')
+torch.set_default_tensor_type('torch.FloatTensor')
 
 inference_alg_strs = [
     'R-IBP',
@@ -86,7 +87,6 @@ def recursive_ibp(observations,
 
     # Note: the expected number of latents grows logarithmically as a*b*log(b + T - 1)
     # The 10 is a hopefully conservative heuristic to preallocate.
-    # TODO: reset to 10
     max_num_features = 10 * int(inference_params['alpha'] * inference_params['beta'] * \
                                 np.log(inference_params['beta'] + num_obs - 1))
 
@@ -154,7 +154,7 @@ def recursive_ibp(observations,
     elif likelihood_model == 'multivariate_normal':
         if variable_variational_params is None:
             # we use half covariance because we want to numerically optimize
-            A_half_covs = torch.stack([10. * torch.eye(obs_dim, obs_dim)
+            A_half_covs = torch.stack([10. * torch.eye(obs_dim).float()
                                        for _ in range((num_obs + 1) * max_num_features)])
             A_half_covs = A_half_covs.view(num_obs + 1, max_num_features, obs_dim, obs_dim)
 
@@ -164,13 +164,13 @@ def recursive_ibp(observations,
                     prob=torch.full(
                         size=(num_obs + 1, max_num_features),
                         fill_value=np.nan,
-                        dtype=torch.float64),
+                        dtype=torch.float32),
                 ),
                 A=dict(  # variational parameters for Gaussian features
                     mean=torch.full(
                         size=(num_obs + 1, max_num_features, obs_dim),
                         fill_value=0.,
-                        dtype=torch.float64),
+                        dtype=torch.float32),
                     # mean=A_mean,
                     half_cov=A_half_covs),
             )
@@ -182,7 +182,7 @@ def recursive_ibp(observations,
         for param_name, param_tensor in var_param_dict.items():
             param_tensor.requires_grad = numerically_optimize
 
-    torch_observations = torch.from_numpy(observations)
+    torch_observations = torch.from_numpy(observations).float()
     latent_indices = np.arange(max_num_features)
 
     # before the first observation, there are exactly 0 dishes

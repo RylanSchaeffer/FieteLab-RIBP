@@ -24,12 +24,12 @@ def run_all():
     os.makedirs(results_dir_path, exist_ok=True)
 
     feature_samplings = [
-        ('categorical', dict(probs=np.ones(5) / 5.)),
-        ('categorical', dict(probs=np.array([0.4, 0.25, 0.2, 0.1, 0.05]))),
+        # ('categorical', dict(probs=np.ones(5) / 5.)),
+        # ('categorical', dict(probs=np.array([0.4, 0.25, 0.2, 0.1, 0.05]))),
         ('IBP', dict(alpha=0.67, beta=0.58)),
-        ('IBP', dict(alpha=5.98, beta=2.4)),
-        ('IBP', dict(alpha=5.98, beta=7.1)),
-        ('IBP', dict(alpha=12.6, beta=7.1))
+        # ('IBP', dict(alpha=5.98, beta=2.4)),
+        # ('IBP', dict(alpha=5.98, beta=7.1)),
+        # ('IBP', dict(alpha=12.6, beta=7.1))
     ]
 
     num_datasets = 2
@@ -56,23 +56,23 @@ def run_all():
                                        gaussian_mean_prior_cov_scaling=gaussian_mean_prior_cov_scaling))
 
         # save dataset
-        dataset_dir = os.path.join(
+        run_one_results_dir_path = os.path.join(
             results_dir_path,
             sampled_linear_gaussian_data['indicator_sampling_descr_str'],
             f'dataset={dataset_idx}')
-        os.makedirs(dataset_dir, exist_ok=True)
+        os.makedirs(run_one_results_dir_path, exist_ok=True)
         joblib.dump(sampled_linear_gaussian_data,
-                    filename=os.path.join(dataset_dir, 'data.joblib'))
+                    filename=os.path.join(run_one_results_dir_path, 'data.joblib'))
 
         plot_linear_gaussian.plot_sample_from_linear_gaussian(
             features=sampled_linear_gaussian_data['features'],
             observations_seq=sampled_linear_gaussian_data['observations_seq'],
-            plot_dir=dataset_dir)
+            plot_dir=run_one_results_dir_path)
 
         for alpha, beta, inference_alg_str in itertools.product(*hyperparams):
             launch_run_one(
                 exp_dir_path=exp_dir_path,
-                results_dir_path=results_dir_path,
+                run_one_results_dir_path=run_one_results_dir_path,
                 inference_alg_str=inference_alg_str,
                 alpha=alpha,
                 beta=beta)
@@ -80,7 +80,7 @@ def run_all():
 
 
 def launch_run_one(exp_dir_path: str,
-                   results_dir_path: str,
+                   run_one_results_dir_path: str,
                    inference_alg_str: str,
                    alpha: float,
                    beta: float):
@@ -89,7 +89,7 @@ def launch_run_one(exp_dir_path: str,
     command_and_args = [
         'sbatch',
         run_one_script_path,
-        results_dir_path,
+        run_one_results_dir_path,
         inference_alg_str,
         str(alpha),
         str(beta)]
