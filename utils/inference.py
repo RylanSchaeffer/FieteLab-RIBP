@@ -226,9 +226,9 @@ def recursive_ibp(observations,
                 figsize=(num_cols * 4, num_vi_steps_per_obs * 4))
 
         approx_lower_bounds = []
-        if numerically_optimize:
-            # TODO: untested!
-            for vi_idx in range(num_vi_steps_per_obs):
+        for vi_idx in range(num_vi_steps_per_obs):
+            if numerically_optimize:
+                # TODO: untested!
                 # maximize approximate lower bound with respect to A's parameters
                 approx_lower_bound = recursive_ibp_compute_approx_lower_bound(
                     torch_observation=torch_observation,
@@ -271,9 +271,8 @@ def recursive_ibp(observations,
                                 # zero gradient manually
                                 param_tensor.grad = None
 
-        elif not numerically_optimize:
-            with torch.no_grad():
-                for vi_idx in range(num_vi_steps_per_obs):
+            elif not numerically_optimize:
+                with torch.no_grad():
                     logging.info(f'Obs Idx: {obs_idx}, VI idx: {vi_idx}')
 
                     approx_lower_bound = recursive_ibp_compute_approx_lower_bound(
@@ -333,67 +332,75 @@ def recursive_ibp(observations,
                     # record dish-eating posterior
                     dish_eating_posteriors.data[obs_idx, :] = variable_variational_params['Z']['prob'][obs_idx, :].clone()
 
-                    if plot_dir is not None:
-                        fig.suptitle(f'Obs: {obs_idx}, {simultaneous_or_sequential}')
-                        axes[vi_idx, 0].set_ylabel(f'VI Step: {vi_idx + 1}')
-                        axes[vi_idx, 0].set_title('Individual Features')
-                        axes[vi_idx, 0].scatter(observations[:obs_idx, 0],
-                                                observations[:obs_idx, 1],
-                                                # s=3,
-                                                color='k',
-                                                label='Observations')
-                        for feature_idx in range(10):
-                            axes[vi_idx, 0].plot(
-                                [0, variable_variational_params['A']['mean'][obs_idx, feature_idx, 0].item()],
-                                [0, variable_variational_params['A']['mean'][obs_idx, feature_idx, 1].item()],
-                                label=f'{feature_idx}')
-                        # axes[0].legend()
+            else:
+                raise ValueError(f'Impermissible value of numerically_optimize: {numerically_optimize}')
 
-                        axes[vi_idx, 1].set_title('Inferred Indicator Probabilities')
-                        # axes[vi_idx, 1].set_xlabel('Indicator Index')
-                        axes[vi_idx, 1].scatter(
-                            1 + np.arange(10),
-                            dish_eating_priors[obs_idx, :10].detach().numpy(),
-                            label='Prior')
-                        axes[vi_idx, 1].scatter(
-                            1 + np.arange(10),
-                            dish_eating_posteriors[obs_idx, :10].detach().numpy(),
-                            label='Posterior')
-                        axes[vi_idx, 1].legend()
+            if plot_dir is not None:
+                fig.suptitle(f'Obs: {obs_idx}, {simultaneous_or_sequential}')
+                axes[vi_idx, 0].set_ylabel(f'VI Step: {vi_idx + 1}')
+                axes[vi_idx, 0].set_title('Individual Features')
+                axes[vi_idx, 0].scatter(observations[:obs_idx, 0],
+                                        observations[:obs_idx, 1],
+                                        # s=3,
+                                        color='k',
+                                        label='Observations')
+                for feature_idx in range(10):
+                    axes[vi_idx, 0].plot(
+                        [0, variable_variational_params['A']['mean'][obs_idx, feature_idx, 0].item()],
+                        [0, variable_variational_params['A']['mean'][obs_idx, feature_idx, 1].item()],
+                        label=f'{feature_idx}')
+                # axes[0].legend()
 
-                        weighted_features = np.multiply(
-                            variable_variational_params['A']['mean'][obs_idx, :, :].detach().numpy(),
-                            dish_eating_posteriors[obs_idx].unsqueeze(1).detach().numpy(),
-                        )
-                        axes[vi_idx, 2].set_title('Weighted Features')
-                        axes[vi_idx, 2].scatter(observations[:obs_idx, 0],
-                                                observations[:obs_idx, 1],
-                                                # s=3,
-                                                color='k',
-                                                label='Observations')
-                        for feature_idx in range(10):
-                            axes[vi_idx, 2].plot([0, weighted_features[feature_idx, 0]],
-                                                 [0, weighted_features[feature_idx, 1]],
-                                                 label=f'{feature_idx}',
-                                                 zorder=feature_idx + 1,
-                                                 # alpha=dish_eating_posteriors[obs_idx, feature_idx].item(),
-                                                 )
+                axes[vi_idx, 1].set_title('Inferred Indicator Probabilities')
+                # axes[vi_idx, 1].set_xlabel('Indicator Index')
+                axes[vi_idx, 1].scatter(
+                    1 + np.arange(10),
+                    dish_eating_priors[obs_idx, :10].detach().numpy(),
+                    label='Prior')
+                axes[vi_idx, 1].scatter(
+                    1 + np.arange(10),
+                    dish_eating_posteriors[obs_idx, :10].detach().numpy(),
+                    label='Posterior')
+                axes[vi_idx, 1].legend()
 
-                        cumulative_weighted_features = np.cumsum(weighted_features, axis=0)
-                        axes[vi_idx, 3].set_title('Cumulative Weighted Features')
-                        axes[vi_idx, 3].scatter(observations[:obs_idx, 0],
-                                                observations[:obs_idx, 1],
-                                                # s=3,
-                                                color='k',
-                                                label='Observations')
-                        for feature_idx in range(10):
-                            axes[vi_idx, 3].plot(
-                                [0 if feature_idx == 0 else cumulative_weighted_features[feature_idx - 1, 0],
-                                 cumulative_weighted_features[feature_idx, 0]],
-                                [0 if feature_idx == 0 else cumulative_weighted_features[feature_idx - 1, 1],
-                                 cumulative_weighted_features[feature_idx, 1]],
-                                label=f'{feature_idx}',
-                                alpha=dish_eating_posteriors[obs_idx, feature_idx].item())
+                weighted_features = np.multiply(
+                    variable_variational_params['A']['mean'][obs_idx, :, :].detach().numpy(),
+                    dish_eating_posteriors[obs_idx].unsqueeze(1).detach().numpy(),
+                )
+                axes[vi_idx, 2].set_title('Weighted Features')
+                axes[vi_idx, 2].scatter(observations[:obs_idx, 0],
+                                        observations[:obs_idx, 1],
+                                        # s=3,
+                                        color='k',
+                                        label='Observations')
+                for feature_idx in range(10):
+                    axes[vi_idx, 2].plot([0, weighted_features[feature_idx, 0]],
+                                         [0, weighted_features[feature_idx, 1]],
+                                         label=f'{feature_idx}',
+                                         zorder=feature_idx + 1,
+                                         # alpha=dish_eating_posteriors[obs_idx, feature_idx].item(),
+                                         )
+
+                cumulative_weighted_features = np.cumsum(weighted_features, axis=0)
+                axes[vi_idx, 3].set_title('Cumulative Weighted Features')
+                axes[vi_idx, 3].scatter(observations[:obs_idx, 0],
+                                        observations[:obs_idx, 1],
+                                        # s=3,
+                                        color='k',
+                                        label='Observations')
+                for feature_idx in range(10):
+                    axes[vi_idx, 3].plot(
+                        [0 if feature_idx == 0 else cumulative_weighted_features[feature_idx - 1, 0],
+                         cumulative_weighted_features[feature_idx, 0]],
+                        [0 if feature_idx == 0 else cumulative_weighted_features[feature_idx - 1, 1],
+                         cumulative_weighted_features[feature_idx, 1]],
+                        label=f'{feature_idx}',
+                        alpha=dish_eating_posteriors[obs_idx, feature_idx].item())
+
+            with torch.no_grad():
+
+                # record dish-eating posterior
+                dish_eating_posteriors.data[obs_idx, :] = variable_variational_params['Z']['prob'][obs_idx, :].clone()
 
                 # update running sum of posteriors
                 dish_eating_posteriors_running_sum[obs_idx, :] = torch.add(
