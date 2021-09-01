@@ -18,7 +18,7 @@ import torch
 
 import plot_linear_gaussian
 import utils.data
-import utils.helpers
+import utils.helpers.run
 import utils.inference
 import utils.metrics
 
@@ -102,10 +102,6 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
 def setup(args: argparse.Namespace):
     """ Create necessary directories, set seeds and load linear-Gaussian data."""
 
-    # load Mixture of Gaussian data
-    sampled_linear_gaussian_data = joblib.load(
-        os.path.join(args.run_one_results_dir, 'data.joblib'))
-
     if args.inference_alg_str == 'R-IBP':
         inference_results_dir = f'{args.inference_alg_str}_a={args.alpha}_b={args.beta}'
         inference_alg_params = dict(
@@ -118,6 +114,12 @@ def setup(args: argparse.Namespace):
         args.run_one_results_dir,
         inference_results_dir)
     os.makedirs(inference_results_dir, exist_ok=True)
+
+    utils.helpers.run.create_logger(run_dir=inference_results_dir)
+
+    # load Mixture of Gaussian data
+    sampled_linear_gaussian_data = joblib.load(
+        os.path.join(args.run_one_results_dir, 'data.joblib'))
 
     # set seeds
     np.random.seed(args.seed)

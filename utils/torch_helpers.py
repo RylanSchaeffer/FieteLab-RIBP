@@ -1,28 +1,12 @@
-import numpy as np
 import torch
 
 
-def numpy_assert_no_nan_no_inf(x):
-    assert np.all(~np.isnan(x))
-    assert np.all(~np.isinf(x))
-
-
-def numpy_logits_to_probs(logits):
-    probs = 1. / (1. + np.exp(-logits))
-    return probs
-
-
-def numpy_probs_to_logits(probs):
-    logits = - np.log(1. / probs - 1.)
-    return logits
-
-
-def torch_assert_no_nan_no_inf(x):
+def assert_no_nan_no_inf(x):
     assert torch.all(~torch.isnan(x))
     assert torch.all(~torch.isinf(x))
 
 
-def torch_convert_half_cov_to_cov(half_cov: torch.Tensor) -> torch.Tensor:
+def convert_half_cov_to_cov(half_cov: torch.Tensor) -> torch.Tensor:
     """
     Converts half-covariance M into covariance M^T M in a batched manner.
     Convert batch half-covariance to covariance.
@@ -48,12 +32,12 @@ def torch_convert_half_cov_to_cov(half_cov: torch.Tensor) -> torch.Tensor:
     if len(half_cov.shape) == 2:
         cov = torch.squeeze(cov, dim=0)
 
-    torch_assert_no_nan_no_inf(cov)
+    assert_no_nan_no_inf(cov)
     return cov
 
 
-def torch_expected_log_bernoulli_under_bernoulli(p_prob: torch.Tensor,
-                                                 q_prob: torch.Tensor) -> torch.Tensor:
+def expected_log_bernoulli_under_bernoulli(p_prob: torch.Tensor,
+                                           q_prob: torch.Tensor) -> torch.Tensor:
     """
     Compute E_{q(x)}[log p(x)] where p(x) and q(x)
 
@@ -71,14 +55,14 @@ def torch_expected_log_bernoulli_under_bernoulli(p_prob: torch.Tensor,
     term_two[q_prob == 1.] = 0.
 
     total = torch.sum(torch.add(term_one, term_two))
-    torch_assert_no_nan_no_inf(total)
+    assert_no_nan_no_inf(total)
     return total
 
 
-def torch_expected_log_gaussian_under_gaussian(p_mean: torch.Tensor,
-                                               p_cov: torch.Tensor,
-                                               q_mean: torch.Tensor,
-                                               q_cov: torch.Tensor) -> torch.Tensor:
+def expected_log_gaussian_under_gaussian(p_mean: torch.Tensor,
+                                         p_cov: torch.Tensor,
+                                         q_mean: torch.Tensor,
+                                         q_cov: torch.Tensor) -> torch.Tensor:
     """
     Compute E_{q(x)}[log p(x)] where p(x) and q(x) are both Gaussian.
 
@@ -140,15 +124,15 @@ def torch_expected_log_gaussian_under_gaussian(p_mean: torch.Tensor,
          for k in range(batch_dim)]))
     assert torch.isclose(term_four, term_four_check)
     total = term_one + term_two + term_three + term_four
-    torch_assert_no_nan_no_inf(total)
+    assert_no_nan_no_inf(total)
     return total
 
 
-def torch_expected_log_gaussian_under_linear_gaussian(observation: torch.Tensor,
-                                                      q_A_mean: torch.Tensor,
-                                                      q_A_cov: torch.Tensor,
-                                                      q_Z_mean: torch.Tensor,
-                                                      sigma_obs_squared: float = 1e0) -> torch.Tensor:
+def expected_log_gaussian_under_linear_gaussian(observation: torch.Tensor,
+                                                q_A_mean: torch.Tensor,
+                                                q_A_cov: torch.Tensor,
+                                                q_Z_mean: torch.Tensor,
+                                                sigma_obs_squared: float = 1e0) -> torch.Tensor:
     """
     Compute E_{q(A, Z)}[log p(x|A, Z)] where p(x) = Gaussian(Z @ A, sigma_obs^2 I)
     and q(A, Z) = q(A) q(Z) are both Gaussian.
@@ -203,11 +187,11 @@ def torch_expected_log_gaussian_under_linear_gaussian(observation: torch.Tensor,
     assert torch.isclose(torch.sum(term_five_all_pairs), term_five_all_pairs_sum_check)
 
     total = term_one - 0.5 * (term_two + term_three + term_four + term_five) / sigma_obs_squared
-    torch_assert_no_nan_no_inf(total)
+    assert_no_nan_no_inf(total)
     return total
 
 
-def torch_entropy_bernoulli(probs: torch.Tensor) -> torch.Tensor:
+def entropy_bernoulli(probs: torch.Tensor) -> torch.Tensor:
     """
     Compute entropy of p(x) = Bernoulli(prob).
     
@@ -225,13 +209,13 @@ def torch_entropy_bernoulli(probs: torch.Tensor) -> torch.Tensor:
     term_two[one_minus_probs == 0.] = 0.
 
     entropy = -torch.sum(torch.add(term_one, term_two))
-    torch_assert_no_nan_no_inf(entropy)
+    assert_no_nan_no_inf(entropy)
     assert entropy >= 0.
     return entropy
 
 
-def torch_entropy_gaussian(mean: torch.Tensor,
-                           cov: torch.Tensor) -> torch.Tensor:
+def entropy_gaussian(mean: torch.Tensor,
+                     cov: torch.Tensor) -> torch.Tensor:
     """
     Compute entropy of p(x) = Gaussian(mean, cov).
 
@@ -243,18 +227,18 @@ def torch_entropy_gaussian(mean: torch.Tensor,
     entropy = 0.5 * torch.sum(
         dim + dim * torch.log(torch.full(fill_value=2., size=()) * np.pi)
         + torch.log(torch.linalg.det(cov)))
-    torch_assert_no_nan_no_inf(entropy)
+    assert_no_nan_no_inf(entropy)
     assert entropy >= 0.
     return entropy
 
 
-def torch_logits_to_probs(logits):
+def logits_to_probs(logits):
     probs = 1. / (1. + torch.exp(-logits))
-    torch_assert_no_nan_no_inf(probs)
+    assert_no_nan_no_inf(probs)
     return probs
 
 
-def torch_probs_to_logits(probs):
+def probs_to_logits(probs):
     logits = - torch.log(1. / probs - 1.)
-    torch_assert_no_nan_no_inf(logits)
+    assert_no_nan_no_inf(logits)
     return logits

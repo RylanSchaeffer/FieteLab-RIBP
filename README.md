@@ -34,6 +34,17 @@ subdirectory (e.g. `exp_00_ibp_prior/plots`) and then reproduces the plots in th
 
 `python3 exp_00_ibp_prior/main.py`
 
+## TODO
+
+- Fix logging
+- Why are we getting OOM errors after 40 minutes into inference?
+- What are the correct metrics?
+- Implement IBP baselines
+  - Gibbs sampling
+  - SVI
+  - Variational Inference (Doshi Velez)
+  - Streaming VI (Widjaja)
+
 ## Contact
 
 Questions? Comments? Interested in collaborating? Open an issue or 
