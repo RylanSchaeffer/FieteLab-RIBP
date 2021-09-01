@@ -9,8 +9,7 @@ from scipy.stats import poisson
 import torch
 from typing import Dict, Tuple
 
-import utils.helpers.torch
-import utils.variational_params
+import utils.torch_helpers
 
 # torch.set_default_tensor_type('torch.DoubleTensor')
 torch.set_default_tensor_type('torch.FloatTensor')
@@ -27,7 +26,7 @@ def create_new_feature_params_multivariate_normal(torch_observation: torch.Tenso
                                                   sigma_obs_squared: int = 1.):
     # data is necessary to not break backprop
     # see https://stackoverflow.com/questions/53819383/how-to-assign-a-new-value-to-a-pytorch-variable-without-breaking-backpropagation
-    utils.helpers.torch.assert_no_nan_no_inf(torch_observation)
+    utils.torch_helpers.assert_no_nan_no_inf(torch_observation)
     max_num_features = likelihood_params['means'].shape[0]
     obs_dim = torch_observation.shape[0]
 
@@ -266,7 +265,7 @@ def recursive_ibp(observations,
                                     reshaped_scaled_learning_rate,
                                     param_tensor.grad[obs_idx, :])
                                 param_tensor.data[obs_idx, :] += scaled_param_tensor_grad
-                                utils.helpers.torch.assert_no_nan_no_inf(param_tensor.data[:obs_idx + 1])
+                                utils.torch_helpers.assert_no_nan_no_inf(param_tensor.data[:obs_idx + 1])
 
                                 # zero gradient manually
                                 param_tensor.grad = None
@@ -312,8 +311,8 @@ def recursive_ibp(observations,
                         A_half_covs[normalizing_const == 0.] = \
                             variable_variational_params['A']['half_cov'][obs_idx - 1][normalizing_const == 0.]
 
-                        utils.helpers.torch.assert_no_nan_no_inf(A_means)
-                        utils.helpers.torch.assert_no_nan_no_inf(A_half_covs)
+                        utils.torch_helpers.assert_no_nan_no_inf(A_means)
+                        utils.torch_helpers.assert_no_nan_no_inf(A_half_covs)
 
                     variable_variational_params['A']['mean'].data[obs_idx, :] = A_means
                     variable_variational_params['A']['half_cov'].data[obs_idx, :] = A_half_covs
@@ -469,33 +468,33 @@ def recursive_ibp_compute_approx_lower_bound(torch_observation,
                                              dish_eating_prior,
                                              variable_variational_params):
     # convert half covariances to covariances
-    prior_A_cov = utils.helpers.torch.convert_half_cov_to_cov(
+    prior_A_cov = utils.torch_helpers.convert_half_cov_to_cov(
         half_cov=variable_variational_params['A']['half_cov'][obs_idx - 1])
-    posterior_A_cov = utils.helpers.torch.convert_half_cov_to_cov(
+    posterior_A_cov = utils.torch_helpers.convert_half_cov_to_cov(
         half_cov=variable_variational_params['A']['half_cov'][obs_idx])
 
-    indicators_term = utils.helpers.torch.expected_log_bernoulli_under_bernoulli(
+    indicators_term = utils.torch_helpers.expected_log_bernoulli_under_bernoulli(
         p_prob=dish_eating_prior,
         q_prob=variable_variational_params['Z']['prob'][obs_idx])
-    gaussian_term = utils.helpers.torch.expected_log_gaussian_under_gaussian(
+    gaussian_term = utils.torch_helpers.expected_log_gaussian_under_gaussian(
         p_mean=variable_variational_params['A']['mean'][obs_idx - 1],
         p_cov=prior_A_cov,
         q_mean=variable_variational_params['A']['mean'][obs_idx],
         q_cov=posterior_A_cov)
-    likelihood_term = utils.helpers.torch.expected_log_gaussian_under_linear_gaussian(
+    likelihood_term = utils.torch_helpers.expected_log_gaussian_under_linear_gaussian(
         observation=torch_observation,
         q_A_mean=variable_variational_params['A']['mean'][obs_idx],
         q_A_cov=posterior_A_cov,
         q_Z_mean=variable_variational_params['Z']['prob'][obs_idx])
-    bernoulli_entropy = utils.helpers.torch.entropy_bernoulli(
+    bernoulli_entropy = utils.torch_helpers.entropy_bernoulli(
         probs=variable_variational_params['Z']['prob'][obs_idx])
-    gaussian_entropy = utils.helpers.torch.entropy_gaussian(
+    gaussian_entropy = utils.torch_helpers.entropy_gaussian(
         mean=variable_variational_params['A']['mean'][obs_idx],
         cov=posterior_A_cov)
 
     lower_bound = indicators_term + gaussian_term + likelihood_term + bernoulli_entropy + gaussian_entropy
 
-    utils.helpers.torch.assert_no_nan_no_inf(lower_bound)
+    utils.torch_helpers.assert_no_nan_no_inf(lower_bound)
 
     return lower_bound
 
@@ -509,7 +508,7 @@ def recursive_ibp_optimize_bernoulli_params(torch_observation: torch.Tensor,
                                             simultaneous_or_sequential: str = 'sequential') -> torch.Tensor:
     assert simultaneous_or_sequential in {'sequential', 'simultaneous'}
 
-    A_cov = utils.helpers.torch.convert_half_cov_to_cov(
+    A_cov = utils.torch_helpers.convert_half_cov_to_cov(
         variable_variational_params['A']['half_cov'][obs_idx, :])
 
     num_features = A_cov.shape[0]
@@ -578,7 +577,7 @@ def recursive_ibp_optimize_bernoulli_params(torch_observation: torch.Tensor,
         bernoulli_probs[slice_idx] = 1. / (1. + torch.exp(-term_to_exponentiate))
 
     # check that Bernoulli probs are all valid
-    utils.helpers.torch.assert_no_nan_no_inf(bernoulli_probs)
+    utils.torch_helpers.assert_no_nan_no_inf(bernoulli_probs)
     assert torch.all(0. <= bernoulli_probs)
     assert torch.all(bernoulli_probs <= 1.)
 
@@ -596,7 +595,7 @@ def recursive_ibp_optimize_gaussian_params(torch_observation: torch.Tensor,
     assert simultaneous_or_sequential in {'sequential', 'simultaneous'}
 
     prev_means = variable_variational_params['A']['mean'][obs_idx - 1, :]
-    prev_covs = utils.helpers.torch.convert_half_cov_to_cov(
+    prev_covs = utils.torch_helpers.convert_half_cov_to_cov(
         variable_variational_params['A']['half_cov'][obs_idx - 1, :])
     prev_precisions = torch.linalg.inv(prev_covs)
 
@@ -676,8 +675,8 @@ def recursive_ibp_optimize_gaussian_params(torch_observation: torch.Tensor,
         assert gaussian_means[slice_idx].shape == (indices_per_slice, obs_dim)
 
     # gaussian_update_norm = torch.linalg.norm(gaussian_means - prev_gaussian_means)
-    utils.helpers.torch.assert_no_nan_no_inf(gaussian_means)
-    utils.helpers.torch.assert_no_nan_no_inf(gaussian_half_covs)
+    utils.torch_helpers.assert_no_nan_no_inf(gaussian_means)
+    utils.torch_helpers.assert_no_nan_no_inf(gaussian_half_covs)
     return gaussian_means, gaussian_half_covs
 
 

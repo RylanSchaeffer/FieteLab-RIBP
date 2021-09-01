@@ -18,9 +18,9 @@ import torch
 
 import plot_linear_gaussian
 import utils.data
-import utils.helpers.run
 import utils.inference
 import utils.metrics
+import utils.run_helpers
 
 
 def run_one(args: argparse.Namespace):
@@ -115,7 +115,9 @@ def setup(args: argparse.Namespace):
         inference_results_dir)
     os.makedirs(inference_results_dir, exist_ok=True)
 
-    utils.helpers.run.create_logger(run_dir=inference_results_dir)
+    utils.run_helpers.create_logger(run_dir=inference_results_dir)
+
+    logging.info(args)
 
     # load Mixture of Gaussian data
     sampled_linear_gaussian_data = joblib.load(
@@ -149,6 +151,5 @@ if __name__ == '__main__':
     parser.add_argument('--beta', type=float,
                         help='IBP beta parameter.')
     args = parser.parse_args()
-    logging.info(args)
     run_one(args)
     logging.info('Finished.')
