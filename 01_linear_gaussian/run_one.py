@@ -20,7 +20,7 @@ from timeit import default_timer as timer
 import torch
 
 import plot_linear_gaussian
-import utils.data
+import utils.data_synthetic
 import utils.inference
 import utils.metrics
 import utils.run_helpers

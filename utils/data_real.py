@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import pandas as pd
 import sklearn
 import torch
 import torchvision
@@ -142,14 +143,14 @@ def load_mnist_dataset(data_dir: str = 'data',
     indices = np.random.choice(np.arange(mnist_dataset.data.shape[0]),
                                size=num_data,
                                replace=False)
-    images = mnist_dataset.data[indices, :, :].numpy()
+    observations = mnist_dataset.data[indices, :, :].numpy()
     labels = mnist_dataset.targets[indices].numpy()
 
     if feature_extractor_method == 'pca':
         from sklearn.decomposition import PCA
         image_height = mnist_dataset.data.shape[1]
         image_width = mnist_dataset.data.shape[2]
-        reshaped_images = np.reshape(images, newshape=(num_data, image_height * image_width))
+        reshaped_images = np.reshape(observations, newshape=(num_data, image_height * image_width))
         pca = PCA(n_components=50)
         pca_latents = pca.fit_transform(reshaped_images)
         image_features = np.reshape(pca.inverse_transform(pca_latents),
@@ -158,15 +159,15 @@ def load_mnist_dataset(data_dir: str = 'data',
     else:
         raise ValueError(f'Impermissible feature method: {feature_extractor_method}')
 
-    # # visualize images if curious
+    # # visualize observations if curious
     # import matplotlib.pyplot as plt
     # for idx in range(10):
     #     plt.imshow(image_features[idx], cmap='gray')
     #     plt.show()
 
     mnist_dataset_results = dict(
-        images=images,
-        assigned_table_seq=labels,
+        observations=observations,
+        labels=labels,
         feature_extractor_method=feature_extractor_method,
         feature_extractor=feature_extractor,
         image_features=image_features,

@@ -14,7 +14,7 @@ import os
 import subprocess
 
 import plot
-import utils.data
+import utils.data_real
 
 
 def run_all():
@@ -47,7 +47,7 @@ def run_all():
             itertools.product(feature_samplings, range(num_datasets)):
 
         logging.info(f'Sampling: {indicator_sampling}, Dataset Index: {dataset_idx}')
-        sampled_linear_gaussian_data = utils.data.sample_from_linear_gaussian(
+        sampled_linear_gaussian_data = utils.data_synthetic.sample_from_linear_gaussian(
             num_obs=num_customers,
             indicator_sampling=indicator_sampling,
             indicator_sampling_params=indicator_sampling_params,

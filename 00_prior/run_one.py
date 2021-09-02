@@ -15,13 +15,12 @@ import joblib
 import numpy as np
 import os
 import scipy.stats
-from sympy.functions.combinatorial.numbers import stirling
 from typing import Dict
 
 
 import plot_prior
-import utils.data
-import utils.helpers
+import utils.data_synthetic
+import utils.run_helpers
 
 
 def run_one(args: argparse.Namespace):
@@ -55,9 +54,13 @@ def run_one(args: argparse.Namespace):
         beta=args.beta,
         plot_dir=run_one_results_dir)
 
-    # plot_prior.plot_recursion_visualization(
-    #     anal
-    # )
+    plot_prior.plot_recursion_visualization(
+        cum_analytical_dishes_by_customer_idx=analytical_ibp_results['cum_analytical_dishes_by_customer_idx'],
+        analytical_num_dishes_by_customer=analytical_ibp_results['num_dishes_by_customer_idx'],
+        analytical_dishes_by_customer_idx=analytical_ibp_results['analytical_dishes_by_customer_idx'],
+        alpha=args.alpha,
+        beta=args.beta,
+        plot_dir=run_one_results_dir)
 
 
 def compute_analytical_ibp(num_customer: int,
@@ -177,7 +180,7 @@ def sample_ibp_and_save(num_customer: int,
 
     # if not os.path.isfile(ibp_samples_path):
 
-    sample_ibp_results = utils.data.sample_ibp(
+    sample_ibp_results = utils.data_synthetic.sample_ibp(
         num_mc_sample=num_mc_sample,
         num_customer=num_customer,
         alpha=alpha,
@@ -194,6 +197,9 @@ def setup(args: argparse.Namespace):
         args.results_dir_path,
         f'a={args.alpha}_b={args.beta}')
     os.makedirs(run_one_results_dir, exist_ok=True)
+
+    utils.run_helpers.create_logger(run_dir=run_one_results_dir)
+
     np.random.seed(args.seed)
     return run_one_results_dir
 

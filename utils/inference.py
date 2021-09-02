@@ -190,7 +190,7 @@ def recursive_ibp(observations,
 
     # REMEMBER: we added +1 to all the record-keeping arrays. Starting with 1
     # makes indexing consistent with the paper notation.
-    for obs_idx, torch_observation in enumerate(torch_observations[:15], start=1):
+    for obs_idx, torch_observation in enumerate(torch_observations[:num_obs], start=1):
 
         # construct number of dishes Poisson rate prior
         num_dishes_poisson_rate_priors[obs_idx, :] = num_dishes_poisson_rate_posteriors[obs_idx - 1, :] \

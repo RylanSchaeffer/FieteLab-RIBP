@@ -14,7 +14,7 @@ import os
 import subprocess
 
 import plot_linear_gaussian
-import utils.data
+import utils.data_synthetic
 
 
 def run_all():
@@ -24,11 +24,11 @@ def run_all():
     os.makedirs(results_dir_path, exist_ok=True)
 
     feature_samplings = [
-        ('categorical', dict(probs=np.ones(5) / 5.)),
+        # ('categorical', dict(probs=np.ones(5) / 5.)),
         ('categorical', dict(probs=np.array([0.4, 0.25, 0.2, 0.1, 0.05]))),
-        ('IBP', dict(alpha=0.67, beta=0.58)),
-        ('IBP', dict(alpha=0.67, beta=2.4)),
-        ('IBP', dict(alpha=5.98, beta=2.4)),
+        ('IBP', dict(alpha=1.17, beta=0.58)),
+        ('IBP', dict(alpha=1.17, beta=2.4)),
+        # ('IBP', dict(alpha=5.98, beta=2.4)),
     ]
 
     num_datasets = 2
@@ -36,8 +36,8 @@ def run_all():
     gaussian_mean_prior_cov_scaling: float = 100.
     num_customers = 30
 
-    alphas = np.round(np.linspace(1.1, 5.91, 20), 2)
-    betas = np.round(np.linspace(0.3, 8.7, 20), 2)
+    alphas = np.round(np.linspace(1.1, 5.91, 5), 2)
+    betas = np.round(np.linspace(0.3, 8.7, 5), 2)
     inference_alg_strs = ['R-IBP']
     hyperparams = [alphas, betas, inference_alg_strs]
 
@@ -46,7 +46,7 @@ def run_all():
             itertools.product(feature_samplings, range(num_datasets)):
 
         logging.info(f'Sampling: {indicator_sampling}, Dataset Index: {dataset_idx}')
-        sampled_linear_gaussian_data = utils.data.sample_from_linear_gaussian(
+        sampled_linear_gaussian_data = utils.data_synthetic.sample_from_linear_gaussian(
             num_obs=num_customers,
             indicator_sampling=indicator_sampling,
             indicator_sampling_params=indicator_sampling_params,
