@@ -95,26 +95,26 @@ def plot_inference_results(sampled_linear_gaussian_data: dict,
         plot_dir=plot_dir)
 
     plot_gaussian_features_by_num_obs(
-        observations=sampled_linear_gaussian_data['observations_seq'],
+        observations=sampled_linear_gaussian_data['observations'],
         gaussian_features=inference_alg_results['variable_variational_params']['A']['mean'],
         dish_eating_posteriors=inference_alg_results['dish_eating_posteriors'],
         plot_dir=plot_dir)
 
     # plot_animation_gaussian_features_by_num_obs(
-    #     observations=sampled_linear_gaussian_data['observations_seq'],
+    #     observations=sampled_linear_gaussian_data['observations'],
     #     gaussian_features=inference_alg_results['variable_variational_params']['A']['mean'],
     #     plot_dir=plot_dir)
 
 
 def plot_sample_from_linear_gaussian(features,
-                                     observations_seq,
+                                     observations,
                                      plot_dir):
     fig, ax = plt.subplots(nrows=1,
                            ncols=1,
                            figsize=(6, 6))
 
-    sns.scatterplot(observations_seq[:, 0],
-                    observations_seq[:, 1],
+    sns.scatterplot(observations[:, 0],
+                    observations[:, 1],
                     palette='Set1',
                     ax=ax,
                     color='k',

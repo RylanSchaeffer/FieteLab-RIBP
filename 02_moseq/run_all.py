@@ -65,7 +65,7 @@ def run_all():
 
         plot.plot_sample_from_linear_gaussian(
             features=sampled_linear_gaussian_data['features'],
-            observations_seq=sampled_linear_gaussian_data['observations_seq'],
+            observations=sampled_linear_gaussian_data['observations'],
             plot_dir=dataset_dir)
 
         for alpha, beta, inference_alg_str in itertools.product(*hyperparams):

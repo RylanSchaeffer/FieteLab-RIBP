@@ -61,7 +61,7 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
     start_time = timer()
     inference_alg_results = utils.inference.run_inference_alg(
         inference_alg_str=inference_alg_str,
-        observations=sampled_linear_gaussian_data['observations_seq'],
+        observations=sampled_linear_gaussian_data['observations'],
         inference_alg_params=inference_alg_params,
         likelihood_model='multivariate_normal',
         learning_rate=1e0,
