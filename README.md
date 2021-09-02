@@ -36,7 +36,6 @@ subdirectory (e.g. `exp_00_ibp_prior/plots`) and then reproduces the plots in th
 
 ## TODO
 
-- Fix logging
 - Why are we getting OOM errors after 40 minutes into inference?
 - What are the correct metrics?
 - Implement IBP baselines
@@ -44,6 +43,7 @@ subdirectory (e.g. `exp_00_ibp_prior/plots`) and then reproduces the plots in th
   - SVI
   - Variational Inference (Doshi Velez)
   - Streaming VI (Widjaja)
+  - Campbell Streaming Bayesian Inference
 
 ## Contact
 

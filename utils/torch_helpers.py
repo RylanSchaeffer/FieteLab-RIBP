@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 import torch
 
@@ -159,7 +161,12 @@ def expected_log_gaussian_under_linear_gaussian(observation: torch.Tensor,
     term_three_check = -2. * torch.sum(torch.multiply(q_Z_mean,
                                                       torch.matmul(q_A_mean,
                                                                    observation)))
-    assert torch.isclose(term_three, term_three_check)
+    # TODO: debug why this assertion fails on the 15th step on a subset of datasets
+    try:
+        assert torch.isclose(term_three, term_three_check)
+    except AssertionError:
+        logging.error(str(term_three - term_three_check))
+        raise AssertionError
 
     # \sum_k b_{nk} Tr[Sigma_{nk} + \mu_{nk} \mu_{nk}^T]
     term_four = torch.einsum(
@@ -185,7 +192,12 @@ def expected_log_gaussian_under_linear_gaussian(observation: torch.Tensor,
         [q_Z_mean[k] * q_Z_mean[kprime] * torch.inner(q_A_mean[k], q_A_mean[kprime])
          for k in range(num_features)
          for kprime in range(num_features)]))
-    assert torch.isclose(torch.sum(term_five_all_pairs), term_five_all_pairs_sum_check)
+    # TODO: debug why this assertion fails on the 21st step on a subset of datasets
+    try:
+        assert torch.isclose(torch.sum(term_five_all_pairs), term_five_all_pairs_sum_check)
+    except AssertionError:
+        logging.error(str(term_five_all_pairs - term_five_all_pairs_sum_check))
+        raise AssertionError
 
     total = term_one - 0.5 * (term_two + term_three + term_four + term_five) / sigma_obs_squared
     assert_no_nan_no_inf(total)
@@ -236,10 +248,12 @@ def entropy_gaussian(mean: torch.Tensor,
 def logits_to_probs(logits):
     probs = 1. / (1. + torch.exp(-logits))
     assert_no_nan_no_inf(probs)
+    assert torch.all(probs >= 0.)
     return probs
 
 
 def probs_to_logits(probs):
+    assert torch.all(probs >= 0.)
     logits = - torch.log(1. / probs - 1.)
     assert_no_nan_no_inf(logits)
     return logits

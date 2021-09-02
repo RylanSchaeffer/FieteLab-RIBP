@@ -19,7 +19,7 @@ import torch
 
 import plot_linear_gaussian
 import utils.data
-import utils.helpers
+import utils.run_helpers
 import utils.inference
 import utils.metrics
 
@@ -34,7 +34,7 @@ def run_one(args: argparse.Namespace):
         args.run_one_results_dir))
 
     run_and_plot_inference_alg(
-        sampled_linear_gaussian_data=setup_results['sampled_linear_gaussian_data'],
+        sampled_griffiths_ghahramani_data=setup_results['sampled_griffiths_ghahramani_data'],
         inference_alg_str=setup_results['inference_alg_str'],
         inference_alg_params=setup_results['inference_alg_params'],
         inference_results_dir=setup_results['inference_results_dir'])
@@ -45,7 +45,7 @@ def run_one(args: argparse.Namespace):
         args.run_one_results_dir))
 
 
-def run_and_plot_inference_alg(sampled_linear_gaussian_data,
+def run_and_plot_inference_alg(sampled_griffiths_ghahramani_data,
                                inference_alg_str,
                                inference_alg_params,
                                inference_results_dir):
@@ -59,7 +59,7 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
     start_time = timer()
     inference_alg_results = utils.inference.run_inference_alg(
         inference_alg_str=inference_alg_str,
-        observations=sampled_linear_gaussian_data['observations_seq'],
+        observations=sampled_griffiths_ghahramani_data['observations_seq'],
         inference_alg_params=inference_alg_params,
         likelihood_model='multivariate_normal',
         learning_rate=1e0,
@@ -93,7 +93,7 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
     stored_data = joblib.load(inference_results_path)
 
     plot_linear_gaussian.plot_inference_results(
-        sampled_linear_gaussian_data=sampled_linear_gaussian_data,
+        sampled_linear_gaussian_data=sampled_griffiths_ghahramani_data,
         inference_alg_results=stored_data['inference_alg_results'],
         inference_alg_str=stored_data['inference_alg_str'],
         inference_alg_params=stored_data['inference_alg_params'],
@@ -102,10 +102,6 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
 
 def setup(args: argparse.Namespace):
     """ Create necessary directories, set seeds and load linear-Gaussian data."""
-
-    # load Mixture of Gaussian data
-    sampled_linear_gaussian_data = joblib.load(
-        os.path.join(args.run_one_results_dir, 'data.joblib'))
 
     if args.inference_alg_str == 'R-IBP':
         inference_results_dir = f'{args.inference_alg_str}_a={args.alpha}_b={args.beta}'
@@ -120,6 +116,14 @@ def setup(args: argparse.Namespace):
         inference_results_dir)
     os.makedirs(inference_results_dir, exist_ok=True)
 
+    utils.run_helpers.create_logger(run_dir=inference_results_dir)
+
+    logging.info(args)
+
+    # load Mixture of Gaussian data
+    sampled_griffiths_ghahramani_data = joblib.load(
+        os.path.join(args.run_one_results_dir, 'data.joblib'))
+
     # set seeds
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -127,7 +131,7 @@ def setup(args: argparse.Namespace):
     setup_results = dict(
         inference_alg_str=args.inference_alg_str,
         inference_alg_params=inference_alg_params,
-        sampled_linear_gaussian_data=sampled_linear_gaussian_data,
+        sampled_griffiths_ghahramani_data=sampled_griffiths_ghahramani_data,
         inference_results_dir=inference_results_dir,
     )
 
@@ -148,6 +152,5 @@ if __name__ == '__main__':
     parser.add_argument('--beta', type=float,
                         help='IBP beta parameter.')
     args = parser.parse_args()
-    logging.info(args)
     run_one(args)
     logging.info('Finished.')

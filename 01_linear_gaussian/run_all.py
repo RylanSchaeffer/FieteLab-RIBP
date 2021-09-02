@@ -24,22 +24,20 @@ def run_all():
     os.makedirs(results_dir_path, exist_ok=True)
 
     feature_samplings = [
-        # ('categorical', dict(probs=np.ones(5) / 5.)),
-        # ('categorical', dict(probs=np.array([0.4, 0.25, 0.2, 0.1, 0.05]))),
+        ('categorical', dict(probs=np.ones(5) / 5.)),
+        ('categorical', dict(probs=np.array([0.4, 0.25, 0.2, 0.1, 0.05]))),
         ('IBP', dict(alpha=0.67, beta=0.58)),
-        # ('IBP', dict(alpha=5.98, beta=2.4)),
-        # ('IBP', dict(alpha=5.98, beta=7.1)),
-        # ('IBP', dict(alpha=12.6, beta=7.1))
+        ('IBP', dict(alpha=0.67, beta=2.4)),
+        ('IBP', dict(alpha=5.98, beta=2.4)),
     ]
 
     num_datasets = 2
     gaussian_cov_scaling: float = 0.3
     gaussian_mean_prior_cov_scaling: float = 100.
-    num_customers = 100
+    num_customers = 30
 
-    alphas = [1.1, 10.78, 15.37, 30.91]
-    # alphas = np.round(np.linspace(1.1, 30.91, 20), 2)
-    betas = [0.3, 5.6, 12.9, 21.3]
+    alphas = np.round(np.linspace(1.1, 5.91, 20), 2)
+    betas = np.round(np.linspace(0.3, 8.7, 20), 2)
     inference_alg_strs = ['R-IBP']
     hyperparams = [alphas, betas, inference_alg_strs]
 

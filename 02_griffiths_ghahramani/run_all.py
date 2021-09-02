@@ -30,9 +30,8 @@ def run_all():
     num_datasets = 10
     num_customers = 100
 
-    alphas = [1.1, 10.78, 15.37, 30.91]
-    # alphas = np.round(np.linspace(1.1, 30.91, 20), 2)
-    betas = [0.3, 5.6, 12.9, 21.3]
+    alphas = np.round(np.linspace(1.1, 5.91, 20), 2)
+    betas = np.round(np.linspace(0.3, 8.7, 20), 2)
     inference_alg_strs = ['R-IBP']
     hyperparams = [alphas, betas, inference_alg_strs]
 
