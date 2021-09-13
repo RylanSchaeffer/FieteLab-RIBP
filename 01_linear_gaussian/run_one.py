@@ -63,7 +63,7 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
         inference_alg_str=inference_alg_str,
         observations=sampled_linear_gaussian_data['observations'],
         inference_alg_params=inference_alg_params,
-        likelihood_model='multivariate_normal',
+        likelihood_model='linear_gaussian',
         learning_rate=1e0,
         plot_dir=inference_results_dir)
 
@@ -105,7 +105,12 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
 def setup(args: argparse.Namespace):
     """ Create necessary directories, set seeds and load linear-Gaussian data."""
 
-    if args.inference_alg_str == 'R-IBP':
+    if args.inference_alg_str == 'HMC-Gibbs':
+        inference_results_dir = f'{args.inference_alg_str}_a={args.alpha}_b={args.beta}'
+        inference_alg_params = dict(
+            alpha=args.alpha,
+            beta=args.beta)
+    elif args.inference_alg_str == 'R-IBP':
         inference_results_dir = f'{args.inference_alg_str}_a={args.alpha}_b={args.beta}'
         inference_alg_params = dict(
             alpha=args.alpha,

@@ -1,10 +1,10 @@
+import pandas as pd
 from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
 import numpy as np
 import os
 import scipy.stats
 import seaborn as sns
-
 
 alphas_color_map = {
     1.1: 'tab:blue',
@@ -14,27 +14,28 @@ alphas_color_map = {
 }
 
 
-def plot_analytical_vs_monte_carlo_mse(error_means_per_num_samples_per_alpha,
-                                       error_sems_per_num_samples_per_alpha,
-                                       num_reps: int,
+def plot_analytical_vs_monte_carlo_mse(mse_df: pd.DataFrame,
                                        plot_dir: str):
-
-    alphas_and_betas = list(error_sems_per_num_samples_per_alpha.keys())
-
+    # combine alpha, beta into one column
+    mse_df['alpha_beta'] = mse_df.agg(
+        lambda row: rf"$\alpha$={row['alpha']}, $\beta$={row['beta']}",
+        axis=1)
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 4))
-    for alpha_beta in alphas_and_betas:
-        ax.errorbar(x=list(error_means_per_num_samples_per_alpha[alpha_beta].keys()),
-                    y=list(error_means_per_num_samples_per_alpha[alpha_beta].values()),
-                    yerr=list(error_sems_per_num_samples_per_alpha[alpha_beta].values()),
-                    label=alpha_beta,
-                    )
-    ax.legend(title=f'Num Repeats: {num_reps}')
+    sns.lineplot(data=mse_df,
+                 x='num_samples',
+                 y='mse',
+                 hue='alpha_beta',
+                 ax=ax)
+
+    # Remove legend title. Seaborn always uses "hue"
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles=handles[1:], labels=labels[1:])
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.set_ylabel(r'(Analytic - Monte Carlo$)^2$')
-    # ax.set_ylabel(r'$\mathbb{E}_D[\sum_k (\mathbb{E}[N_{T, k}] - \frac{1}{S} \sum_{s=1}^S N_{T, k}^{(s)})^2]$')
     ax.set_xlabel('Number of Monte Carlo Samples')
-    fig.savefig(os.path.join(plot_dir, f'ibp_analytical_vs_monte_carlo_mse.png'),
+    # ax.set_ylabel(r'$\mathbb{E}_D[\sum_k (\mathbb{E}[N_{T, k}] - \frac{1}{S} \sum_{s=1}^S N_{T, k}^{(s)})^2]$')
+    fig.savefig(os.path.join(plot_dir, f'mse_analytical_vs_monte_carlo.png'),
                 bbox_inches='tight',
                 dpi=300)
     # plt.show()
@@ -46,7 +47,6 @@ def plot_customer_dishes_analytical_vs_monte_carlo(sampled_dishes_by_customer_id
                                                    alpha: float,
                                                    beta: float,
                                                    plot_dir: str):
-
     # plot customer assignments, comparing analytics versus monte carlo estimates
     fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(10, 5))
 
@@ -105,7 +105,6 @@ def plot_num_dishes_analytical_vs_monte_carlo(sampled_num_dishes_by_customer_idx
                                               alpha: float,
                                               beta: float,
                                               plot_dir: str):
-
     # plot customer assignments, comparing analytics versus monte carlo estimates
     fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(10, 5))
 
@@ -167,7 +166,6 @@ def plot_recursion_visualization(cum_analytical_dishes_by_customer_idx: np.ndarr
                                  beta: float,
                                  plot_dir: str,
                                  cutoff: float = 1e-4):
-
     fig, axes = plt.subplots(nrows=1,
                              ncols=5,
                              figsize=(13, 4),

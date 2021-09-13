@@ -38,7 +38,7 @@ def run_all():
 
     alphas = np.round(np.linspace(1.1, 5.91, 5), 2)
     betas = np.round(np.linspace(0.3, 8.7, 5), 2)
-    inference_alg_strs = ['R-IBP']
+    inference_alg_strs = ['R-IBP', 'HMC-Gibbs']
     hyperparams = [alphas, betas, inference_alg_strs]
 
     # generate several datasets and independently launch inference

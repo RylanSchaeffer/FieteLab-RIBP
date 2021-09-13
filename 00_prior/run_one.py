@@ -205,7 +205,7 @@ def setup(args: argparse.Namespace):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Process some integers.')
+    parser = argparse.ArgumentParser()
     parser.add_argument('--results_dir_path', type=str,
                         help='Path to write plots and other results to.')
     parser.add_argument('--seed', type=int, default=0,

@@ -35,65 +35,6 @@ def run_all():
             alpha=alpha,
             beta=beta)
 
-    # TODO: re-add this functionality
-    #     num_reps = 10
-    #     error_means_per_num_samples_per_alpha, error_sems_per_num_samples_per_alpha = \
-    #         calc_analytical_vs_monte_carlo_mse(
-    #             T=T,
-    #             alphas=alphas,
-    #             exp_dir=exp_dir,
-    #             num_reps=num_reps,
-    #             sample_subset_size=num_samples,
-    #             analytical_customer_tables_by_alpha=analytical_customer_tables_by_alpha)
-    #
-    #     plot.plot_analytical_vs_monte_carlo_mse(
-    #         error_means_per_num_samples_per_alpha=error_means_per_num_samples_per_alpha,
-    #         error_sems_per_num_samples_per_alpha=error_sems_per_num_samples_per_alpha,
-    #         num_reps=num_reps,
-    #         plot_dir=plot_dir)
-
-    # def calc_analytical_vs_monte_carlo_mse(T: int,
-    #                                        alphas,
-    #                                        exp_dir,
-    #                                        num_reps: int,
-    #                                        sample_subset_size: int,
-    #                                        analytical_customer_tables_by_alpha):
-    #
-    #     sample_subset_sizes = np.logspace(1, 4, 5).astype(np.int)
-    #
-    #     rep_errors = np.zeros(shape=(num_reps, len(alphas), len(sample_subset_sizes)))
-    #
-    #     for rep_idx in range(num_reps):
-    #         # draw sample from CRP
-    #         _, sampled_customer_tables_by_alpha = sample_from_dcrp(
-    #             T=T,
-    #             alphas=alphas,
-    #             exp_dir=exp_dir,
-    #             num_samples=sample_subset_size,
-    #             rep_idx=rep_idx)
-    #
-    #         for alpha_idx, alpha in enumerate(alphas):
-    #             # for each subset of data, calculate the error
-    #             for sample_idx, sample_subset_size in enumerate(sample_subset_sizes):
-    #                 rep_error = np.square(np.linalg.norm(
-    #                     np.subtract(
-    #                         np.mean(sampled_customer_tables_by_alpha[alpha][:sample_subset_size],
-    #                                 axis=0),
-    #                         analytical_customer_tables_by_alpha[alpha])
-    #                 ))
-    #                 rep_errors[rep_idx, alpha_idx, sample_idx] = rep_error
-    #
-    #     means_per_num_samples_per_alpha, sems_per_num_samples_per_alpha = {}, {}
-    #     for alpha_idx, alpha in enumerate(alphas):
-    #         means_per_num_samples_per_alpha[alpha] = {
-    #             num_sample: error for num_sample, error in
-    #             zip(sample_subset_sizes, np.mean(rep_errors[:, alpha_idx, :], axis=0))}
-    #         sems_per_num_samples_per_alpha[alpha] = {
-    #             num_sample: error for num_sample, error in
-    #             zip(sample_subset_sizes, scipy.stats.sem(rep_errors[:, alpha_idx, :], axis=0))}
-    #
-    #     return means_per_num_samples_per_alpha, sems_per_num_samples_per_alpha
-
 
 def launch_run_one(exp_dir_path: str,
                    results_dir_path: str,

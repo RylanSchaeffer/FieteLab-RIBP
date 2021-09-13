@@ -12,3 +12,4 @@ torch~=1.9.0
 joblib~=1.0.1
 cvxpy~=1.1.13
 torchvision~=0.10.0
+numpyro~=0.7.2
