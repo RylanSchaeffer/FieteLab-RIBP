@@ -115,6 +115,11 @@ def setup(args: argparse.Namespace):
         inference_alg_params = dict(
             alpha=args.alpha,
             beta=args.beta)
+    elif args.inference_alg_str == 'Widjaja':
+        inference_results_dir = f'{args.inference_alg_str}_a={args.alpha}_b={args.beta}'
+        inference_alg_params = dict(
+            alpha=args.alpha,
+            beta=args.beta)
     else:
         raise NotImplementedError
 

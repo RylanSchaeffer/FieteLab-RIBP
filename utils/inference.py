@@ -15,13 +15,16 @@ import tracemalloc
 from typing import Dict, Tuple
 
 import utils.torch_helpers
+import utils.inference_widjaja
 
 # torch.set_default_tensor_type('torch.DoubleTensor')
 torch.set_default_tensor_type('torch.FloatTensor')
 
 inference_alg_strs = [
     'HMC-Gibbs',
+    'Doshi-Velez',
     'R-IBP',
+    'Widjaja',
 ]
 
 
@@ -674,7 +677,7 @@ def recursive_ibp(observations,
         non_eaten_dishes_posteriors_running_prod=non_eaten_dishes_posteriors_running_prod.numpy()[1:],
         num_dishes_poisson_rate_priors=num_dishes_poisson_rate_priors.numpy()[1:],
         num_dishes_poisson_rate_posteriors=num_dishes_poisson_rate_posteriors.numpy()[1:],
-        variable_variational_params=numpy_variable_variational_params,
+        parameters=numpy_variable_variational_params,
     )
 
     return bayesian_recursion_results
@@ -908,7 +911,7 @@ def run_inference_alg(inference_alg_str: str,
     # create dict to store algorithm-specific arguments to inference alg function
     inference_alg_kwargs = dict()
 
-    if likelihood_model == 'multivariate_gaussian':
+    if likelihood_model == 'linear_gaussian':
         inference_alg_kwargs['model_params'] = dict(
             gaussian_likelihood_cov_scaling=1.,
             gaussian_prior_cov_scaling=100.)
@@ -917,6 +920,8 @@ def run_inference_alg(inference_alg_str: str,
     if inference_alg_str == 'R-IBP':
         inference_alg_fn = recursive_ibp
         # TODO: add inference alg kwargs for which likelihood to use
+    elif inference_alg_str == 'Widjaja':
+        inference_alg_fn = variational_inference_streaming
     # elif inference_alg_str == 'Online CRP':
     #     inference_alg_fn = online_crp
     # elif inference_alg_str == 'SUSG':
@@ -996,8 +1001,9 @@ def sampling_hmc_gibbs(observations,
                        likelihood_model: str,
                        model_params: Dict[str, float],
                        num_samples: int,
+                       max_num_features: int = None,
                        plot_dir: str = None,
-                       max_num_features: int = None):
+                       ):
     # why sampling is so hard:
     # https://mc-stan.org/users/documentation/case-studies/identifying_mixture_models.html
 
@@ -1015,7 +1021,7 @@ def sampling_hmc_gibbs(observations,
     if max_num_features is None:
         # Note: the expected number of latents grows logarithmically as a*b*log(1 + N/sticks)
         # The 10 is a hopefully conservative heuristic to preallocate.
-        max_num_features = 3 * int(inference_params['alpha'] * inference_params['beta'] * \
+        max_num_features = 10 * int(inference_params['alpha'] * inference_params['beta'] * \
                                     np.log(1 + num_obs / inference_params['beta']))
 
     if likelihood_model == 'linear_gaussian':
@@ -1023,20 +1029,19 @@ def sampling_hmc_gibbs(observations,
         # TODO: move into own function
         def model(obs):
             with numpyro.plate('stick_plate', max_num_features):
-                # Based on Paisley and Carin 2009 Nonparametric Factor Analysis
-                # with Beta Process Priors. They sample the number of new dishes
-                # as: a / (b + n - 1). This means their a = alpha * beta and
-                # their b = beta.
+                # Based on Ghahramani 2007 Bayesian Nonparametric Latent Feature
+                # Models. They sample the number of new dishes as:
+                #       pi_k \sim Beta(alpha * beta / K, beta)
                 sticks = numpyro.sample(
                     'sticks',
                     numpyro.distributions.Beta(
                         alpha * beta / max_num_features,
-                        beta * (max_num_features - 1) / max_num_features))
+                        beta))
 
             # For each feature, sample its value
             with numpyro.plate('features_plate', max_num_features):
                 features = numpyro.sample(
-                    'features',
+                    'A',
                     numpyro.distributions.MultivariateNormal(
                         loc=jnp.zeros(obs_dim),
                         covariance_matrix=model_params['gaussian_mean_prior_cov_scaling'] * jnp.eye(obs_dim)))
@@ -1045,7 +1050,7 @@ def sampling_hmc_gibbs(observations,
                 # For some reason, this broadcasting is easier with numpyro. Don't fight it.
                 # shape (max num features, num obs)
                 indicators_transposed = numpyro.sample(
-                    'indicators',
+                    'Z',
                     numpyro.distributions.Bernoulli(probs=sticks.reshape(-1, 1)))
                 numpyro.sample(
                     'obs',
@@ -1068,23 +1073,136 @@ def sampling_hmc_gibbs(observations,
     # mcmc.print_summary()
     samples = mcmc.get_samples()
 
+    dish_eating_posteriors = np.mean(np.array(samples['Z'][-1000:]), axis=0)
+    dish_eating_priors = np.full_like(
+        dish_eating_posteriors,
+        fill_value=np.nan)
+    dish_eating_posteriors_running_sum = np.cumsum(dish_eating_posteriors, axis=0)
+    num_dishes_poisson_rate_posteriors = np.sum(dish_eating_posteriors_running_sum > 0.,
+                                                axis=1).reshape(-1, 1)
+    num_dishes_poisson_rate_priors = np.full_like(
+        num_dishes_poisson_rate_posteriors,
+        fill_value=np.nan).reshape(-1, 1)
+
     if likelihood_model == 'linear_gaussian':
-        # shape (num samples, num centroids, obs dim)
+        # shape (num samples, num features, obs dim)
+        # average over samples
+        average_A = np.mean(np.array(samples['A'][-1000:, :, :]), axis=0)
+
+        # add and repeat along observation dimensions to get shape
+        # (num samples, num centroids, obs dim)
+        A_by_obs_idx = np.repeat(average_A.reshape(1, max_num_features, obs_dim),
+                                 axis=0,
+                                 repeats=num_obs)
+
         parameters = dict(
             sticks=np.mean(np.array(samples['sticks'][-1000:, :]), axis=0),
-            features=np.mean(np.array(samples['features'][-1000:, :, :]), axis=0))
+            A=dict(mean=A_by_obs_idx))
     else:
         raise NotImplementedError
 
-    dish_eating_posteriors = np.mean(np.array(samples['indicators'][-1000:]), axis=0)
-    dish_eating_posteriors_running_sum = np.cumsum(dish_eating_posteriors, axis=0)
     hmc_gibbs_results = dict(
+        dish_eating_priors=dish_eating_priors,
         dish_eating_posteriors=dish_eating_posteriors,
         dish_eating_posteriors_running_sum=dish_eating_posteriors_running_sum,
-        non_eaten_dishes_posteriors_running_prod=non_eaten_dishes_posteriors_running_prod.numpy()[1:],
-        num_dishes_poisson_rate_priors=num_dishes_poisson_rate_priors.numpy()[1:],
-        num_dishes_poisson_rate_posteriors=num_dishes_poisson_rate_posteriors.numpy()[1:],
+        num_dishes_poisson_rate_priors=num_dishes_poisson_rate_priors,
+        num_dishes_poisson_rate_posteriors=num_dishes_poisson_rate_posteriors,
         parameters=parameters,
     )
 
     return hmc_gibbs_results
+
+
+def variational_inference_offline(observations,
+                                  inference_params: Dict[str, float],
+                                  likelihood_model: str,
+                                  model_params: Dict[str, float],
+                                  num_samples: int,
+                                  max_num_features: int = None,
+                                  plot_dir: str = None, ):
+    """
+    Implementation of Doshi-Velez 2009 Variational Inference for the IBP.
+    """
+    raise NotImplementedError
+
+
+def variational_inference_streaming(observations,
+                                    inference_params: Dict[str, float],
+                                    likelihood_model: str,
+                                    model_params: Dict[str, float],
+                                    max_num_features: int = None,
+                                    plot_dir: str = None, ):
+    """
+    Implementation of Widjaja 2017 Streaming Variational Inference for the IBP.
+    """
+
+    if likelihood_model != 'linear_gaussian':
+        raise NotImplementedError
+
+    num_obs, obs_dim = observations.shape
+    if max_num_features is None:
+        # Note: the expected number of latents grows logarithmically as a*b*log(1 + N/sticks)
+        # The 10 is a hopefully conservative heuristic to preallocate.
+        max_num_features = 10 * int(inference_params['alpha'] * inference_params['beta'] * \
+                                    np.log(1 + num_obs / inference_params['beta']))
+
+    streaming_model = utils.inference_widjaja.StreamingInfinite(
+        dim=obs_dim,
+        num_features=max_num_features,
+        alpha=inference_params['alpha'],
+        sigma_a=np.sqrt(model_params['gaussian_prior_cov_scaling']),
+        sigma_x=np.sqrt(model_params['gaussian_likelihood_cov_scaling']),
+        t0=1,
+        kappa=0.5)
+
+    streaming_strategy = utils.inference_widjaja.Static(
+        streaming_model,
+        observations,
+        minibatch_size=10)
+
+    dish_eating_priors = np.zeros(shape=(num_obs, max_num_features))
+
+    dish_eating_posteriors = np.zeros(shape=(num_obs, max_num_features))
+
+    A_means = np.zeros(shape=(num_obs, max_num_features, obs_dim))
+    # They assume a diagonal covariance. We will later expand.
+    A_covs = np.zeros(shape=(num_obs, max_num_features, obs_dim))
+
+    for obs_idx in range(num_obs):
+        step_results = streaming_strategy.step(obs_idx=obs_idx)
+        dish_eating_priors[obs_idx] = step_results['dish_eating_prior']
+        dish_eating_posteriors[obs_idx] = step_results['dish_eating_posterior']
+        A_means[obs_idx] = step_results['A_mean']
+        A_covs[obs_idx] = step_results['A_cov']
+
+    # Their model assumes a diagonal covariance. Convert to full covariance.
+    A_covs = np.apply_along_axis(
+        func1d=np.diag,
+        axis=2,
+        arr=A_covs,
+    )
+    parameters = dict(
+        A=dict(mean=A_means, cov=A_covs)
+    )
+
+    dish_eating_posteriors_running_sum = np.cumsum(dish_eating_posteriors, axis=0)
+
+    num_dishes_poisson_rate_posteriors = np.sum(dish_eating_posteriors_running_sum > 0.,
+                                                axis=1).reshape(-1, 1)
+
+    num_dishes_poisson_rate_priors = np.full_like(num_dishes_poisson_rate_posteriors,
+                                                  fill_value=np.nan)
+
+    variational_inference_streaming_results = dict(
+        dish_eating_priors=dish_eating_priors,
+        dish_eating_posteriors=dish_eating_posteriors,
+        dish_eating_posteriors_running_sum=dish_eating_posteriors_running_sum,
+        num_dishes_poisson_rate_priors=num_dishes_poisson_rate_priors,
+        num_dishes_poisson_rate_posteriors=num_dishes_poisson_rate_posteriors,
+        parameters=parameters,
+    )
+
+    return variational_inference_streaming_results
+
+
+    print(10)
