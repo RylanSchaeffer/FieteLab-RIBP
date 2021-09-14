@@ -105,7 +105,12 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
 def setup(args: argparse.Namespace):
     """ Create necessary directories, set seeds and load linear-Gaussian data."""
 
-    if args.inference_alg_str == 'HMC-Gibbs':
+    if args.inference_alg_str == 'Doshi-Velez':
+        inference_results_dir = f'{args.inference_alg_str}_a={args.alpha}_b={args.beta}'
+        inference_alg_params = dict(
+            alpha=args.alpha,
+            beta=args.beta)
+    elif args.inference_alg_str == 'HMC-Gibbs':
         inference_results_dir = f'{args.inference_alg_str}_a={args.alpha}_b={args.beta}'
         inference_alg_params = dict(
             alpha=args.alpha,

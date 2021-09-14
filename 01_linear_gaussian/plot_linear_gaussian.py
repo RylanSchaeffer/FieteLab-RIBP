@@ -26,6 +26,10 @@ def plot_gaussian_features_by_num_obs(observations: np.ndarray,
     actual_num_features = gaussian_features.shape[1]
     max_num_features = min(max_num_features, actual_num_features)
 
+    # Gaussian features either have shape (num obs, max num features, ...) if the
+    # inference algorithm is online, or shape (max num features, ...) if offline
+    gaussian_features_have_obs_dim = True if len(gaussian_features) == 3 else False
+
     fig, axes = plt.subplots(
         nrows=num_rows,
         ncols=num_cols,
@@ -43,11 +47,18 @@ def plot_gaussian_features_by_num_obs(observations: np.ndarray,
                    label='Observations')
         ax.set_title(f'Obs {obs_idx+1}')
         for feature_idx in range(max_num_features):
-            ax.plot([0, gaussian_features[obs_idx, feature_idx, 0]],
-                    [0, gaussian_features[obs_idx, feature_idx, 1]],
-                    label=f'{feature_idx}',
-                    # alpha=dish_eating_posteriors[obs_idx, feature_idx],
-                    )
+            if gaussian_features_have_obs_dim:
+                ax.plot([0, gaussian_features[obs_idx, feature_idx, 0]],
+                        [0, gaussian_features[obs_idx, feature_idx, 1]],
+                        label=f'{feature_idx}',
+                        # alpha=dish_eating_posteriors[obs_idx, feature_idx],
+                        )
+            else:
+                ax.plot([0, gaussian_features[feature_idx, 0]],
+                        [0, gaussian_features[feature_idx, 1]],
+                        label=f'{feature_idx}',
+                        # alpha=dish_eating_posteriors[obs_idx, feature_idx],
+                        )
         if row_idx == (num_rows - 1):
             ax.set_xlabel(r'$o_{1}$')
         if col_idx == 0:

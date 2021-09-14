@@ -6,7 +6,7 @@ import scipy.misc as spm
 import time
 
 
-class StreamingInfinite:
+class OnlineInfinite:
     def __init__(self, dim, num_features, alpha, sigma_a, sigma_x, t0=1, kappa=0.5):
         self.dim = dim
         self.num_features = num_features
@@ -83,6 +83,7 @@ class StreamingInfinite:
         nu = stats.uniform.rvs(size=(minibatch_size, self.num_features))
 
         prior = np.cumprod(self.tau_1 / (self.tau_1 + self.tau_2))
+        prior = prior.reshape(1, -1)  # add a batch dimension
 
         for t in range(convergence_iters):
             nu_sum, nu_comp_sum, nu_cross_sum, nu_data_sum = self.compute_sufficient_stats(rho, nu, data)
@@ -128,7 +129,7 @@ class StreamingInfinite:
 
         step_results = {
             'dish_eating_prior': prior,
-            'dish_eating_posterior': nu.copy()[0, :],  # remove batch dimension
+            'dish_eating_posterior': nu.copy(),
             'A_mean': self.phi.T,  # transpose because has shape (obs dim, max num features)
             'A_cov': self.Phi.T,  # transpose because has shape (obs dim, max num features)
         }
@@ -164,7 +165,7 @@ class StreamingInfinite:
         return nu
 
 
-class StochasticInfinite:
+class OfflineInfinite:
     def __init__(self, dim, data_size, num_features, alpha, sigma_a, sigma_x, t0=10, kappa=0.5):
         self.dim = dim
         self.data_size = data_size
@@ -294,6 +295,18 @@ class StochasticInfinite:
 
         self.iteration += 1
 
+        posterior = nu.copy()  # remove batch dimension
+        prior = np.full_like(posterior, fill_value=np.nan)
+
+        step_results = {
+            'dish_eating_prior': prior,
+            'dish_eating_posterior': posterior,
+            'A_mean': self.phi.T,  # transpose because has shape (obs dim, max num features)
+            'A_cov': self.Phi.T,  # transpose because has shape (obs dim, max num features)
+        }
+
+        return step_results
+
     def test(self, data, train_mask, convergence_iters=10, convergence_threshold=1e-3):
         k_indices = np.arange(self.num_features)
         size = data.shape[0]
@@ -341,10 +354,10 @@ class Static:
     def features(self):
         return self.model.phi.T
 
-    def step(self, obs_idx):
+    def step(self, obs_indices):
 
         # add a batch dimension
-        minibatch = self.data_source[obs_idx].reshape(1, -1)
+        minibatch = self.data_source[obs_indices]
 
         start_time = time.time()
         step_results = self.model.train(minibatch)

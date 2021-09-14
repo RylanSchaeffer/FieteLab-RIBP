@@ -917,11 +917,13 @@ def run_inference_alg(inference_alg_str: str,
             gaussian_prior_cov_scaling=100.)
 
     # select inference alg and add kwargs as necessary
-    if inference_alg_str == 'R-IBP':
+    if inference_alg_str == 'Doshi-Velez':
+        inference_alg_fn = variational_inference_offline
+    elif inference_alg_str == 'R-IBP':
         inference_alg_fn = recursive_ibp
         # TODO: add inference alg kwargs for which likelihood to use
     elif inference_alg_str == 'Widjaja':
-        inference_alg_fn = variational_inference_streaming
+        inference_alg_fn = variational_inference_online
     # elif inference_alg_str == 'Online CRP':
     #     inference_alg_fn = online_crp
     # elif inference_alg_str == 'SUSG':
@@ -1085,19 +1087,10 @@ def sampling_hmc_gibbs(observations,
         fill_value=np.nan).reshape(-1, 1)
 
     if likelihood_model == 'linear_gaussian':
-        # shape (num samples, num features, obs dim)
         # average over samples
-        average_A = np.mean(np.array(samples['A'][-1000:, :, :]), axis=0)
-
-        # add and repeat along observation dimensions to get shape
-        # (num samples, num centroids, obs dim)
-        A_by_obs_idx = np.repeat(average_A.reshape(1, max_num_features, obs_dim),
-                                 axis=0,
-                                 repeats=num_obs)
-
         parameters = dict(
             sticks=np.mean(np.array(samples['sticks'][-1000:, :]), axis=0),
-            A=dict(mean=A_by_obs_idx))
+            A=dict(mean=np.mean(np.array(samples['A'][-1000:, :, :]), axis=0)))
     else:
         raise NotImplementedError
 
@@ -1117,21 +1110,94 @@ def variational_inference_offline(observations,
                                   inference_params: Dict[str, float],
                                   likelihood_model: str,
                                   model_params: Dict[str, float],
-                                  num_samples: int,
                                   max_num_features: int = None,
+                                  num_coordinate_ascent_steps: int = 10,
                                   plot_dir: str = None, ):
     """
     Implementation of Doshi-Velez 2009 Variational Inference for the IBP.
     """
-    raise NotImplementedError
+
+    if likelihood_model != 'linear_gaussian':
+        raise NotImplementedError
+
+    assert num_coordinate_ascent_steps > 0
+    num_obs, obs_dim = observations.shape
+    if max_num_features is None:
+        # Note: the expected number of latents grows logarithmically as a*b*log(1 + N/sticks)
+        # The 10 is a hopefully conservative heuristic to preallocate.
+        max_num_features = 10 * int(inference_params['alpha'] * inference_params['beta'] * \
+                                    np.log(1 + num_obs / inference_params['beta']))
+
+    offline_model = utils.inference_widjaja.OfflineInfinite(
+        dim=obs_dim,
+        data_size=num_obs,
+        num_features=max_num_features,
+        alpha=inference_params['alpha'],
+        sigma_a=np.sqrt(model_params['gaussian_prior_cov_scaling']),
+        sigma_x=np.sqrt(model_params['gaussian_likelihood_cov_scaling']),
+        t0=1,
+        kappa=0.5)
+
+    offline_strategy = utils.inference_widjaja.Static(
+        offline_model,
+        observations,
+        minibatch_size=num_obs,  # full batch
+    )
+
+    dish_eating_priors = np.zeros(shape=(num_obs, max_num_features))
+
+    dish_eating_posteriors = np.zeros(shape=(num_obs, max_num_features))
+
+    # Always use full batch
+    obs_indices = slice(0, num_obs, 1)
+    for step_idx in range(num_coordinate_ascent_steps):
+        step_results = offline_strategy.step(obs_indices=obs_indices)
+    dish_eating_priors[:, :] = step_results['dish_eating_prior']
+    dish_eating_posteriors[:, :] = step_results['dish_eating_posterior']
+
+    # shape (max number of features, obs dim)
+    A_means = step_results['A_mean']
+    # shape (max number of features, obs dim)
+    # They assume a diagonal covariance. We will later expand.
+    A_covs = step_results['A_cov']
+
+    # Their model assumes a diagonal covariance. Convert to full covariance.
+    A_covs = np.apply_along_axis(
+        func1d=np.diag,
+        axis=1,
+        arr=A_covs,
+    )
+    parameters = dict(
+        A=dict(mean=A_means, cov=A_covs)
+    )
+
+    dish_eating_posteriors_running_sum = np.cumsum(dish_eating_posteriors, axis=0)
+
+    num_dishes_poisson_rate_posteriors = np.sum(
+        dish_eating_posteriors_running_sum > 0.,
+        axis=1).reshape(-1, 1)
+
+    num_dishes_poisson_rate_priors = np.full_like(num_dishes_poisson_rate_posteriors,
+                                                  fill_value=np.nan)
+
+    variational_inference_offline_results = dict(
+        dish_eating_priors=dish_eating_priors,
+        dish_eating_posteriors=dish_eating_posteriors,
+        dish_eating_posteriors_running_sum=dish_eating_posteriors_running_sum,
+        num_dishes_poisson_rate_priors=num_dishes_poisson_rate_priors,
+        num_dishes_poisson_rate_posteriors=num_dishes_poisson_rate_posteriors,
+        parameters=parameters,
+    )
+
+    return variational_inference_offline_results
 
 
-def variational_inference_streaming(observations,
-                                    inference_params: Dict[str, float],
-                                    likelihood_model: str,
-                                    model_params: Dict[str, float],
-                                    max_num_features: int = None,
-                                    plot_dir: str = None, ):
+def variational_inference_online(observations,
+                                 inference_params: Dict[str, float],
+                                 likelihood_model: str,
+                                 model_params: Dict[str, float],
+                                 max_num_features: int = None,
+                                 plot_dir: str = None, ):
     """
     Implementation of Widjaja 2017 Streaming Variational Inference for the IBP.
     """
@@ -1146,7 +1212,7 @@ def variational_inference_streaming(observations,
         max_num_features = 10 * int(inference_params['alpha'] * inference_params['beta'] * \
                                     np.log(1 + num_obs / inference_params['beta']))
 
-    streaming_model = utils.inference_widjaja.StreamingInfinite(
+    online_model = utils.inference_widjaja.OnlineInfinite(
         dim=obs_dim,
         num_features=max_num_features,
         alpha=inference_params['alpha'],
@@ -1155,8 +1221,8 @@ def variational_inference_streaming(observations,
         t0=1,
         kappa=0.5)
 
-    streaming_strategy = utils.inference_widjaja.Static(
-        streaming_model,
+    online_strategy = utils.inference_widjaja.Static(
+        online_model,
         observations,
         minibatch_size=10)
 
@@ -1169,9 +1235,10 @@ def variational_inference_streaming(observations,
     A_covs = np.zeros(shape=(num_obs, max_num_features, obs_dim))
 
     for obs_idx in range(num_obs):
-        step_results = streaming_strategy.step(obs_idx=obs_idx)
-        dish_eating_priors[obs_idx] = step_results['dish_eating_prior']
-        dish_eating_posteriors[obs_idx] = step_results['dish_eating_posterior']
+        obs_indices = slice(obs_idx, obs_idx+1, 1)
+        step_results = online_strategy.step(obs_indices=obs_indices)
+        dish_eating_priors[obs_idx, :] = step_results['dish_eating_prior'][0, :]
+        dish_eating_posteriors[obs_idx] = step_results['dish_eating_posterior'][0, :]
         A_means[obs_idx] = step_results['A_mean']
         A_covs[obs_idx] = step_results['A_cov']
 
@@ -1203,6 +1270,3 @@ def variational_inference_streaming(observations,
     )
 
     return variational_inference_streaming_results
-
-
-    print(10)
