@@ -304,7 +304,7 @@ def sample_sequence_from_factor_analysis(seq_len: int,
                                          feature_covariance: np.ndarray = None):
     """Factor Analysis model from Paisley & Carin (2009) Equation 11.
 
-    We make one modification. Paisely and Carin sample pi_k from
+    We make one modification. Paisley and Carin sample pi_k from
     Beta(beta_a/num_features, beta_b*(num_features-1)/num_features), which
     is an alternative parameterization of the IBP that does not agree with the
     parameterization used by Griffiths and Ghahramani (2011). Theirs samples pi_i from
@@ -313,7 +313,7 @@ def sample_sequence_from_factor_analysis(seq_len: int,
     because the parameterization dictates the expected number of dishes per customer
     and the expected number of total dishes.
 
-    Technically, we should take limit of num_features->infty. Instead we set
+    Technically, we should take limit of num_features->infinity. Instead we set
     max_num_features very large, and keep only the nonzero ones.
     """
 

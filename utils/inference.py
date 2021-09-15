@@ -1118,7 +1118,7 @@ def variational_inference_offline(observations,
                                   likelihood_model: str,
                                   model_parameters: Dict[str, float],
                                   max_num_features: int = None,
-                                  num_coordinate_ascent_steps: int = 10,
+                                  num_coordinate_ascent_steps: int = 100,
                                   plot_dir: str = None, ):
     """
     Implementation of Doshi-Velez 2009 Variational Inference for the IBP.
@@ -1135,11 +1135,12 @@ def variational_inference_offline(observations,
         max_num_features = 10 * int(inference_params['alpha'] * inference_params['beta'] * \
                                     np.log(1 + num_obs / inference_params['beta']))
 
-    offline_model = utils.inference_widjaja.OfflineInfinite(
-        dim=obs_dim,
-        data_size=num_obs,
-        num_features=max_num_features,
+    offline_model = utils.inference_widjaja.OfflineFinite(
+        obs_dim=obs_dim,
+        num_obs=num_obs,
+        max_num_features=max_num_features,
         alpha=inference_params['alpha'],
+        beta=inference_params['beta'],
         sigma_a=np.sqrt(model_parameters['gaussian_prior_cov_scaling']),
         sigma_x=np.sqrt(model_parameters['gaussian_likelihood_cov_scaling']),
         t0=1,
@@ -1153,8 +1154,8 @@ def variational_inference_offline(observations,
 
     dish_eating_priors = np.zeros(shape=(num_obs, max_num_features))
     dish_eating_posteriors = np.zeros(shape=(num_obs, max_num_features))
-    stick_param_1 = np.zeros(shape=(max_num_features,))
-    stick_param_2 = np.zeros(shape=(max_num_features,))
+    beta_param_1 = np.zeros(shape=(max_num_features,))
+    beta_param_2 = np.zeros(shape=(max_num_features,))
 
     # Always use full batch
     obs_indices = slice(0, num_obs, 1)
@@ -1162,8 +1163,8 @@ def variational_inference_offline(observations,
         step_results = offline_strategy.step(obs_indices=obs_indices)
     dish_eating_priors[:, :] = step_results['dish_eating_prior']
     dish_eating_posteriors[:, :] = step_results['dish_eating_posterior']
-    stick_param_1[:] = step_results['stick_param_1']
-    stick_param_2[:] = step_results['stick_param_2']
+    beta_param_1[:] = step_results['beta_param_1']
+    beta_param_2[:] = step_results['beta_param_2']
 
     # shape (max number of features, obs dim)
     A_means = step_results['A_mean']
@@ -1179,7 +1180,7 @@ def variational_inference_offline(observations,
     )
     variable_parameters = dict(
         A=dict(mean=A_means, cov=A_covs),
-        v=dict(param_1=stick_param_1, param_2=stick_param_2)
+        pi=dict(param_1=beta_param_1, param_2=beta_param_2)
     )
 
     dish_eating_posteriors_running_sum = np.cumsum(dish_eating_posteriors, axis=0)
@@ -1224,10 +1225,11 @@ def variational_inference_online(observations,
         max_num_features = 10 * int(inference_params['alpha'] * inference_params['beta'] * \
                                     np.log(1 + num_obs / inference_params['beta']))
 
-    online_model = utils.inference_widjaja.OnlineInfinite(
-        dim=obs_dim,
-        num_features=max_num_features,
+    online_model = utils.inference_widjaja.OnlineFinite(
+        obs_dim=obs_dim,
+        max_num_features=max_num_features,
         alpha=inference_params['alpha'],
+        beta=inference_params['beta'],
         sigma_a=np.sqrt(model_parameters['gaussian_prior_cov_scaling']),
         sigma_x=np.sqrt(model_parameters['gaussian_likelihood_cov_scaling']),
         t0=1,
@@ -1242,8 +1244,8 @@ def variational_inference_online(observations,
 
     dish_eating_posteriors = np.zeros(shape=(num_obs, max_num_features))
 
-    stick_param_1 = np.zeros(shape=(num_obs, max_num_features))
-    stick_param_2 = np.zeros(shape=(num_obs, max_num_features))
+    beta_param_1 = np.zeros(shape=(num_obs, max_num_features))
+    beta_param_2 = np.zeros(shape=(num_obs, max_num_features))
 
     A_means = np.zeros(shape=(num_obs, max_num_features, obs_dim))
     # They assume a diagonal covariance. We will later expand.
@@ -1256,8 +1258,8 @@ def variational_inference_online(observations,
         dish_eating_posteriors[obs_idx] = step_results['dish_eating_posterior'][0, :]
         A_means[obs_idx] = step_results['A_mean']
         A_covs[obs_idx] = step_results['A_cov']
-        stick_param_1[obs_idx] = step_results['stick_param_1']
-        stick_param_2[obs_idx] = step_results['stick_param_2']
+        beta_param_1[obs_idx] = step_results['beta_param_1']
+        beta_param_2[obs_idx] = step_results['beta_param_2']
 
     # Their model assumes a diagonal covariance. Convert to full covariance.
     A_covs = np.apply_along_axis(
@@ -1267,7 +1269,7 @@ def variational_inference_online(observations,
     )
     variable_parameters = dict(
         A=dict(mean=A_means, cov=A_covs),
-        v=dict(param_1=stick_param_1, param_2=stick_param_2)
+        pi=dict(param_1=beta_param_1, param_2=beta_param_2)
     )
 
     dish_eating_posteriors_running_sum = np.cumsum(dish_eating_posteriors, axis=0)
@@ -1279,7 +1281,7 @@ def variational_inference_online(observations,
                                              shape=num_dishes_poisson_rate_posteriors.shape)
     np.isnan(num_dishes_poisson_rate_priors)
 
-    variational_inference_streaming_results = dict(
+    variational_inference_online_results = dict(
         dish_eating_priors=dish_eating_priors,
         dish_eating_posteriors=dish_eating_posteriors,
         dish_eating_posteriors_running_sum=dish_eating_posteriors_running_sum,
@@ -1289,4 +1291,4 @@ def variational_inference_online(observations,
         model_parameters=model_parameters,
     )
 
-    return variational_inference_streaming_results
+    return variational_inference_online_results

@@ -24,12 +24,12 @@ def predictive_log_likelihood(test_observations: np.ndarray,
     if likelihood_model == 'linear_gaussian':
         for sample_idx in range(num_samples):
             if inference_alg_str == 'Doshi-Velez':
-                sticks = np.random.beta(a=variable_parameters['v']['param_1'][:],
-                                        b=variable_parameters['v']['param_1'][:])
-                indicators_probs = np.cumprod(sticks)
+                indicators_probs = np.random.beta(
+                    a=variable_parameters['pi']['param_1'][:],
+                    b=variable_parameters['pi']['param_1'][:])
                 A = np.stack([np.random.multivariate_normal(mean=variable_parameters['A']['mean'][k, :],
                                                             cov=variable_parameters['A']['cov'][k, :])
-                              for k in range(max_num_features)])
+                              for k in range(len(indicators_probs))])
 
             elif inference_alg_str == 'HMC-Gibbs':
                 random_mcmc_sample_idx = np.random.choice(
@@ -40,13 +40,12 @@ def predictive_log_likelihood(test_observations: np.ndarray,
             elif inference_alg_str == 'Widjaja':
                 # TODO: investigate why some param_2 are negative and how to stop it.
                 # Something in the original Widjaja code is screwing up.
-                param_1 = variable_parameters['v']['param_1']
+                param_1 = variable_parameters['pi']['param_1']
                 param_1[param_1 < 1e-10] = 1e-10
-                param_2 = variable_parameters['v']['param_2']
+                param_2 = variable_parameters['pi']['param_2']
                 param_2[param_2 < 1e-10] = 1e-10
 
-                sticks = np.random.beta(a=param_1[-1, :], b=param_2[-1, :])
-                indicators_probs = np.cumprod(sticks)
+                indicators_probs = np.random.beta(a=param_1[-1, :], b=param_2[-1, :])
                 A = np.stack([np.random.multivariate_normal(mean=variable_parameters['A']['mean'][-1, k, :],
                                                             cov=variable_parameters['A']['cov'][-1, k, :])
                               for k in range(len(indicators_probs))])
@@ -66,7 +65,7 @@ def predictive_log_likelihood(test_observations: np.ndarray,
             log_likelihoods_per_sample[sample_idx] = np.sum(np.square(test_observations - np.matmul(Z, A)))
 
         log_likelihoods_per_sample = -log_likelihoods_per_sample / (
-                    2.0 * model_parameters['gaussian_likelihood_cov_scaling'])
+                2.0 * model_parameters['gaussian_likelihood_cov_scaling'])
         log_likelihoods_per_sample -= obs_dim * np.log(
             2.0 * np.pi * model_parameters['gaussian_likelihood_cov_scaling']) / 2.
 

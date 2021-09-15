@@ -57,6 +57,14 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
     # Determine the index for train-test split
     num_obs = sampled_linear_gaussian_data['observations'].shape[0]
     train_end_idx = int(num_obs * train_fraction)
+    sampled_linear_gaussian_data['train_sampled_indicators'] = sampled_linear_gaussian_data[
+                                                                   'sampled_indicators'][:train_end_idx]
+    sampled_linear_gaussian_data['test_sampled_indicators'] = sampled_linear_gaussian_data[
+                                                                   'sampled_indicators'][train_end_idx:]
+    sampled_linear_gaussian_data['train_observations'] = sampled_linear_gaussian_data[
+                                                                   'observations'][:train_end_idx]
+    sampled_linear_gaussian_data['test_observations'] = sampled_linear_gaussian_data[
+                                                                   'observations'][train_end_idx:]
 
     inference_results_path = os.path.join(
         inference_results_dir,
@@ -67,7 +75,7 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
     start_time = timer()
     inference_alg_results = utils.inference.run_inference_alg(
         inference_alg_str=inference_alg_str,
-        observations=sampled_linear_gaussian_data['observations'][:train_end_idx, :],
+        observations=sampled_linear_gaussian_data['train_observations'],
         inference_alg_params=inference_alg_params,
         likelihood_model='linear_gaussian',
         learning_rate=1e0,
@@ -79,7 +87,7 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
 
     # record scores
     mean_log_posterior_predictive, std_log_posterior_predictive = utils.metrics.predictive_log_likelihood(
-        test_observations=sampled_linear_gaussian_data['observations'][train_end_idx:, :],
+        test_observations=sampled_linear_gaussian_data['test_observations'],
         inference_alg_str=inference_alg_str,
         likelihood_model='linear_gaussian',
         variable_parameters=inference_alg_results['variable_parameters'],
@@ -116,28 +124,10 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
 def setup(args: argparse.Namespace):
     """ Create necessary directories, set seeds and load linear-Gaussian data."""
 
-    if args.inference_alg_str == 'Doshi-Velez':
-        inference_results_dir = f'{args.inference_alg_str}_a={args.alpha}_b={args.beta}'
-        inference_alg_params = dict(
-            alpha=args.alpha,
-            beta=args.beta)
-    elif args.inference_alg_str == 'HMC-Gibbs':
-        inference_results_dir = f'{args.inference_alg_str}_a={args.alpha}_b={args.beta}'
-        inference_alg_params = dict(
-            alpha=args.alpha,
-            beta=args.beta)
-    elif args.inference_alg_str == 'R-IBP':
-        inference_results_dir = f'{args.inference_alg_str}_a={args.alpha}_b={args.beta}'
-        inference_alg_params = dict(
-            alpha=args.alpha,
-            beta=args.beta)
-    elif args.inference_alg_str == 'Widjaja':
-        inference_results_dir = f'{args.inference_alg_str}_a={args.alpha}_b={args.beta}'
-        inference_alg_params = dict(
-            alpha=args.alpha,
-            beta=args.beta)
-    else:
-        raise NotImplementedError
+    inference_results_dir = f'{args.inference_alg_str}_a={args.alpha}_b={args.beta}'
+    inference_alg_params = dict(
+        alpha=args.alpha,
+        beta=args.beta)
 
     inference_results_dir = os.path.join(
         args.run_one_results_dir,

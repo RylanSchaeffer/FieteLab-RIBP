@@ -28,7 +28,7 @@ def plot_gaussian_features_by_num_obs(observations: np.ndarray,
 
     # Gaussian features either have shape (num obs, max num features, ...) if the
     # inference algorithm is online, or shape (max num features, ...) if offline
-    gaussian_features_have_obs_dim = True if len(gaussian_features) == 3 else False
+    gaussian_features_have_obs_dim = True if len(gaussian_features.shape) == 3 else False
 
     fig, axes = plt.subplots(
         nrows=num_rows,
@@ -96,17 +96,17 @@ def plot_inference_results(sampled_linear_gaussian_data: dict,
     utils.plot.plot_poisson_rates_by_num_obs(
         num_dishes_poisson_rate_priors=inference_alg_results['num_dishes_poisson_rate_priors'],
         num_dishes_poisson_rate_posteriors=inference_alg_results['num_dishes_poisson_rate_posteriors'],
-        indicators=sampled_linear_gaussian_data['sampled_indicators'],
+        indicators=sampled_linear_gaussian_data['train_sampled_indicators'],
         plot_dir=plot_dir)
 
     utils.plot.plot_indicators_by_num_obs(
         dish_eating_priors=inference_alg_results['dish_eating_priors'],
         dish_eating_posteriors=inference_alg_results['dish_eating_posteriors'],
-        indicators=sampled_linear_gaussian_data['sampled_indicators'],
+        indicators=sampled_linear_gaussian_data['train_sampled_indicators'],
         plot_dir=plot_dir)
 
     plot_gaussian_features_by_num_obs(
-        observations=sampled_linear_gaussian_data['observations'],
+        observations=sampled_linear_gaussian_data['train_observations'],
         gaussian_features=inference_alg_results['variable_parameters']['A']['mean'],
         dish_eating_posteriors=inference_alg_results['dish_eating_posteriors'],
         plot_dir=plot_dir)
