@@ -50,7 +50,13 @@ def run_one(args: argparse.Namespace):
 def run_and_plot_inference_alg(sampled_linear_gaussian_data,
                                inference_alg_str,
                                inference_alg_params,
-                               inference_results_dir):
+                               inference_results_dir,
+                               train_fraction: int = .80):
+
+    assert 0. <= train_fraction <= 1.
+    # Determine the index for train-test split
+    num_obs = sampled_linear_gaussian_data['observations'].shape[0]
+    train_end_idx = int(num_obs * train_fraction)
 
     inference_results_path = os.path.join(
         inference_results_dir,
@@ -61,7 +67,7 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
     start_time = timer()
     inference_alg_results = utils.inference.run_inference_alg(
         inference_alg_str=inference_alg_str,
-        observations=sampled_linear_gaussian_data['observations'],
+        observations=sampled_linear_gaussian_data['observations'][:train_end_idx, :],
         inference_alg_params=inference_alg_params,
         likelihood_model='linear_gaussian',
         learning_rate=1e0,
@@ -72,9 +78,12 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
     runtime = stop_time - start_time
 
     # record scores
-    # scores, pred_cluster_labels = utils.metrics.score_predicted_clusters(
-    #     true_cluster_labels=sampled_linear_gaussian_data['assigned_table_seq'],
-    #     table_assignment_posteriors=inference_alg_results['table_assignment_posteriors'])
+    mean_log_posterior_predictive, std_log_posterior_predictive = utils.metrics.predictive_log_likelihood(
+        test_observations=sampled_linear_gaussian_data['observations'][train_end_idx:, :],
+        inference_alg_str=inference_alg_str,
+        likelihood_model='linear_gaussian',
+        variable_parameters=inference_alg_results['variable_parameters'],
+        model_parameters=inference_alg_results['model_parameters'])
 
     # count number of indicators
     num_indicators = np.sum(
@@ -85,7 +94,8 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
         inference_alg_params=inference_alg_params,
         inference_alg_results=inference_alg_results,
         num_indicators=num_indicators,
-        # scores=scores,
+        scores=dict(mean_log_posterior_predictive=mean_log_posterior_predictive,
+                    std_log_posterior_predictive=std_log_posterior_predictive),
         runtime=runtime)
 
     joblib.dump(data_to_store,

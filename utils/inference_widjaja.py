@@ -132,6 +132,8 @@ class OnlineInfinite:
             'dish_eating_posterior': nu.copy(),
             'A_mean': self.phi.T,  # transpose because has shape (obs dim, max num features)
             'A_cov': self.Phi.T,  # transpose because has shape (obs dim, max num features)
+            'stick_param_1': self.tau_1.copy(),  # add batch dimension
+            'stick_param_2': self.tau_2.copy(),  # add batch dimension
         }
 
         return step_results
@@ -303,6 +305,8 @@ class OfflineInfinite:
             'dish_eating_posterior': posterior,
             'A_mean': self.phi.T,  # transpose because has shape (obs dim, max num features)
             'A_cov': self.Phi.T,  # transpose because has shape (obs dim, max num features)
+            'beta_param_1': self.tau_1,
+            'beta_param_2': self.tau_2,
         }
 
         return step_results
@@ -376,17 +380,3 @@ class Static:
 
         return step_results
 
-
-def predictive_log_likelihood(model, data_source, samples=100):
-    nu = model.test(data_source.test_data, 1 - data_source.test_mask)
-
-    ll = np.empty(samples)
-    for s in range(samples):
-        Z = np.random.binomial(1, p=nu)
-        A = np.random.normal(loc=model.phi, scale=model.Phi).T
-        ll[s] = np.sum(data_source.test_mask * ((data_source.test_data - np.dot(Z, A)) ** 2))
-
-    ll = -ll / (2.0 * model.var_x)
-    ll -= np.sum(data_source.test_mask) / 2.0 * np.log(2.0 * np.pi * model.var_x)
-
-    return np.mean(ll), np.std(ll)
