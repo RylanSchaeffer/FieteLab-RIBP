@@ -104,6 +104,7 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
     # read results from disk
     stored_data = joblib.load(inference_results_path)
 
+    # TODO: separate train and test data when plotting, otherwise arrays of unequal length
     plot_linear_gaussian.plot_inference_results(
         sampled_linear_gaussian_data=sampled_linear_gaussian_data,
         inference_alg_results=stored_data['inference_alg_results'],

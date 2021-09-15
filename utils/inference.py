@@ -961,7 +961,7 @@ def run_inference_alg(inference_alg_str: str,
         # Suppose inference_alg_str is 'HMC-Gibbs (5000 Samples)'. We want to extract
         # the number of samples. To do this, we use the following
         # num_samples = int(inference_alg_str.split(' ')[1][1:])
-        inference_alg_kwargs['num_samples'] = 20  # TODO: restore to 200k
+        inference_alg_kwargs['num_samples'] = 200  # TODO: restore to 200k
         inference_alg_kwargs['max_num_features'] = None  # Use default
 
     # elif inference_alg_str.startswith('SVI'):
@@ -1010,6 +1010,8 @@ def sampling_hmc_gibbs(observations,
                        num_samples: int,
                        max_num_features: int = None,
                        plot_dir: str = None,
+                       burn_in: int = 20,
+                       thinning: int = 2,
                        ):
     # why sampling is so hard:
     # https://mc-stan.org/users/documentation/case-studies/identifying_mixture_models.html
@@ -1051,7 +1053,7 @@ def sampling_hmc_gibbs(observations,
                     'A',
                     numpyro.distributions.MultivariateNormal(
                         loc=jnp.zeros(obs_dim),
-                        covariance_matrix=model_parameters['gaussian_mean_prior_cov_scaling'] * jnp.eye(obs_dim)))
+                        covariance_matrix=model_parameters['gaussian_prior_cov_scaling'] * jnp.eye(obs_dim)))
 
             with numpyro.plate('data', num_obs):
                 # For some reason, this broadcasting is easier with numpyro. Don't fight it.
@@ -1073,14 +1075,14 @@ def sampling_hmc_gibbs(observations,
         inner_kernel=hmc_kernel)
     mcmc = numpyro.infer.MCMC(
         kernel,
-        num_warmup=1000,
+        num_warmup=100,
         num_samples=num_samples,
         progress_bar=True)
     mcmc.run(jax.random.PRNGKey(0), obs=observations)
     # mcmc.print_summary()
     samples = mcmc.get_samples()
 
-    dish_eating_posteriors = np.mean(np.array(samples['Z'][-1000:]), axis=0)
+    dish_eating_posteriors = np.mean(np.array(samples['Z'][burn_in::thinning]), axis=0)
     dish_eating_priors = np.full_like(
         dish_eating_posteriors,
         fill_value=np.nan)
@@ -1093,8 +1095,8 @@ def sampling_hmc_gibbs(observations,
     if likelihood_model == 'linear_gaussian':
         # average over samples
         variable_parameters = dict(
-            sticks=np.mean(np.array(samples['sticks'][-1000:, :]), axis=0),
-            A=dict(mean=np.mean(np.array(samples['A'][-1000:, :, :]), axis=0)))
+            v=dict(value=np.array(samples['sticks'][burn_in::thinning, :])),
+            A=dict(mean=np.array(samples['A'][burn_in::thinning, :, :])))
     else:
         raise NotImplementedError
 
@@ -1150,8 +1152,9 @@ def variational_inference_offline(observations,
     )
 
     dish_eating_priors = np.zeros(shape=(num_obs, max_num_features))
-
     dish_eating_posteriors = np.zeros(shape=(num_obs, max_num_features))
+    stick_param_1 = np.zeros(shape=(max_num_features,))
+    stick_param_2 = np.zeros(shape=(max_num_features,))
 
     # Always use full batch
     obs_indices = slice(0, num_obs, 1)
@@ -1159,6 +1162,8 @@ def variational_inference_offline(observations,
         step_results = offline_strategy.step(obs_indices=obs_indices)
     dish_eating_priors[:, :] = step_results['dish_eating_prior']
     dish_eating_posteriors[:, :] = step_results['dish_eating_posterior']
+    stick_param_1[:] = step_results['stick_param_1']
+    stick_param_2[:] = step_results['stick_param_2']
 
     # shape (max number of features, obs dim)
     A_means = step_results['A_mean']
@@ -1173,7 +1178,8 @@ def variational_inference_offline(observations,
         arr=A_covs,
     )
     variable_parameters = dict(
-        A=dict(mean=A_means, cov=A_covs)
+        A=dict(mean=A_means, cov=A_covs),
+        v=dict(param_1=stick_param_1, param_2=stick_param_2)
     )
 
     dish_eating_posteriors_running_sum = np.cumsum(dish_eating_posteriors, axis=0)

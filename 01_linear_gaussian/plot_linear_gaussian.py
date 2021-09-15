@@ -107,7 +107,7 @@ def plot_inference_results(sampled_linear_gaussian_data: dict,
 
     plot_gaussian_features_by_num_obs(
         observations=sampled_linear_gaussian_data['observations'],
-        gaussian_features=inference_alg_results['parameters']['A']['mean'],
+        gaussian_features=inference_alg_results['variable_parameters']['A']['mean'],
         dish_eating_posteriors=inference_alg_results['dish_eating_posteriors'],
         plot_dir=plot_dir)
 

@@ -305,8 +305,8 @@ class OfflineInfinite:
             'dish_eating_posterior': posterior,
             'A_mean': self.phi.T,  # transpose because has shape (obs dim, max num features)
             'A_cov': self.Phi.T,  # transpose because has shape (obs dim, max num features)
-            'beta_param_1': self.tau_1,
-            'beta_param_2': self.tau_2,
+            'stick_param_1': self.tau_1.copy(),  # add batch dimension
+            'stick_param_2': self.tau_2.copy(),  # add batch dimension
         }
 
         return step_results
