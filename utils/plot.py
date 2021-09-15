@@ -46,13 +46,15 @@ def plot_indicators_by_num_obs(indicators: np.ndarray,
     xticklabels = 1 + np.arange(max_feature_idx_to_display)
 
     indicators = indicators.astype(float)
-    bigger_indicators = np.zeros(shape=(num_obs, max_feature_idx_to_display))
-    bigger_indicators[:, :indicators.shape[1]] = indicators[:, :]
-    bigger_indicators[bigger_indicators < cutoff] = np.nan
+    possibly_bigger_indicators = np.zeros(
+        shape=(num_obs, max(max_feature_idx_to_display,
+                            indicators.shape[1])))
+    possibly_bigger_indicators[:, :indicators.shape[1]] = indicators[:, :]
+    possibly_bigger_indicators[possibly_bigger_indicators < cutoff] = np.nan
     axes[0].set_title(r'$z_{nk}$')
-    sns.heatmap(bigger_indicators,
+    sns.heatmap(possibly_bigger_indicators,
                 ax=axes[0],
-                mask=np.isnan(bigger_indicators),
+                mask=np.isnan(possibly_bigger_indicators),
                 cmap='jet',
                 vmin=cutoff,
                 vmax=1.,
