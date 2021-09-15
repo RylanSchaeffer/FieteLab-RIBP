@@ -1087,7 +1087,7 @@ def sampling_hmc_gibbs(observations,
         dish_eating_posteriors,
         fill_value=np.nan)
     dish_eating_posteriors_running_sum = np.cumsum(dish_eating_posteriors, axis=0)
-    num_dishes_poisson_rate_posteriors = np.sum(dish_eating_posteriors_running_sum > 0.,
+    num_dishes_poisson_rate_posteriors = np.sum(dish_eating_posteriors_running_sum > 1e-10,
                                                 axis=1).reshape(-1, 1)
     num_dishes_poisson_rate_priors = np.full(fill_value=np.nan,
                                              shape=num_dishes_poisson_rate_posteriors.shape)
@@ -1186,7 +1186,7 @@ def variational_inference_offline(observations,
     dish_eating_posteriors_running_sum = np.cumsum(dish_eating_posteriors, axis=0)
 
     num_dishes_poisson_rate_posteriors = np.sum(
-        dish_eating_posteriors_running_sum > 0.,
+        dish_eating_posteriors_running_sum > 1e-10,
         axis=1).reshape(-1, 1)
 
     num_dishes_poisson_rate_priors = np.full(fill_value=np.nan,
@@ -1274,12 +1274,12 @@ def variational_inference_online(observations,
 
     dish_eating_posteriors_running_sum = np.cumsum(dish_eating_posteriors, axis=0)
 
-    num_dishes_poisson_rate_posteriors = np.sum(dish_eating_posteriors_running_sum > 0.,
+    num_dishes_poisson_rate_posteriors = np.sum(dish_eating_posteriors_running_sum > 1e-2,
                                                 axis=1).reshape(-1, 1)
 
-    num_dishes_poisson_rate_priors = np.full(fill_value=np.nan,
-                                             shape=num_dishes_poisson_rate_posteriors.shape)
-    np.isnan(num_dishes_poisson_rate_priors)
+    dish_eating_priors_running_sum = np.cumsum(dish_eating_priors, axis=0)
+    num_dishes_poisson_rate_priors = np.sum(dish_eating_priors_running_sum > 1e-2,
+                                            axis=1).reshape(-1, 1)
 
     variational_inference_online_results = dict(
         dish_eating_priors=dish_eating_priors,

@@ -6,6 +6,8 @@ import os
 import pandas as pd
 import seaborn as sns
 
+from utils.numpy_helpers import compute_largest_dish_idx
+
 
 def plot_indicators_by_num_obs(indicators: np.ndarray,
                                dish_eating_priors,
@@ -21,52 +23,84 @@ def plot_indicators_by_num_obs(indicators: np.ndarray,
     (number of obs, number indicators)
     """
 
+    num_obs = indicators.shape[0]
+    yticklabels = 1 + np.arange(num_obs)
     fig, axes = plt.subplots(nrows=1,
                              ncols=5,
                              figsize=(12, 5),
                              gridspec_kw={'width_ratios': [1, 0.25, 1, 0.25, 1]})
+
+    # first figure out the largest dish index with a value greater
+    largest_indicator_idx = compute_largest_dish_idx(
+        observations=indicators,
+        cutoff=cutoff)
+    largest_dish_prior_idx = compute_largest_dish_idx(
+        observations=dish_eating_priors,
+        cutoff=cutoff)
+    largest_dish_posterior_idx = compute_largest_dish_idx(
+        observations=dish_eating_posteriors,
+        cutoff=cutoff)
+    # take mean of the three
+    max_feature_idx_to_display = int(np.mean([
+        largest_indicator_idx, largest_dish_prior_idx, largest_dish_posterior_idx]))
+    xticklabels = 1 + np.arange(max_feature_idx_to_display)
+
     indicators = indicators.astype(float)
-    indicators[indicators < cutoff] = np.nan
-    axes[0].set_title(r'$z_{tk}$')
-    sns.heatmap(indicators,
+    bigger_indicators = np.zeros(shape=(num_obs, max_feature_idx_to_display))
+    bigger_indicators[:, :indicators.shape[1]] = indicators[:, :]
+    bigger_indicators[bigger_indicators < cutoff] = np.nan
+    axes[0].set_title(r'$z_{nk}$')
+    sns.heatmap(bigger_indicators,
                 ax=axes[0],
-                mask=np.isnan(indicators),
+                mask=np.isnan(bigger_indicators),
                 cmap='jet',
                 vmin=cutoff,
                 vmax=1.,
-                norm=LogNorm())
+                norm=LogNorm(),
+                xticklabels=xticklabels,
+                yticklabels=yticklabels)
+    axes[0].set_ylabel('Observation Index')
+    axes[0].set_xlabel('Feature Index')
 
     axes[1].axis('off')
 
     dish_eating_priors[dish_eating_priors < cutoff] = np.nan
-    axes[2].set_title(r'$p(z_{tk}=1|o_{<t})$')
-    sns.heatmap(dish_eating_priors,
+    axes[2].set_title(r'$p(z_{nk}=1|o_{<n})$')
+    sns.heatmap(dish_eating_priors[:, :max_feature_idx_to_display],
                 ax=axes[2],
-                mask=np.isnan(dish_eating_priors),
+                mask=np.isnan(dish_eating_priors[:, :max_feature_idx_to_display]),
                 cmap='jet',
                 vmin=cutoff,
                 vmax=1.,
-                norm=LogNorm())
-
+                norm=LogNorm(),
+                xticklabels=xticklabels,
+                yticklabels=yticklabels)
+    axes[2].set_ylabel('Observation Index')
+    axes[2].set_xlabel('Feature Index')
     axes[3].axis('off')
 
     dish_eating_posteriors[dish_eating_posteriors < cutoff] = np.nan
-    axes[4].set_title(r'$p(z_{tk}=1|o_{\leq t})$')
-    sns.heatmap(dish_eating_posteriors,
+    axes[4].set_title(r'$p(z_{nk}=1|o_{\leq n})$')
+    sns.heatmap(dish_eating_posteriors[:, :max_feature_idx_to_display],
                 ax=axes[4],
-                mask=np.isnan(dish_eating_posteriors),
+                mask=np.isnan(dish_eating_posteriors[:, :max_feature_idx_to_display]),
                 cmap='jet',
                 vmin=cutoff,
                 vmax=1.,
-                norm=LogNorm())
+                norm=LogNorm(),
+                xticklabels=xticklabels,
+                yticklabels=yticklabels,
+                )
+    axes[4].set_ylabel('Observation Index')
+    axes[4].set_xlabel('Feature Index')
     plt.savefig(os.path.join(plot_dir, 'indicators_by_num_obs.png'),
                 bbox_inches='tight',
-                dpi=300)
+                dpi=500)
     # plt.show()
     plt.close()
 
 
-def plot_indicators_by_index_over_many_observations(indicators,):
+def plot_indicators_by_index_over_many_observations(indicators, ):
     # plt.title(f'Obs Idx: {obs_idx}, VI Idx: {vi_idx + 1}')
     # plt.scatter(np.arange(len(dish_eating_prior)), dish_eating_prior, label='prior')
     # plt.scatter(np.arange(len(dish_eating_prior)), Z_probs.detach().numpy(), label='posterior')
@@ -217,10 +251,10 @@ def plot_inference_algs_runtimes_by_param(runtimes_by_dataset_by_inference_alg: 
     plt.close()
 
 
-def plot_poisson_rates_by_num_obs(indicators,
-                                  num_dishes_poisson_rate_priors,
-                                  num_dishes_poisson_rate_posteriors,
-                                  plot_dir):
+def plot_num_features_by_num_obs(indicators,
+                                 num_dishes_poisson_rate_priors,
+                                 num_dishes_poisson_rate_posteriors,
+                                 plot_dir):
     """
     Plot inferred Poisson rates of number of dishes (Y) vs number of observations (X).
     """
@@ -255,44 +289,43 @@ def plot_poisson_rates_by_num_obs(indicators,
     # remove quantity from title
     plt.xlabel('Number of Observations')
     plt.ylabel('Inferred Number of Features')
+    plt.ylim(bottom=0.)
     # plt.gca().axis('equal')
     # plt.xlim(0, seq_length)
     # plt.ylim(0, seq_length)
     # plt.gca().invert_yaxis()
     g.get_legend().set_title(None)
-    plt.savefig(os.path.join(plot_dir, 'poisson_rates_by_num_obs.png'),
+    plt.savefig(os.path.join(plot_dir, 'num_features_by_num_obs.png'),
                 bbox_inches='tight',
                 dpi=300)
     # plt.show()
     plt.close()
 
-
-def plot_posterior_num_dishes_by_num_obs(dish_eating_array: np.ndarray,
-                                         plot_dir: str,
-                                         cutoff: float = 1e-5):
-    """
-    Plot number of dishes (Y) vs number of observations (X).
-
-    Assumes dish_eating_array has shape (num obs, max num indicators)
-    """
-
-    cum_dish_eating_array = np.cumsum(dish_eating_array, axis=0)
-    num_dishes_by_num_obs = np.sum(cum_dish_eating_array > cutoff, axis=1)
-
-    obs_indices = 1 + np.arange(len(num_dishes_by_num_obs))
-
-    sns.lineplot(obs_indices,
-                 num_dishes_by_num_obs)
-    plt.xlabel('Number of Observations')
-    plt.ylabel(f'Total Number of Dishes (cutoff={cutoff})')
-    plt.legend()
-
-    # make axes equal
-    plt.axis('square')
-
-    plt.savefig(os.path.join(plot_dir, 'num_dishes_by_num_obs.png'),
-                bbox_inches='tight',
-                dpi=300)
-    # plt.show()
-    plt.close()
-
+# def plot_posterior_num_dishes_by_num_obs(dish_eating_array: np.ndarray,
+#                                          plot_dir: str,
+#                                          cutoff: float = 1e-5):
+#     """
+#     Plot number of dishes (Y) vs number of observations (X).
+#
+#     Assumes dish_eating_array has shape (num obs, max num indicators)
+#     """
+#
+#     cum_dish_eating_array = np.cumsum(dish_eating_array, axis=0)
+#     num_dishes_by_num_obs = np.sum(cum_dish_eating_array > cutoff, axis=1)
+#
+#     obs_indices = 1 + np.arange(len(num_dishes_by_num_obs))
+#
+#     sns.lineplot(obs_indices,
+#                  num_dishes_by_num_obs)
+#     plt.xlabel('Number of Observations')
+#     plt.ylabel(f'Total Number of Dishes (cutoff={cutoff})')
+#     plt.legend()
+#
+#     # make axes equal
+#     plt.axis('square')
+#
+#     plt.savefig(os.path.join(plot_dir, 'num_dishes_by_num_obs.png'),
+#                 bbox_inches='tight',
+#                 dpi=300)
+#     # plt.show()
+#     plt.close()

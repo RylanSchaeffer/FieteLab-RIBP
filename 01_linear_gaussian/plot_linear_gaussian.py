@@ -89,11 +89,7 @@ def plot_inference_results(sampled_linear_gaussian_data: dict,
                            inference_alg_params: dict,
                            plot_dir):
 
-    utils.plot.plot_posterior_num_dishes_by_num_obs(
-        dish_eating_array=inference_alg_results['dish_eating_posteriors'],
-        plot_dir=plot_dir)
-
-    utils.plot.plot_poisson_rates_by_num_obs(
+    utils.plot.plot_num_features_by_num_obs(
         num_dishes_poisson_rate_priors=inference_alg_results['num_dishes_poisson_rate_priors'],
         num_dishes_poisson_rate_posteriors=inference_alg_results['num_dishes_poisson_rate_posteriors'],
         indicators=sampled_linear_gaussian_data['train_sampled_indicators'],
