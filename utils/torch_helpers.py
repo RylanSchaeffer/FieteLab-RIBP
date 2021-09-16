@@ -65,7 +65,8 @@ def expected_log_bernoulli_under_bernoulli(p_prob: torch.Tensor,
 def expected_log_gaussian_under_gaussian(p_mean: torch.Tensor,
                                          p_cov: torch.Tensor,
                                          q_mean: torch.Tensor,
-                                         q_cov: torch.Tensor) -> torch.Tensor:
+                                         q_cov: torch.Tensor,
+                                         check_einsums: bool = False) -> torch.Tensor:
     """
     Compute E_{q(x)}[log p(x)] where p(x) and q(x) are both Gaussian.
 
@@ -92,12 +93,6 @@ def expected_log_gaussian_under_gaussian(p_mean: torch.Tensor,
                 q_cov + torch.einsum('bi, bj->bij',
                                      q_mean,
                                      q_mean))))
-    term_two_check = -0.5 * torch.sum(torch.stack(
-        [torch.trace(torch.matmul(p_precision[k],
-                                  torch.add(q_cov[k],
-                                            torch.outer(q_mean[k], q_mean[k].T))))
-         for k in range(batch_dim)]))
-    assert torch.isclose(term_two, term_two_check)
 
     # sum_k -0.5 * -2 * mean_p Precision_p mean_q
     term_three = -0.5 * -2. * torch.einsum(
@@ -106,12 +101,6 @@ def expected_log_gaussian_under_gaussian(p_mean: torch.Tensor,
         p_precision,
         q_mean,
     )
-    term_three_check = torch.sum(torch.stack(
-        [-.5 * -2. * torch.inner(p_mean[k],
-                                 torch.matmul(p_precision[k],
-                                              q_mean[k]))
-         for k in range(batch_dim)]))
-    assert torch.isclose(term_three, term_three_check)
 
     # sum_k -0.5 * mean_p Precision_p mean_p
     term_four = -0.5 * -2. * torch.einsum(
@@ -120,12 +109,27 @@ def expected_log_gaussian_under_gaussian(p_mean: torch.Tensor,
         p_precision,
         p_mean,
     )
-    term_four_check = torch.sum(torch.stack(
-        [-.5 * -2. * torch.inner(p_mean[k],
-                                 torch.matmul(p_precision[k],
-                                              p_mean[k]))
-         for k in range(batch_dim)]))
-    assert torch.isclose(term_four, term_four_check)
+    if check_einsums:
+        term_two_check = -0.5 * torch.sum(torch.stack(
+            [torch.trace(torch.matmul(p_precision[k],
+                                      torch.add(q_cov[k],
+                                                torch.outer(q_mean[k], q_mean[k].T))))
+             for k in range(batch_dim)]))
+        assert torch.isclose(term_two, term_two_check)
+
+        term_three_check = torch.sum(torch.stack(
+            [-.5 * -2. * torch.inner(p_mean[k],
+                                     torch.matmul(p_precision[k],
+                                                  q_mean[k]))
+             for k in range(batch_dim)]))
+        assert torch.isclose(term_three, term_three_check)
+
+        term_four_check = torch.sum(torch.stack(
+            [-.5 * -2. * torch.inner(p_mean[k],
+                                     torch.matmul(p_precision[k],
+                                                  p_mean[k]))
+             for k in range(batch_dim)]))
+        assert torch.isclose(term_four, term_four_check)
     total = term_one + term_two + term_three + term_four
     assert_no_nan_no_inf(total)
     return total
@@ -135,7 +139,8 @@ def expected_log_gaussian_under_linear_gaussian(observation: torch.Tensor,
                                                 q_A_mean: torch.Tensor,
                                                 q_A_cov: torch.Tensor,
                                                 q_Z_mean: torch.Tensor,
-                                                sigma_obs_squared: float = 1e0) -> torch.Tensor:
+                                                sigma_obs_squared: float = 1e0,
+                                                check_einsums: bool = False) -> torch.Tensor:
     """
     Compute E_{q(A, Z)}[log p(x|A, Z)] where p(x) = Gaussian(Z @ A, sigma_obs^2 I)
     and q(A, Z) = q(A) q(Z) are both Gaussian.
@@ -158,15 +163,6 @@ def expected_log_gaussian_under_linear_gaussian(observation: torch.Tensor,
         q_Z_mean,
         q_A_mean,
         observation)
-    term_three_check = -2. * torch.sum(torch.multiply(q_Z_mean,
-                                                      torch.matmul(q_A_mean,
-                                                                   observation)))
-    # TODO: debug why this assertion fails on the 15th step on a subset of datasets
-    try:
-        assert torch.isclose(term_three, term_three_check)
-    except AssertionError:
-        logging.error(str(term_three - term_three_check))
-        raise AssertionError
 
     # \sum_k b_{nk} Tr[Sigma_{nk} + \mu_{nk} \mu_{nk}^T]
     term_four = torch.einsum(
@@ -188,16 +184,27 @@ def expected_log_gaussian_under_linear_gaussian(observation: torch.Tensor,
     term_five_self_pairs = torch.trace(term_five_all_pairs)
     term_five = torch.sum(term_five_all_pairs) - term_five_self_pairs
 
-    term_five_all_pairs_sum_check = torch.sum(torch.stack(
-        [q_Z_mean[k] * q_Z_mean[kprime] * torch.inner(q_A_mean[k], q_A_mean[kprime])
-         for k in range(num_features)
-         for kprime in range(num_features)]))
-    # TODO: debug why this assertion fails on the 21st step on a subset of datasets
-    try:
-        assert torch.isclose(torch.sum(term_five_all_pairs), term_five_all_pairs_sum_check)
-    except AssertionError:
-        logging.error(str(term_five_all_pairs - term_five_all_pairs_sum_check))
-        raise AssertionError
+    if check_einsums:
+        term_three_check = -2. * torch.sum(torch.multiply(q_Z_mean,
+                                                          torch.matmul(q_A_mean,
+                                                                       observation)))
+        # TODO: debug why this assertion fails on the 15th step on a subset of datasets
+        try:
+            assert torch.isclose(term_three, term_three_check)
+        except AssertionError:
+            logging.error(str(term_three - term_three_check))
+            raise AssertionError
+
+        term_five_all_pairs_sum_check = torch.sum(torch.stack(
+            [q_Z_mean[k] * q_Z_mean[kprime] * torch.inner(q_A_mean[k], q_A_mean[kprime])
+             for k in range(num_features)
+             for kprime in range(num_features)]))
+        # TODO: debug why this assertion fails on the 21st step on a subset of datasets
+        try:
+            assert torch.isclose(torch.sum(term_five_all_pairs), term_five_all_pairs_sum_check)
+        except AssertionError:
+            logging.error(str(term_five_all_pairs - term_five_all_pairs_sum_check))
+            raise AssertionError
 
     total = term_one - 0.5 * (term_two + term_three + term_four + term_five) / sigma_obs_squared
     assert_no_nan_no_inf(total)

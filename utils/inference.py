@@ -470,25 +470,25 @@ def recursive_ibp(observations,
                 with torch.no_grad():
                     logging.info(f'Obs Idx: {obs_idx}, VI idx: {vi_idx}')
 
-                    tracemalloc.start()
-                    start_time = timer()
+                    # tracemalloc.start()
+                    # start_time = timer()
                     approx_lower_bound = recursive_ibp_compute_approx_lower_bound(
                         torch_observation=torch_observation,
                         obs_idx=obs_idx,
                         dish_eating_prior=dish_eating_prior,
                         variable_variational_params=variable_parameters,
                         sigma_obs_squared=model_parameters['gaussian_likelihood_cov_scaling'])
-                    approx_lower_bounds.append(approx_lower_bound.item())
-                    stop_time = timer()
-                    current, peak = tracemalloc.get_traced_memory()
-                    logging.debug(f"memory:recursive_ibp_compute_approx_lower_bound:"
-                                  f"current={current / 10 ** 6}MB; peak={peak / 10 ** 6}MB")
-                    logging.debug(f'runtime:recursive_ibp_compute_approx_lower_bound: {stop_time - start_time}')
-                    tracemalloc.stop()
+                    # approx_lower_bounds.append(approx_lower_bound.item())
+                    # stop_time = timer()
+                    # current, peak = tracemalloc.get_traced_memory()
+                    # logging.debug(f"memory:recursive_ibp_compute_approx_lower_bound:"
+                    #               f"current={current / 10 ** 6}MB; peak={peak / 10 ** 6}MB")
+                    # logging.debug(f'runtime:recursive_ibp_compute_approx_lower_bound: {stop_time - start_time}')
+                    # tracemalloc.stop()
                     # logging.info(prof.key_averages().table(sort_by="self_cpu_memory_usage"))
 
-                    tracemalloc.start()
-                    start_time = timer()
+                    # tracemalloc.start()
+                    # start_time = timer()
                     A_means, A_half_covs = recursive_ibp_optimize_gaussian_params(
                         torch_observation=torch_observation,
                         obs_idx=obs_idx,
@@ -496,12 +496,12 @@ def recursive_ibp(observations,
                         variable_variational_params=variable_parameters,
                         simultaneous_or_sequential=simultaneous_or_sequential,
                         sigma_obs_squared=model_parameters['gaussian_likelihood_cov_scaling'])
-                    stop_time = timer()
-                    current, peak = tracemalloc.get_traced_memory()
-                    logging.debug(f"memory:recursive_ibp_optimize_gaussian_params:"
-                                  f"current={current / 10 ** 6}MB; peak={peak / 10 ** 6}MB")
-                    logging.debug(f'runtime:recursive_ibp_optimize_gaussian_params: {stop_time - start_time}')
-                    tracemalloc.stop()
+                    # stop_time = timer()
+                    # current, peak = tracemalloc.get_traced_memory()
+                    # logging.debug(f"memory:recursive_ibp_optimize_gaussian_params:"
+                    #               f"current={current / 10 ** 6}MB; peak={peak / 10 ** 6}MB")
+                    # logging.debug(f'runtime:recursive_ibp_optimize_gaussian_params: {stop_time - start_time}')
+                    # tracemalloc.stop()
 
                     if ossify_features:
                         # TODO: refactor into own function
@@ -533,8 +533,8 @@ def recursive_ibp(observations,
                     variable_parameters['A']['half_cov'].data[obs_idx, :] = A_half_covs
 
                     # maximize approximate lower bound with respect to Z's parameters
-                    tracemalloc.start()
-                    start_time = timer()
+                    # tracemalloc.start()
+                    # start_time = timer()
                     Z_probs = recursive_ibp_optimize_bernoulli_params(
                         torch_observation=torch_observation,
                         obs_idx=obs_idx,
@@ -543,12 +543,12 @@ def recursive_ibp(observations,
                         variable_variational_params=variable_parameters,
                         simultaneous_or_sequential=simultaneous_or_sequential,
                         sigma_obs_squared=model_parameters['gaussian_likelihood_cov_scaling'])
-                    stop_time = timer()
-                    current, peak = tracemalloc.get_traced_memory()
-                    logging.debug(f"memory:recursive_ibp_optimize_bernoulli_params:"
-                                  f"current={current / 10 ** 6}MB; peak={peak / 10 ** 6}MB")
-                    logging.debug(f'runtime:recursive_ibp_optimize_bernoulli_params: {stop_time - start_time}')
-                    tracemalloc.stop()
+                    # stop_time = timer()
+                    # current, peak = tracemalloc.get_traced_memory()
+                    # logging.debug(f"memory:recursive_ibp_optimize_bernoulli_params:"
+                    #               f"current={current / 10 ** 6}MB; peak={peak / 10 ** 6}MB")
+                    # logging.debug(f'runtime:recursive_ibp_optimize_bernoulli_params: {stop_time - start_time}')
+                    # tracemalloc.stop()
 
                     variable_parameters['Z']['prob'].data[obs_idx, :] = Z_probs
 
