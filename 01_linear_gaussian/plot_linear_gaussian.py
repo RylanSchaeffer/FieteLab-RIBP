@@ -71,18 +71,6 @@ def plot_gaussian_features_by_num_obs(observations: np.ndarray,
     plt.close()
 
 
-def plot_animation_gaussian_features_by_num_obs(observations: np.ndarray,
-                                                gaussian_features: np.ndarray,
-                                                plot_dir: str):
-    """Create an animation of how Gaussian features evolve per observation"""
-    print(10)
-
-    fig, ax = plt.subplots()
-    ud = UpdateDist(ax, prob=0.7)
-    anim = FuncAnimation(fig, ud, frames=100, interval=100, blit=True)
-    plt.show()
-
-
 def plot_inference_results(sampled_linear_gaussian_data: dict,
                            inference_alg_results: dict,
                            inference_alg_str: str,
@@ -101,6 +89,7 @@ def plot_inference_results(sampled_linear_gaussian_data: dict,
         indicators=sampled_linear_gaussian_data['train_sampled_indicators'],
         plot_dir=plot_dir)
 
+    # TODO: Fix this function
     plot_gaussian_features_by_num_obs(
         observations=sampled_linear_gaussian_data['train_observations'],
         gaussian_features=inference_alg_results['variable_parameters']['A']['mean'],

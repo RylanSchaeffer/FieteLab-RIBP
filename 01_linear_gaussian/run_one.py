@@ -32,13 +32,13 @@ def run_one(args: argparse.Namespace):
 
     logging.info('Running and plotting {} with params {} on dataset {}'.format(
         setup_results['inference_alg_str'],
-        setup_results['inference_alg_params'],
+        setup_results['model_params'],
         args.run_one_results_dir))
 
     run_and_plot_inference_alg(
         sampled_linear_gaussian_data=setup_results['sampled_linear_gaussian_data'],
         inference_alg_str=setup_results['inference_alg_str'],
-        inference_alg_params=setup_results['inference_alg_params'],
+        model_params=setup_results['model_params'],
         inference_results_dir=setup_results['inference_results_dir'])
 
     logging.info('Successfully ran and plotted {} with params {} on dataset {}'.format(
@@ -49,7 +49,7 @@ def run_one(args: argparse.Namespace):
 
 def run_and_plot_inference_alg(sampled_linear_gaussian_data,
                                inference_alg_str,
-                               inference_alg_params,
+                               model_params,
                                inference_results_dir,
                                train_fraction: int = .80):
 
@@ -76,8 +76,8 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
     inference_alg_results = utils.inference.run_inference_alg(
         inference_alg_str=inference_alg_str,
         observations=sampled_linear_gaussian_data['train_observations'],
-        inference_alg_params=inference_alg_params,
-        likelihood_model='linear_gaussian',
+        model_str='linear_gaussian',
+        model_params=model_params,
         learning_rate=1e0,
         plot_dir=inference_results_dir)
 
@@ -86,12 +86,9 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
     runtime = stop_time - start_time
 
     # record scores
-    mean_log_posterior_predictive, std_log_posterior_predictive = utils.metrics.predictive_log_likelihood(
+    log_posterior_predictive_results = utils.metrics.compute_log_posterior_predictive(
         test_observations=sampled_linear_gaussian_data['test_observations'],
-        inference_alg_str=inference_alg_str,
-        likelihood_model='linear_gaussian',
-        variable_parameters=inference_alg_results['variable_parameters'],
-        model_parameters=inference_alg_results['model_parameters'])
+        inference_alg=inference_alg_results['inference_alg'])
 
     # count number of indicators
     num_indicators = np.sum(
@@ -99,11 +96,11 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
 
     data_to_store = dict(
         inference_alg_str=inference_alg_str,
-        inference_alg_params=inference_alg_params,
+        inference_alg_params=model_params,
         inference_alg_results=inference_alg_results,
         num_indicators=num_indicators,
-        scores=dict(mean_log_posterior_predictive=mean_log_posterior_predictive,
-                    std_log_posterior_predictive=std_log_posterior_predictive),
+        log_posterior_predictive=dict(mean=log_posterior_predictive_results['mean'],
+                                      std=log_posterior_predictive_results['std']),
         runtime=runtime)
 
     joblib.dump(data_to_store,
@@ -125,7 +122,7 @@ def setup(args: argparse.Namespace):
     """ Create necessary directories, set seeds and load linear-Gaussian data."""
 
     inference_results_dir = f'{args.inference_alg_str}_a={args.alpha}_b={args.beta}'
-    inference_alg_params = dict(
+    model_params = dict(
         alpha=args.alpha,
         beta=args.beta)
 
@@ -148,7 +145,7 @@ def setup(args: argparse.Namespace):
 
     setup_results = dict(
         inference_alg_str=args.inference_alg_str,
-        inference_alg_params=inference_alg_params,
+        model_params=model_params,
         sampled_linear_gaussian_data=sampled_linear_gaussian_data,
         inference_results_dir=inference_results_dir,
     )

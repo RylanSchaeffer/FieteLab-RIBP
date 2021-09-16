@@ -36,14 +36,13 @@ subdirectory (e.g. `exp_00_ibp_prior/plots`) and then reproduces the plots in th
 
 ## TODO
 
-- Why are we getting OOM errors after 40 minutes into inference?
-- What are the correct metrics?
 - Implement IBP baselines
-  - Gibbs sampling
-  - SVI
+  - HMC Gibbs sampling
   - Variational Inference (Doshi Velez)
   - Streaming VI (Widjaja)
-  - Campbell Streaming Bayesian Inference
+- Derive Factor Analysis and Non-negative Matrix Factorization
+- Implement Factor Analysis and Non-negative Matrix Factorization
+- Why are we getting OOM errors after 40 minutes into inference?
 
 ## Contact
 

@@ -60,8 +60,8 @@ def run_and_plot_inference_alg(sampled_griffiths_ghahramani_data,
     inference_alg_results = utils.inference.run_inference_alg(
         inference_alg_str=inference_alg_str,
         observations=sampled_griffiths_ghahramani_data['observations'],
-        inference_alg_params=inference_alg_params,
-        likelihood_model='multivariate_normal',
+        model_params=inference_alg_params,
+        model_str='multivariate_normal',
         learning_rate=1e0,
         plot_dir=inference_results_dir)
 
