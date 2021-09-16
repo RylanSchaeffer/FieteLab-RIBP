@@ -1082,7 +1082,9 @@ def sampling_hmc_gibbs(observations,
     # mcmc.print_summary()
     samples = mcmc.get_samples()
 
-    dish_eating_posteriors = np.mean(np.array(samples['Z'][burn_in::thinning]), axis=0)
+    # For some reason, Pyro puts the obs dimension last, so we transpose
+    Z_samples = np.array(samples['Z'].transpose(0, 2, 1))
+    dish_eating_posteriors = np.mean(Z_samples[burn_in::thinning], axis=0)
     dish_eating_priors = np.full_like(
         dish_eating_posteriors,
         fill_value=np.nan)
