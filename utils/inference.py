@@ -155,20 +155,26 @@ class DoshiVelezLinearGaussian(LinearGaussianModel):
                                                num_samples: int) -> Dict[str, np.ndarray]:
 
         var_params = self.fit_results['variational_params']
+        max_num_features = var_params['pi']['param_1'].shape[0]
         indicators_probs = np.random.beta(
             a=var_params['pi']['param_1'][:],
             b=var_params['pi']['param_1'][:],
-            size=num_samples)
-        features = np.array([[np.random.multivariate_normal(mean=var_params['A']['mean'][k, :],
-                                                            cov=var_params['A']['cov'][k, :])
-                              for k in range(len(indicators_probs))]
-                             for _ in range(num_samples)])
+            size=(num_samples, max_num_features))
+        features = np.array([np.random.multivariate_normal(mean=var_params['A']['mean'][k, :],
+                                                           cov=var_params['A']['cov'][k, :],
+                                                           size=num_samples)
+                             for k in range(max_num_features)])
+        # shape (num samples, num obs, obs dim)
+        features = features.transpose(1, 0, 2)
 
         sampled_params = dict(
             indicators_probs=indicators_probs,
             features=features)
 
         return sampled_params
+
+    def features(self):
+        return self.fit_results['variational_params']['A']['mean'][:]
 
 
 class HMCGibbsLinearGaussian(LinearGaussianModel):
@@ -1367,7 +1373,8 @@ def run_inference_alg(inference_alg_str: str,
         model_params['kappa'] = 0.5
         inference_alg = DoshiVelezLinearGaussian(
             model_str=model_str,
-            model_params=model_params)
+            model_params=model_params,
+            num_coordinate_ascent_steps=119)
     elif inference_alg_str == 'R-IBP':
         inference_alg = RecursiveIBPLinearGaussian(
             model_str=model_str,
