@@ -1,5 +1,5 @@
 """
-Launch run_one.py with each configuration of the parameters, to compare the
+Launch run_one.py with each configuration of the params, to compare the
 analytical DCRP marginal distribution against Monte-Carlo estimates of the DCRP
 marginal distribution.
 

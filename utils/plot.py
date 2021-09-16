@@ -124,7 +124,7 @@ def plot_inference_algs_comparison(inference_algs_results_by_dataset_idx: dict,
     # we have four dimensions of interest: inference_alg, dataset idx, scoring metric, concentration parameter
 
     # construct dictionary mapping from inference alg to dataframe
-    # with dataset idx as rows and concentration parameters as columns
+    # with dataset idx as rows and concentration params as columns
     # {inference alg: DataFrame(number of clusters)}
     num_clusters_by_dataset_by_inference_alg = {}
     for inference_alg in inference_algs:
@@ -138,7 +138,7 @@ def plot_inference_algs_comparison(inference_algs_results_by_dataset_idx: dict,
         num_clusters=num_clusters)
 
     # construct dictionary mapping from inference alg to dataframe
-    # with dataset idx as rows and concentration parameters as columns
+    # with dataset idx as rows and concentration params as columns
     # {inference alg: DataFrame(runtimes)}
     runtimes_by_dataset_by_inference_alg = {}
     for inference_alg in inference_algs:
@@ -151,7 +151,7 @@ def plot_inference_algs_comparison(inference_algs_results_by_dataset_idx: dict,
         plot_dir=plot_dir)
 
     # construct dictionary mapping from scoring metric to inference alg
-    # to dataframe with dataset idx as rows and concentration parameters as columns
+    # to dataframe with dataset idx as rows and concentration params as columns
     # {scoring metric: {inference alg: DataFrame(scores)}}
     scores_by_dataset_by_inference_alg_by_scoring_metric = {}
     for scoring_metric in scoring_metrics:
@@ -174,7 +174,7 @@ def plot_inference_algs_num_clusters_by_param(num_clusters_by_dataset_by_inferen
     for inference_alg_str, inference_alg_num_clusters_df in num_clusters_by_dataset_by_inference_alg.items():
         means = inference_alg_num_clusters_df.mean()
         sems = inference_alg_num_clusters_df.sem()
-        plt.plot(inference_alg_num_clusters_df.columns.values,  # concentration parameters
+        plt.plot(inference_alg_num_clusters_df.columns.values,  # concentration params
                  means,
                  label=inference_alg_str)
         plt.fill_between(
@@ -203,7 +203,7 @@ def plot_inference_algs_scores_by_param(scores_by_dataset_by_inference_alg_by_sc
     # for each scoring function, plot score (y) vs parameter (x)
     for scoring_metric, scores_by_dataset_by_inference_alg in scores_by_dataset_by_inference_alg_by_scoring_metric.items():
         for inference_alg_str, inference_algs_scores_df in scores_by_dataset_by_inference_alg.items():
-            plt.plot(inference_algs_scores_df.columns.values,  # concentration parameters
+            plt.plot(inference_algs_scores_df.columns.values,  # concentration params
                      inference_algs_scores_df.mean(),
                      label=inference_alg_str)
             plt.fill_between(
@@ -231,7 +231,7 @@ def plot_inference_algs_runtimes_by_param(runtimes_by_dataset_by_inference_alg: 
         print(f'{inference_alg_str} Average Runtime: {np.mean(inference_alg_runtime_df.values)}')
         means = inference_alg_runtime_df.mean()
         sems = inference_alg_runtime_df.sem()
-        plt.plot(inference_alg_runtime_df.columns.values,  # concentration parameters
+        plt.plot(inference_alg_runtime_df.columns.values,  # concentration params
                  means,
                  label=inference_alg_str)
         plt.fill_between(

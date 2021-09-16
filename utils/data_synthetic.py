@@ -42,7 +42,7 @@ def convert_binary_latent_features_to_left_order_form(
     return left_ordered_indicators_2
 
 
-def generate_gaussian_parameters_from_gaussian_prior(num_gaussians: int = 3,
+def generate_gaussian_params_from_gaussian_prior(num_gaussians: int = 3,
                                                      gaussian_dim: int = 2,
                                                      gaussian_mean_prior_cov_scaling: float = 3.,
                                                      gaussian_cov_scaling: float = 0.3):
@@ -192,11 +192,11 @@ def sample_from_linear_gaussian(num_obs: int = 100,
     else:
         raise ValueError(f'Impermissible class sampling: {indicator_sampling}')
 
-    gaussian_parameters = generate_gaussian_parameters_from_gaussian_prior(
+    gaussian_params = generate_gaussian_params_from_gaussian_prior(
         num_gaussians=num_gaussians,
         **gaussian_prior_params)
 
-    features = gaussian_parameters['means']
+    features = gaussian_params['means']
     obs_dim = features.shape[1]
     obs_means = np.matmul(sampled_indicators, features)
     obs_cov = np.square(gaussian_likelihood_params['sigma_x']) * np.eye(obs_dim)
@@ -207,7 +207,7 @@ def sample_from_linear_gaussian(num_obs: int = 100,
         for obs_idx in range(num_obs)])
 
     result = dict(
-        gaussian_parameters=gaussian_parameters,
+        gaussian_params=gaussian_params,
         sampled_indicators=sampled_indicators,
         observations=observations,
         features=features,

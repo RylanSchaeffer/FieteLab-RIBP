@@ -125,7 +125,7 @@ class DoshiVelezLinearGaussian(LinearGaussianModel):
             axis=1,
             arr=A_covs,
         )
-        variational_parameters = dict(
+        variational_params = dict(
             A=dict(mean=A_means, cov=A_covs),
             pi=dict(param_1=beta_param_1, param_2=beta_param_2)
         )
@@ -145,7 +145,7 @@ class DoshiVelezLinearGaussian(LinearGaussianModel):
             dish_eating_posteriors_running_sum=dish_eating_posteriors_running_sum,
             num_dishes_poisson_rate_priors=num_dishes_poisson_rate_priors,
             num_dishes_poisson_rate_posteriors=num_dishes_poisson_rate_posteriors,
-            variational_parameters=variational_parameters,
+            variational_params=variational_params,
             model_params=self.model_params,
         )
 
@@ -154,7 +154,7 @@ class DoshiVelezLinearGaussian(LinearGaussianModel):
     def sample_params_for_predictive_posterior(self,
                                                num_samples: int) -> Dict[str, np.ndarray]:
 
-        var_params = self.fit_results['variational_parameters']
+        var_params = self.fit_results['variational_params']
         indicators_probs = np.random.beta(
             a=var_params['pi']['param_1'][:],
             b=var_params['pi']['param_1'][:],
@@ -164,11 +164,11 @@ class DoshiVelezLinearGaussian(LinearGaussianModel):
                               for k in range(len(indicators_probs))]
                              for _ in range(num_samples)])
 
-        sampled_parameters = dict(
+        sampled_params = dict(
             indicators_probs=indicators_probs,
             features=features)
 
-        return sampled_parameters
+        return sampled_params
 
 
 class HMCGibbsLinearGaussian(LinearGaussianModel):
@@ -285,12 +285,12 @@ class HMCGibbsLinearGaussian(LinearGaussianModel):
         indicators_probs = samples['v']['value'][random_mcmc_sample_idx, :]
         features = samples['A']['value'][random_mcmc_sample_idx, :]
 
-        sampled_parameters = dict(
+        sampled_params = dict(
             indicators_probs=indicators_probs,  # shape (num samples, max num features)
             features=features,  # shape (num samples, max num features, obs dim)
         )
 
-        return sampled_parameters
+        return sampled_params
 
     def features(self):
         return np.mean(self.fit_results['samples']['A']['value'], axis=0)
@@ -308,7 +308,7 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
                  num_coord_ascent_steps_per_obs: int = 3,
                  plot_dir: str = None):
 
-        # Check validity of input parameters
+        # Check validity of input params
         assert model_str in {'linear_gaussian', 'factor_analysis',
                              'nonnegative_matrix_factorization'}
         assert 'alpha' in model_params
@@ -383,7 +383,7 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
 
         if self.likelihood_str == 'continuous_bernoulli':
             raise NotImplementedError
-            # # need to use logits, otherwise gradient descent will carry parameters outside
+            # # need to use logits, otherwise gradient descent will carry params outside
             # # valid interval
             # likelihood_params = dict(
             #     logits=torch.full(
@@ -411,22 +411,22 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
             # create_new_feature_params_fn = create_new_cluster_params_dirichlet_multinomial
             # posterior_fn = likelihood_dirichlet_multinomial
         elif self.likelihood_str == 'linear_gaussian':
-            if variational_parameters is None:
+            if variational_params is None:
                 # we use half covariance because we want to numerically optimize
                 A_half_covs = torch.stack([
                     np.sqrt(model_params['gaussian_prior_cov_scaling']) * torch.eye(obs_dim).float()
                     for _ in range((num_obs + 1) * max_num_features)])
                 A_half_covs = A_half_covs.view(num_obs + 1, max_num_features, obs_dim, obs_dim)
 
-                # dict mapping variables to variational parameters
-                variational_parameters = dict(
-                    Z=dict(  # variational parameters for binary indicators
+                # dict mapping variables to variational params
+                variational_params = dict(
+                    Z=dict(  # variational params for binary indicators
                         prob=torch.full(
                             size=(num_obs + 1, max_num_features),
                             fill_value=np.nan,
                             dtype=torch.float32),
                     ),
-                    A=dict(  # variational parameters for Gaussian features
+                    A=dict(  # variational params for Gaussian features
                         mean=torch.full(
                             size=(num_obs + 1, max_num_features, obs_dim),
                             fill_value=0.,
@@ -442,7 +442,7 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
             raise NotImplementedError
 
         # If we are optimizing numerically, set requires gradient to true, otherwise false
-        for var_name, var_param_dict in variational_parameters.items():
+        for var_name, var_param_dict in variational_params.items():
             for param_name, param_tensor in var_param_dict.items():
                 param_tensor.requires_grad = numerically_optimize
 
@@ -472,12 +472,12 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
             dish_eating_priors[obs_idx, :] = dish_eating_prior.clone()
 
             # initialize dish eating posterior to dish eating prior, before beginning inference
-            variational_parameters['Z']['prob'].data[obs_idx, :] = dish_eating_prior.clone()
+            variational_params['Z']['prob'].data[obs_idx, :] = dish_eating_prior.clone()
             dish_eating_posteriors.data[obs_idx, :] = dish_eating_prior.clone()
 
             # initialize features to previous features as starting point for optimization
             # Use .data to not break backprop
-            for param_name, param_tensor in variational_parameters['A'].items():
+            for param_name, param_tensor in variational_params['A'].items():
                 param_tensor.data[obs_idx, :] = param_tensor.data[obs_idx - 1, :]
 
             if plot_dir is not None:
@@ -493,12 +493,12 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
             for vi_idx in range(num_vi_steps_per_obs):
                 if numerically_optimize:
                     # TODO: untested!
-                    # maximize approximate lower bound with respect to A's parameters
+                    # maximize approximate lower bound with respect to A's params
                     approx_lower_bound = recursive_ibp_compute_approx_lower_bound(
                         torch_observation=torch_observation,
                         obs_idx=obs_idx,
                         dish_eating_prior=dish_eating_prior,
-                        variable_variational_params=variational_parameters)
+                        variable_variational_params=variational_params)
                     approx_lower_bounds.append(approx_lower_bound.item())
                     approx_lower_bound.backward()
 
@@ -513,7 +513,7 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
 
                     # make sure no gradient when applying gradient updates
                     with torch.no_grad():
-                        for var_name, var_dict in variational_parameters.items():
+                        for var_name, var_dict in variational_params.items():
                             for param_name, param_tensor in var_dict.items():
                                 # the scaled learning rate has shape (num latents,) aka (num obs,)
                                 # we need to create extra dimensions of size 1 for broadcasting to work
@@ -545,7 +545,7 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
                             torch_observation=torch_observation,
                             obs_idx=obs_idx,
                             dish_eating_prior=dish_eating_prior,
-                            variable_variational_params=variational_parameters,
+                            variable_variational_params=variational_params,
                             sigma_obs_squared=model_params['gaussian_likelihood_cov_scaling'])
                         # approx_lower_bounds.append(approx_lower_bound.item())
                         # stop_time = timer()
@@ -562,7 +562,7 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
                             torch_observation=torch_observation,
                             obs_idx=obs_idx,
                             vi_idx=vi_idx,
-                            variable_variational_params=variational_parameters,
+                            variable_variational_params=variational_params,
                             simultaneous_or_sequential=simultaneous_or_sequential,
                             sigma_obs_squared=model_params['gaussian_likelihood_cov_scaling'])
                         # stop_time = timer()
@@ -575,33 +575,33 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
                         if ossify_features:
                             # TODO: refactor into own function
                             normalizing_const = torch.add(
-                                variational_parameters['Z']['prob'].data[obs_idx, :],
+                                variational_params['Z']['prob'].data[obs_idx, :],
                                 dish_eating_posteriors_running_sum[obs_idx - 1, :])
                             history_weighted_A_means = torch.add(
-                                torch.multiply(variational_parameters['Z']['prob'].data[obs_idx, :, None],
+                                torch.multiply(variational_params['Z']['prob'].data[obs_idx, :, None],
                                                A_means),
                                 torch.multiply(dish_eating_posteriors_running_sum[obs_idx - 1, :, None],
-                                               variational_parameters['A']['mean'].data[obs_idx - 1, :]))
+                                               variational_params['A']['mean'].data[obs_idx - 1, :]))
                             history_weighted_A_half_covs = torch.add(
-                                torch.multiply(variational_parameters['Z']['prob'].data[obs_idx, :, None, None],
+                                torch.multiply(variational_params['Z']['prob'].data[obs_idx, :, None, None],
                                                A_half_covs),
                                 torch.multiply(dish_eating_posteriors_running_sum[obs_idx - 1, :, None, None],
-                                               variational_parameters['A']['half_cov'].data[obs_idx - 1, :]))
+                                               variational_params['A']['half_cov'].data[obs_idx - 1, :]))
                             A_means = torch.divide(history_weighted_A_means, normalizing_const[:, None])
                             A_half_covs = torch.divide(history_weighted_A_half_covs, normalizing_const[:, None, None])
                             # if cumulative probability mass is 0, we compute 0/0 and get NaN. Need to mask
                             A_means[normalizing_const == 0.] = \
-                                variational_parameters['A']['mean'][obs_idx - 1][normalizing_const == 0.]
+                                variational_params['A']['mean'][obs_idx - 1][normalizing_const == 0.]
                             A_half_covs[normalizing_const == 0.] = \
-                                variational_parameters['A']['half_cov'][obs_idx - 1][normalizing_const == 0.]
+                                variational_params['A']['half_cov'][obs_idx - 1][normalizing_const == 0.]
 
                             utils.torch_helpers.assert_no_nan_no_inf(A_means)
                             utils.torch_helpers.assert_no_nan_no_inf(A_half_covs)
 
-                        variational_parameters['A']['mean'].data[obs_idx, :] = A_means
-                        variational_parameters['A']['half_cov'].data[obs_idx, :] = A_half_covs
+                        variational_params['A']['mean'].data[obs_idx, :] = A_means
+                        variational_params['A']['half_cov'].data[obs_idx, :] = A_half_covs
 
-                        # maximize approximate lower bound with respect to Z's parameters
+                        # maximize approximate lower bound with respect to Z's params
                         # tracemalloc.start()
                         # start_time = timer()
                         Z_probs = recursive_ibp_optimize_bernoulli_params(
@@ -609,7 +609,7 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
                             obs_idx=obs_idx,
                             vi_idx=vi_idx,
                             dish_eating_prior=dish_eating_prior,
-                            variable_variational_params=variational_parameters,
+                            variable_variational_params=variational_params,
                             simultaneous_or_sequential=simultaneous_or_sequential,
                             sigma_obs_squared=model_params['gaussian_likelihood_cov_scaling'])
                         # stop_time = timer()
@@ -619,10 +619,10 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
                         # logging.debug(f'runtime:recursive_ibp_optimize_bernoulli_params: {stop_time - start_time}')
                         # tracemalloc.stop()
 
-                        variational_parameters['Z']['prob'].data[obs_idx, :] = Z_probs
+                        variational_params['Z']['prob'].data[obs_idx, :] = Z_probs
 
                         # record dish-eating posterior
-                        dish_eating_posteriors.data[obs_idx, :] = variational_parameters['Z']['prob'][obs_idx,
+                        dish_eating_posteriors.data[obs_idx, :] = variational_params['Z']['prob'][obs_idx,
                                                                   :].clone()
 
                 else:
@@ -639,8 +639,8 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
                                             label='Observations')
                     for feature_idx in range(10):
                         axes[vi_idx, 0].plot(
-                            [0, variational_parameters['A']['mean'][obs_idx, feature_idx, 0].item()],
-                            [0, variational_parameters['A']['mean'][obs_idx, feature_idx, 1].item()],
+                            [0, variational_params['A']['mean'][obs_idx, feature_idx, 0].item()],
+                            [0, variational_params['A']['mean'][obs_idx, feature_idx, 1].item()],
                             label=f'{feature_idx}')
                     # axes[0].legend()
 
@@ -657,7 +657,7 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
                     axes[vi_idx, 1].legend()
 
                     weighted_features = np.multiply(
-                        variational_parameters['A']['mean'][obs_idx, :, :].detach().numpy(),
+                        variational_params['A']['mean'][obs_idx, :, :].detach().numpy(),
                         dish_eating_posteriors[obs_idx].unsqueeze(1).detach().numpy(),
                     )
                     axes[vi_idx, 2].set_title('Weighted Features')
@@ -693,7 +693,7 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
                 with torch.no_grad():
 
                     # record dish-eating posterior
-                    dish_eating_posteriors.data[obs_idx, :] = variational_parameters['Z']['prob'][obs_idx, :].clone()
+                    dish_eating_posteriors.data[obs_idx, :] = variational_params['Z']['prob'][obs_idx, :].clone()
 
                     # update running sum of posteriors
                     dish_eating_posteriors_running_sum[obs_idx, :] = torch.add(
@@ -711,7 +711,7 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
                         torch_observation=torch_observation,
                         obs_idx=obs_idx,
                         dish_eating_prior=dish_eating_prior,
-                        variable_variational_params=variational_parameters,
+                        variable_variational_params=variational_params,
                         sigma_obs_squared=model_params['gaussian_likelihood_cov_scaling'])
                     approx_lower_bounds.append(approx_lower_bound.item())
 
@@ -744,7 +744,7 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
         numpy_variable_params = {
             var_name: {param_name: param_tensor.detach().numpy()[1:]
                        for param_name, param_tensor in var_params.items()}
-            for var_name, var_params in variational_parameters.items()
+            for var_name, var_params in variational_params.items()
         }
         bayesian_recursion_results = dict(
             dish_eating_priors=dish_eating_priors.numpy()[1:],
@@ -753,7 +753,7 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
             non_eaten_dishes_posteriors_running_prod=non_eaten_dishes_posteriors_running_prod.numpy()[1:],
             num_dishes_poisson_rate_priors=num_dishes_poisson_rate_priors.numpy()[1:],
             num_dishes_poisson_rate_posteriors=num_dishes_poisson_rate_posteriors.numpy()[1:],
-            variational_parameters=numpy_variable_params,
+            variational_params=numpy_variable_params,
             model_params=self.model_params,
         )
 
@@ -831,7 +831,7 @@ class WidjajaLinearGaussian(LinearGaussianModel):
             axis=2,
             arr=A_covs,
         )
-        variational_parameters = dict(
+        variational_params = dict(
             A=dict(mean=A_means, cov=A_covs),
             pi=dict(param_1=beta_param_1, param_2=beta_param_2)
         )
@@ -845,17 +845,17 @@ class WidjajaLinearGaussian(LinearGaussianModel):
         num_dishes_poisson_rate_priors = np.sum(dish_eating_priors_running_sum > 1e-2,
                                                 axis=1).reshape(-1, 1)
 
-        fit_results = dict(
+        self.fit_results = dict(
             dish_eating_priors=dish_eating_priors,
             dish_eating_posteriors=dish_eating_posteriors,
             dish_eating_posteriors_running_sum=dish_eating_posteriors_running_sum,
             num_dishes_poisson_rate_priors=num_dishes_poisson_rate_priors,
             num_dishes_poisson_rate_posteriors=num_dishes_poisson_rate_posteriors,
-            variational_parameters=variational_parameters,
+            variational_params=variational_params,
             model_params=self.model_params,
         )
 
-        return fit_results
+        return self.fit_results
 
     def sample_params_for_predictive_posterior(self,
                                                num_samples: int) -> Dict[str, np.ndarray]:
@@ -868,20 +868,27 @@ class WidjajaLinearGaussian(LinearGaussianModel):
         param_2 = var_params['pi']['param_2']
         param_2[param_2 < 1e-10] = 1e-10
 
+        max_num_features = param_1.shape[1]
+        # shape (num samples, num features)
         indicators_probs = np.random.beta(
-            a=param_1[-1, :],
-            b=param_2[-1, :],
-            size=num_samples)
+            a=param_1[np.newaxis, -1, :],
+            b=param_2[np.newaxis, -1, :],
+            size=(num_samples, max_num_features))
         features = np.stack([np.random.multivariate_normal(mean=var_params['A']['mean'][-1, k, :],
                                                            cov=var_params['A']['cov'][-1, k, :],
                                                            size=num_samples)
-                             for k in range(len(indicators_probs))])
+                             for k in range(max_num_features)])
+        # shape = (num samples, max num features, obs dim)
+        features = features.transpose(1, 0, 2)
 
-        sampled_parameters = dict(
+        sampled_params = dict(
             indicators_probs=indicators_probs,
             features=features)
 
-        return sampled_parameters
+        return sampled_params
+
+    def features(self):
+        return self.fit_results['variational_params']['A']['mean'][-1, :]
 
 
 def compute_max_num_features(alpha: float,
@@ -1406,7 +1413,7 @@ def run_inference_alg(inference_alg_str: str,
     #     substrs = inference_alg_str.split(' ')
     #     num_steps = 1000 * int(substrs[1][1:-1])
     #     inference_alg_kwargs['num_steps'] = num_steps
-    #     # Note: these are the ground truth parameters
+    #     # Note: these are the ground truth params
     #     if likelihood_model == 'dirichlet_multinomial':
     #         inference_alg_kwargs['model_params'] = dict(
     #             dirichlet_inference_params=10.)  # same as R-CRP

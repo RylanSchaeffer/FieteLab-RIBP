@@ -72,7 +72,7 @@ class OnlineFinite:
         for t in range(convergence_iters):
             nu_sum, nu_comp_sum, nu_cross_sum, nu_data_sum = self.compute_sufficient_stats(rho, nu, data)
 
-            # Update tau's i.e. parameters for pi_k
+            # Update tau's i.e. params for pi_k
             self.tau_1 = self.alpha / self.max_num_features + nu_sum
             self.tau_2 = 1.0 + nu_comp_sum
 
