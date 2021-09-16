@@ -145,7 +145,7 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=0,
                         help='Pseudo-random seed for NumPy/PyTorch.')
     parser.add_argument('--inference_alg_str', type=str,
-                        choices=utils.inference.inference_alg_strs,
+                        choices=utils.inference.inference_algs,
                         help='Inference algorithm to run on dataset')
     parser.add_argument('--alpha', type=float,
                         help='IBP alpha parameter.')

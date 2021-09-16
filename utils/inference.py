@@ -1,6 +1,6 @@
+import abc
 import cvxpy as cp
 import jax
-import jax.numpy as jnp
 import jax.random
 import logging
 import matplotlib.pyplot as plt
@@ -12,21 +12,885 @@ from scipy.stats import poisson
 from timeit import default_timer as timer
 import torch
 import tracemalloc
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Union
 
+import utils.numpyro_models
 import utils.torch_helpers
 import utils.inference_widjaja
-import utils.inference_refactor
 
 # torch.set_default_tensor_type('torch.DoubleTensor')
 torch.set_default_tensor_type('torch.FloatTensor')
 
-inference_alg_strs = [
+inference_algs = [
     'HMC-Gibbs',
     'Doshi-Velez',
     'R-IBP',
     'Widjaja',
 ]
+
+
+class LinearGaussianModel(abc.ABC):
+
+    @abc.abstractmethod
+    def __init__(self):
+        self.model_str = None
+        self.model_params = None
+        self.plot_dir = None
+        self.fit_results = None
+
+    @abc.abstractmethod
+    def fit(self,
+            observations: np.ndarray):
+        pass
+
+    @abc.abstractmethod
+    def sample_params_for_predictive_posterior(self,
+                                               num_samples: int):
+        pass
+
+    @abc.abstractmethod
+    def features(self):
+        pass
+
+
+class DoshiVelezLinearGaussian(LinearGaussianModel):
+    """
+    Implementation of Doshi-Velez 2009 Variational Inference for the IBP.
+    """
+
+    def __init__(self,
+                 model_str: str,
+                 model_params: Dict[str, float],
+                 num_coordinate_ascent_steps: int,
+                 max_num_features: int = None,
+                 plot_dir: str = None):
+
+        self.model_str = model_str
+        self.model_params = model_params
+        assert num_coordinate_ascent_steps > 0
+        self.num_coordinate_ascent_steps = num_coordinate_ascent_steps
+        self.max_num_features = max_num_features
+        self.plot_dir = plot_dir
+
+    def fit(self,
+            observations: np.ndarray):
+
+        num_obs, obs_dim = observations.shape
+        if self.max_num_features is None:
+            self.max_num_features = compute_max_num_features(
+                alpha=self.model_params['alpha'],
+                beta=self.model_params['beta'],
+                num_obs=num_obs)
+
+        offline_model = utils.inference_widjaja.OfflineFinite(
+            obs_dim=obs_dim,
+            num_obs=num_obs,
+            max_num_features=self.max_num_features,
+            alpha=self.model_params['alpha'],
+            beta=self.model_params['beta'],
+            sigma_a=np.sqrt(self.model_params['gaussian_prior_cov_scaling']),
+            sigma_x=np.sqrt(self.model_params['gaussian_likelihood_cov_scaling']),
+            t0=self.model_params['t0'],
+            kappa=self.model_params['kappa'])
+
+        offline_strategy = utils.inference_widjaja.Static(
+            offline_model,
+            observations,
+            minibatch_size=num_obs,  # full batch
+        )
+
+        dish_eating_priors = np.zeros(shape=(num_obs, self.max_num_features))
+        dish_eating_posteriors = np.zeros(shape=(num_obs, self.max_num_features))
+        beta_param_1 = np.zeros(shape=(self.max_num_features,))
+        beta_param_2 = np.zeros(shape=(self.max_num_features,))
+
+        # Always use full batch
+        obs_indices = slice(0, num_obs, 1)
+        for step_idx in range(self.num_coordinate_ascent_steps):
+            step_results = offline_strategy.step(obs_indices=obs_indices)
+        dish_eating_priors[:, :] = step_results['dish_eating_prior']
+        dish_eating_posteriors[:, :] = step_results['dish_eating_posterior']
+        beta_param_1[:] = step_results['beta_param_1']
+        beta_param_2[:] = step_results['beta_param_2']
+
+        # shape (max number of features, obs dim)
+        A_means = step_results['A_mean']
+        # shape (max number of features, obs dim)
+        # They assume a diagonal covariance. We will later expand.
+        A_covs = step_results['A_cov']
+
+        # Their model assumes a diagonal covariance. Convert to full covariance.
+        A_covs = np.apply_along_axis(
+            func1d=np.diag,
+            axis=1,
+            arr=A_covs,
+        )
+        variational_parameters = dict(
+            A=dict(mean=A_means, cov=A_covs),
+            pi=dict(param_1=beta_param_1, param_2=beta_param_2)
+        )
+
+        dish_eating_posteriors_running_sum = np.cumsum(dish_eating_posteriors, axis=0)
+
+        num_dishes_poisson_rate_posteriors = np.sum(
+            dish_eating_posteriors_running_sum > 1e-10,
+            axis=1).reshape(-1, 1)
+
+        num_dishes_poisson_rate_priors = np.full(fill_value=np.nan,
+                                                 shape=num_dishes_poisson_rate_posteriors.shape)
+
+        self.fit_results = dict(
+            dish_eating_priors=dish_eating_priors,
+            dish_eating_posteriors=dish_eating_posteriors,
+            dish_eating_posteriors_running_sum=dish_eating_posteriors_running_sum,
+            num_dishes_poisson_rate_priors=num_dishes_poisson_rate_priors,
+            num_dishes_poisson_rate_posteriors=num_dishes_poisson_rate_posteriors,
+            variational_parameters=variational_parameters,
+            model_params=self.model_params,
+        )
+
+        return self.fit_results
+
+    def sample_params_for_predictive_posterior(self,
+                                               num_samples: int) -> Dict[str, np.ndarray]:
+
+        var_params = self.fit_results['variational_parameters']
+        indicators_probs = np.random.beta(
+            a=var_params['pi']['param_1'][:],
+            b=var_params['pi']['param_1'][:],
+            size=num_samples)
+        features = np.array([[np.random.multivariate_normal(mean=var_params['A']['mean'][k, :],
+                                                            cov=var_params['A']['cov'][k, :])
+                              for k in range(len(indicators_probs))]
+                             for _ in range(num_samples)])
+
+        sampled_parameters = dict(
+            indicators_probs=indicators_probs,
+            features=features)
+
+        return sampled_parameters
+
+
+class HMCGibbsLinearGaussian(LinearGaussianModel):
+
+    def __init__(self,
+                 model_str: str,
+                 model_params: Dict[str, float],
+                 num_samples: int,
+                 num_warmup_samples: int,
+                 num_thinning_samples: int,
+                 max_num_features: int = None):
+
+        assert model_str in {'linear_gaussian', 'factor_analysis',
+                             'nonnegative_matrix_factorization'}
+        assert 'alpha' in model_params
+        assert 'beta' in model_params
+        assert model_params['alpha'] > 0
+        assert model_params['beta'] > 0
+
+        self.model_str = model_str
+        self.model_params = model_params
+        self.num_samples = num_samples
+        self.max_num_features = max_num_features
+        self.num_warmup_samples = num_warmup_samples
+        self.num_thinning_samples = num_thinning_samples
+
+        self.fit_results = None
+
+    def fit(self,
+            observations: np.ndarray):
+
+        num_obs, obs_dim = observations.shape
+        if self.max_num_features is None:
+            self.max_num_features = compute_max_num_features(
+                alpha=self.model_params['alpha'],
+                beta=self.model_params['beta'],
+                num_obs=num_obs)
+
+        if self.model_str == 'factor_analysis':
+            model = utils.numpyro_models.create_factor_analysis_model(
+                model_params=self.model_params,
+                num_obs=num_obs,
+                max_num_features=self.max_num_features,
+                obs_dim=obs_dim)
+        elif self.model_str == 'linear_gaussian':
+            model = utils.numpyro_models.create_linear_gaussian_model(
+                model_params=self.model_params,
+                num_obs=num_obs,
+                max_num_features=self.max_num_features,
+                obs_dim=obs_dim)
+        elif self.model_str == 'linear_gaussian':
+            model = utils.numpyro_models.create_nonnegative_matrix_factorization_model(
+                model_params=self.model_params,
+                num_obs=num_obs,
+                max_num_features=self.max_num_features,
+                obs_dim=obs_dim)
+        else:
+            raise NotImplementedError(f'Model ({self.model_str}) not yet implemented.')
+
+        hmc_kernel = numpyro.infer.NUTS(model)
+        kernel = numpyro.infer.DiscreteHMCGibbs(
+            inner_kernel=hmc_kernel)
+        mcmc = numpyro.infer.MCMC(
+            kernel,
+            num_warmup=self.num_warmup_samples,
+            num_samples=self.num_samples,
+            progress_bar=True)
+        mcmc.run(jax.random.PRNGKey(0), obs=observations)
+        # mcmc.print_summary()
+        samples = mcmc.get_samples()
+
+        # For some reason, Pyro puts the obs dimension last, so we transpose
+        Z_samples = np.array(samples['Z'].transpose(0, 2, 1))
+        dish_eating_posteriors = np.mean(
+            Z_samples[::self.num_thinning_samples],
+            axis=0)
+        dish_eating_priors = np.full_like(
+            dish_eating_posteriors,
+            fill_value=np.nan)
+        dish_eating_posteriors_running_sum = np.cumsum(dish_eating_posteriors, axis=0)
+        num_dishes_poisson_rate_posteriors = np.sum(dish_eating_posteriors_running_sum > 1e-10,
+                                                    axis=1).reshape(-1, 1)
+        num_dishes_poisson_rate_priors = np.full(fill_value=np.nan,
+                                                 shape=num_dishes_poisson_rate_posteriors.shape)
+
+        samples = dict(
+            v=dict(value=np.array(samples['sticks'][::self.num_thinning_samples, :])),
+            A=dict(value=np.array(samples['A'][::self.num_thinning_samples, :, :])))
+
+        self.fit_results = dict(
+            dish_eating_priors=dish_eating_priors,
+            dish_eating_posteriors=dish_eating_posteriors,
+            dish_eating_posteriors_running_sum=dish_eating_posteriors_running_sum,
+            num_dishes_poisson_rate_priors=num_dishes_poisson_rate_priors,
+            num_dishes_poisson_rate_posteriors=num_dishes_poisson_rate_posteriors,
+            samples=samples,
+            model_params=self.model_params,
+        )
+
+        return self.fit_results
+
+    def sample_params_for_predictive_posterior(self,
+                                               num_samples: int) -> Dict[str, np.ndarray]:
+
+        if self.fit_results is None:
+            raise ValueError('Must call .fit() before calling .predict()')
+
+        samples = self.fit_results['samples']
+
+        random_mcmc_sample_idx = np.random.choice(
+            np.arange(samples['v']['value'].shape[0]),
+            size=num_samples,
+            replace=True)
+        indicators_probs = samples['v']['value'][random_mcmc_sample_idx, :]
+        features = samples['A']['value'][random_mcmc_sample_idx, :]
+
+        sampled_parameters = dict(
+            indicators_probs=indicators_probs,  # shape (num samples, max num features)
+            features=features,  # shape (num samples, max num features, obs dim)
+        )
+
+        return sampled_parameters
+
+    def features(self):
+        return np.mean(self.fit_results['samples']['A']['value'], axis=0)
+
+
+class RecursiveIBPLinearGaussian(LinearGaussianModel):
+
+    def __init__(self,
+                 model_str: str,
+                 model_params: Dict[str, float],
+                 ossify_features: bool = True,
+                 numerically_optimize: bool = False,
+                 learning_rate: float = 1e0,
+                 coord_ascent_update_type: str = 'sequential',
+                 num_coord_ascent_steps_per_obs: int = 3,
+                 plot_dir: str = None):
+
+        # Check validity of input parameters
+        assert model_str in {'linear_gaussian', 'factor_analysis',
+                             'nonnegative_matrix_factorization'}
+        assert 'alpha' in model_params
+        assert 'beta' in model_params
+        assert model_params['alpha'] > 0
+        assert model_params['beta'] > 0
+        assert coord_ascent_update_type in {'simultaneous', 'sequential'}
+        if numerically_optimize:
+            assert learning_rate is not None
+            assert learning_rate > 0.
+
+        if numerically_optimize is False:
+            learning_rate = np.nan
+        else:
+            assert isinstance(learning_rate, float)
+
+        self.model_str = model_str
+        self.model_params = model_params
+        self.plot_dir = plot_dir
+        self.ossify_features = ossify_features
+        self.coord_ascent_update_type = coord_ascent_update_type
+        self.num_coord_ascent_steps_per_obs = num_coord_ascent_steps_per_obs
+        self.numerically_optimize = numerically_optimize
+        self.learning_rate = learning_rate
+
+    def fit(self,
+            observations):
+        """
+        Perform inference using Recursive IBP with specified likelihood.
+        """
+
+        num_obs, obs_dim = observations.shape
+
+        # Note: the expected number of latents grows logarithmically as a*b*log(1 + N/beta)
+        # The 10 is a hopefully conservative heuristic to preallocate.
+        max_num_features = compute_max_num_features(
+            alpha=self.model_params['alpha'],
+            beta=self.model_params['beta'],
+            num_obs=num_obs)
+
+        # The recursion does not require recording the full history of priors/posteriors
+        # but we record the full history for subsequent analysis.
+        dish_eating_priors = torch.zeros(
+            (num_obs + 1, max_num_features),  # Add 1 to the number of observations to use 1-based indexing
+            dtype=torch.float32,
+            requires_grad=self.numerically_optimize)
+
+        dish_eating_posteriors = torch.zeros(
+            (num_obs + 1, max_num_features),
+            dtype=torch.float32,
+            requires_grad=self.numerically_optimize)
+
+        dish_eating_posteriors_running_sum = torch.zeros(
+            (num_obs + 1, max_num_features),
+            dtype=torch.float32,
+            requires_grad=self.numerically_optimize)
+
+        non_eaten_dishes_posteriors_running_prod = torch.ones(
+            (num_obs + 1, max_num_features),
+            dtype=torch.float32,
+            requires_grad=self.numerically_optimize)
+
+        num_dishes_poisson_rate_priors = torch.zeros(
+            (num_obs + 1, 1),
+            dtype=torch.float32,
+            requires_grad=self.numerically_optimize)
+
+        num_dishes_poisson_rate_posteriors = torch.zeros(
+            (num_obs + 1, 1),
+            dtype=torch.float32,
+            requires_grad=self.numerically_optimize)
+
+        if self.likelihood_str == 'continuous_bernoulli':
+            raise NotImplementedError
+            # # need to use logits, otherwise gradient descent will carry parameters outside
+            # # valid interval
+            # likelihood_params = dict(
+            #     logits=torch.full(
+            #         size=(max_num_features, obs_dim),
+            #         fill_value=np.nan,
+            #         dtype=torch.float64,
+            #         requires_grad=True)
+            # )
+            # create_new_feature_params_fn = create_new_cluster_params_continuous_bernoulli
+            # posterior_fn = likelihood_continuous_bernoulli
+            #
+            # # make sure no observation is 0 or 1 by adding epsilon
+            # epsilon = 1e-2
+            # observations[observations == 1.] -= epsilon
+            # observations[observations == 0.] += epsilon
+        elif self.likelihood_str == 'dirichlet_multinomial':
+            raise NotImplementedError
+            # likelihood_params = dict(
+            #     topics_concentrations=torch.full(
+            #         size=(max_num_features, obs_dim),
+            #         fill_value=np.nan,
+            #         dtype=torch.float64,
+            #         requires_grad=True),
+            # )
+            # create_new_feature_params_fn = create_new_cluster_params_dirichlet_multinomial
+            # posterior_fn = likelihood_dirichlet_multinomial
+        elif self.likelihood_str == 'linear_gaussian':
+            if variational_parameters is None:
+                # we use half covariance because we want to numerically optimize
+                A_half_covs = torch.stack([
+                    np.sqrt(model_params['gaussian_prior_cov_scaling']) * torch.eye(obs_dim).float()
+                    for _ in range((num_obs + 1) * max_num_features)])
+                A_half_covs = A_half_covs.view(num_obs + 1, max_num_features, obs_dim, obs_dim)
+
+                # dict mapping variables to variational parameters
+                variational_parameters = dict(
+                    Z=dict(  # variational parameters for binary indicators
+                        prob=torch.full(
+                            size=(num_obs + 1, max_num_features),
+                            fill_value=np.nan,
+                            dtype=torch.float32),
+                    ),
+                    A=dict(  # variational parameters for Gaussian features
+                        mean=torch.full(
+                            size=(num_obs + 1, max_num_features, obs_dim),
+                            fill_value=0.,
+                            dtype=torch.float32),
+                        # mean=A_mean,
+                        half_cov=A_half_covs),
+                )
+        elif self.likelihood_str == 'factor_analysis':
+            raise NotImplementedError
+        elif self.likelihood_str == 'nonnegative_matrix_factorization':
+            raise NotImplementedError
+        else:
+            raise NotImplementedError
+
+        # If we are optimizing numerically, set requires gradient to true, otherwise false
+        for var_name, var_param_dict in variational_parameters.items():
+            for param_name, param_tensor in var_param_dict.items():
+                param_tensor.requires_grad = numerically_optimize
+
+        torch_observations = torch.from_numpy(observations).float()
+        latent_indices = np.arange(max_num_features)
+
+        # before the first observation, there are exactly 0 dishes
+        num_dishes_poisson_rate_posteriors[0, 0] = 0.
+
+        # REMEMBER: we added +1 to all the record-keeping arrays. Starting with 1
+        # makes indexing consistent with the paper notation.
+        for obs_idx, torch_observation in enumerate(torch_observations[:num_obs], start=1):
+
+            # construct number of dishes Poisson rate prior
+            num_dishes_poisson_rate_priors[obs_idx, :] = num_dishes_poisson_rate_posteriors[obs_idx - 1, :] \
+                                                         + alpha * beta / (beta + obs_idx - 1)
+
+            # Recursion: 1st term
+            dish_eating_prior = torch.clone(
+                dish_eating_posteriors_running_sum[obs_idx - 1, :]) / (beta + obs_idx - 1)
+            # Recursion: 2nd term; don't subtract 1 from latent indices b/c zero based indexing
+            dish_eating_prior += poisson.cdf(k=latent_indices, mu=num_dishes_poisson_rate_posteriors[obs_idx - 1, :])
+            # Recursion: 3rd term; don't subtract 1 from latent indices b/c zero based indexing
+            dish_eating_prior -= poisson.cdf(k=latent_indices, mu=num_dishes_poisson_rate_priors[obs_idx, :])
+
+            # record latent prior
+            dish_eating_priors[obs_idx, :] = dish_eating_prior.clone()
+
+            # initialize dish eating posterior to dish eating prior, before beginning inference
+            variational_parameters['Z']['prob'].data[obs_idx, :] = dish_eating_prior.clone()
+            dish_eating_posteriors.data[obs_idx, :] = dish_eating_prior.clone()
+
+            # initialize features to previous features as starting point for optimization
+            # Use .data to not break backprop
+            for param_name, param_tensor in variational_parameters['A'].items():
+                param_tensor.data[obs_idx, :] = param_tensor.data[obs_idx - 1, :]
+
+            if plot_dir is not None:
+                num_cols = 4
+                fig, axes = plt.subplots(
+                    nrows=num_vi_steps_per_obs,
+                    ncols=num_cols,
+                    # sharex=True,
+                    # sharey=True,
+                    figsize=(num_cols * 4, num_vi_steps_per_obs * 4))
+
+            approx_lower_bounds = []
+            for vi_idx in range(num_vi_steps_per_obs):
+                if numerically_optimize:
+                    # TODO: untested!
+                    # maximize approximate lower bound with respect to A's parameters
+                    approx_lower_bound = recursive_ibp_compute_approx_lower_bound(
+                        torch_observation=torch_observation,
+                        obs_idx=obs_idx,
+                        dish_eating_prior=dish_eating_prior,
+                        variable_variational_params=variational_parameters)
+                    approx_lower_bounds.append(approx_lower_bound.item())
+                    approx_lower_bound.backward()
+
+                    # scale learning rate by posterior(A_k) / sum_n prev_posteriors(A_k)
+                    # scale by 1/num_vi_steps so that after num_vi_steps, we've moved O(1)
+                    scaled_learning_rate = learning_rate * torch.divide(
+                        dish_eating_posteriors[obs_idx, :],
+                        dish_eating_posteriors[obs_idx, :] + dish_eating_posteriors_running_sum[obs_idx - 1, :])
+                    scaled_learning_rate /= num_vi_steps_per_obs
+                    scaled_learning_rate[torch.isnan(scaled_learning_rate)] = 0.
+                    scaled_learning_rate[torch.isinf(scaled_learning_rate)] = 0.
+
+                    # make sure no gradient when applying gradient updates
+                    with torch.no_grad():
+                        for var_name, var_dict in variational_parameters.items():
+                            for param_name, param_tensor in var_dict.items():
+                                # the scaled learning rate has shape (num latents,) aka (num obs,)
+                                # we need to create extra dimensions of size 1 for broadcasting to work
+                                # because param_tensor can have variable number of dimensions e.g. (num obs, obs dim) for mean
+                                # or (num obs, obs dim, obs dim) for covariance, we need to dynamically
+                                # add the correct number of dimensions
+                                # Also, exclude dimension 0 because that's for the observation index
+                                reshaped_scaled_learning_rate = scaled_learning_rate.view(
+                                    [param_tensor.shape[1]] + [1 for _ in range(len(param_tensor.shape[2:]))])
+                                if param_tensor.grad is None:
+                                    continue
+                                else:
+                                    scaled_param_tensor_grad = torch.multiply(
+                                        reshaped_scaled_learning_rate,
+                                        param_tensor.grad[obs_idx, :])
+                                    param_tensor.data[obs_idx, :] += scaled_param_tensor_grad
+                                    utils.torch_helpers.assert_no_nan_no_inf(param_tensor.data[:obs_idx + 1])
+
+                                    # zero gradient manually
+                                    param_tensor.grad = None
+
+                elif not numerically_optimize:
+                    with torch.no_grad():
+                        logging.info(f'Obs Idx: {obs_idx}, VI idx: {vi_idx}')
+
+                        # tracemalloc.start()
+                        # start_time = timer()
+                        approx_lower_bound = recursive_ibp_compute_approx_lower_bound(
+                            torch_observation=torch_observation,
+                            obs_idx=obs_idx,
+                            dish_eating_prior=dish_eating_prior,
+                            variable_variational_params=variational_parameters,
+                            sigma_obs_squared=model_params['gaussian_likelihood_cov_scaling'])
+                        # approx_lower_bounds.append(approx_lower_bound.item())
+                        # stop_time = timer()
+                        # current, peak = tracemalloc.get_traced_memory()
+                        # logging.debug(f"memory:recursive_ibp_compute_approx_lower_bound:"
+                        #               f"current={current / 10 ** 6}MB; peak={peak / 10 ** 6}MB")
+                        # logging.debug(f'runtime:recursive_ibp_compute_approx_lower_bound: {stop_time - start_time}')
+                        # tracemalloc.stop()
+                        # logging.info(prof.key_averages().table(sort_by="self_cpu_memory_usage"))
+
+                        # tracemalloc.start()
+                        # start_time = timer()
+                        A_means, A_half_covs = recursive_ibp_optimize_gaussian_params(
+                            torch_observation=torch_observation,
+                            obs_idx=obs_idx,
+                            vi_idx=vi_idx,
+                            variable_variational_params=variational_parameters,
+                            simultaneous_or_sequential=simultaneous_or_sequential,
+                            sigma_obs_squared=model_params['gaussian_likelihood_cov_scaling'])
+                        # stop_time = timer()
+                        # current, peak = tracemalloc.get_traced_memory()
+                        # logging.debug(f"memory:recursive_ibp_optimize_gaussian_params:"
+                        #               f"current={current / 10 ** 6}MB; peak={peak / 10 ** 6}MB")
+                        # logging.debug(f'runtime:recursive_ibp_optimize_gaussian_params: {stop_time - start_time}')
+                        # tracemalloc.stop()
+
+                        if ossify_features:
+                            # TODO: refactor into own function
+                            normalizing_const = torch.add(
+                                variational_parameters['Z']['prob'].data[obs_idx, :],
+                                dish_eating_posteriors_running_sum[obs_idx - 1, :])
+                            history_weighted_A_means = torch.add(
+                                torch.multiply(variational_parameters['Z']['prob'].data[obs_idx, :, None],
+                                               A_means),
+                                torch.multiply(dish_eating_posteriors_running_sum[obs_idx - 1, :, None],
+                                               variational_parameters['A']['mean'].data[obs_idx - 1, :]))
+                            history_weighted_A_half_covs = torch.add(
+                                torch.multiply(variational_parameters['Z']['prob'].data[obs_idx, :, None, None],
+                                               A_half_covs),
+                                torch.multiply(dish_eating_posteriors_running_sum[obs_idx - 1, :, None, None],
+                                               variational_parameters['A']['half_cov'].data[obs_idx - 1, :]))
+                            A_means = torch.divide(history_weighted_A_means, normalizing_const[:, None])
+                            A_half_covs = torch.divide(history_weighted_A_half_covs, normalizing_const[:, None, None])
+                            # if cumulative probability mass is 0, we compute 0/0 and get NaN. Need to mask
+                            A_means[normalizing_const == 0.] = \
+                                variational_parameters['A']['mean'][obs_idx - 1][normalizing_const == 0.]
+                            A_half_covs[normalizing_const == 0.] = \
+                                variational_parameters['A']['half_cov'][obs_idx - 1][normalizing_const == 0.]
+
+                            utils.torch_helpers.assert_no_nan_no_inf(A_means)
+                            utils.torch_helpers.assert_no_nan_no_inf(A_half_covs)
+
+                        variational_parameters['A']['mean'].data[obs_idx, :] = A_means
+                        variational_parameters['A']['half_cov'].data[obs_idx, :] = A_half_covs
+
+                        # maximize approximate lower bound with respect to Z's parameters
+                        # tracemalloc.start()
+                        # start_time = timer()
+                        Z_probs = recursive_ibp_optimize_bernoulli_params(
+                            torch_observation=torch_observation,
+                            obs_idx=obs_idx,
+                            vi_idx=vi_idx,
+                            dish_eating_prior=dish_eating_prior,
+                            variable_variational_params=variational_parameters,
+                            simultaneous_or_sequential=simultaneous_or_sequential,
+                            sigma_obs_squared=model_params['gaussian_likelihood_cov_scaling'])
+                        # stop_time = timer()
+                        # current, peak = tracemalloc.get_traced_memory()
+                        # logging.debug(f"memory:recursive_ibp_optimize_bernoulli_params:"
+                        #               f"current={current / 10 ** 6}MB; peak={peak / 10 ** 6}MB")
+                        # logging.debug(f'runtime:recursive_ibp_optimize_bernoulli_params: {stop_time - start_time}')
+                        # tracemalloc.stop()
+
+                        variational_parameters['Z']['prob'].data[obs_idx, :] = Z_probs
+
+                        # record dish-eating posterior
+                        dish_eating_posteriors.data[obs_idx, :] = variational_parameters['Z']['prob'][obs_idx,
+                                                                  :].clone()
+
+                else:
+                    raise ValueError(f'Impermissible value of numerically_optimize: {numerically_optimize}')
+
+                if plot_dir is not None:
+                    fig.suptitle(f'Obs: {obs_idx}, {simultaneous_or_sequential}')
+                    axes[vi_idx, 0].set_ylabel(f'VI Step: {vi_idx + 1}')
+                    axes[vi_idx, 0].set_title('Individual Features')
+                    axes[vi_idx, 0].scatter(observations[:obs_idx, 0],
+                                            observations[:obs_idx, 1],
+                                            # s=3,
+                                            color='k',
+                                            label='Observations')
+                    for feature_idx in range(10):
+                        axes[vi_idx, 0].plot(
+                            [0, variational_parameters['A']['mean'][obs_idx, feature_idx, 0].item()],
+                            [0, variational_parameters['A']['mean'][obs_idx, feature_idx, 1].item()],
+                            label=f'{feature_idx}')
+                    # axes[0].legend()
+
+                    axes[vi_idx, 1].set_title('Inferred Indicator Probabilities')
+                    # axes[vi_idx, 1].set_xlabel('Indicator Index')
+                    axes[vi_idx, 1].scatter(
+                        1 + np.arange(10),
+                        dish_eating_priors[obs_idx, :10].detach().numpy(),
+                        label='Prior')
+                    axes[vi_idx, 1].scatter(
+                        1 + np.arange(10),
+                        dish_eating_posteriors[obs_idx, :10].detach().numpy(),
+                        label='Posterior')
+                    axes[vi_idx, 1].legend()
+
+                    weighted_features = np.multiply(
+                        variational_parameters['A']['mean'][obs_idx, :, :].detach().numpy(),
+                        dish_eating_posteriors[obs_idx].unsqueeze(1).detach().numpy(),
+                    )
+                    axes[vi_idx, 2].set_title('Weighted Features')
+                    axes[vi_idx, 2].scatter(observations[:obs_idx, 0],
+                                            observations[:obs_idx, 1],
+                                            # s=3,
+                                            color='k',
+                                            label='Observations')
+                    for feature_idx in range(10):
+                        axes[vi_idx, 2].plot([0, weighted_features[feature_idx, 0]],
+                                             [0, weighted_features[feature_idx, 1]],
+                                             label=f'{feature_idx}',
+                                             zorder=feature_idx + 1,
+                                             # alpha=dish_eating_posteriors[obs_idx, feature_idx].item(),
+                                             )
+
+                    cumulative_weighted_features = np.cumsum(weighted_features, axis=0)
+                    axes[vi_idx, 3].set_title('Cumulative Weighted Features')
+                    axes[vi_idx, 3].scatter(observations[:obs_idx, 0],
+                                            observations[:obs_idx, 1],
+                                            # s=3,
+                                            color='k',
+                                            label='Observations')
+                    for feature_idx in range(10):
+                        axes[vi_idx, 3].plot(
+                            [0 if feature_idx == 0 else cumulative_weighted_features[feature_idx - 1, 0],
+                             cumulative_weighted_features[feature_idx, 0]],
+                            [0 if feature_idx == 0 else cumulative_weighted_features[feature_idx - 1, 1],
+                             cumulative_weighted_features[feature_idx, 1]],
+                            label=f'{feature_idx}',
+                            alpha=dish_eating_posteriors[obs_idx, feature_idx].item())
+
+                with torch.no_grad():
+
+                    # record dish-eating posterior
+                    dish_eating_posteriors.data[obs_idx, :] = variational_parameters['Z']['prob'][obs_idx, :].clone()
+
+                    # update running sum of posteriors
+                    dish_eating_posteriors_running_sum[obs_idx, :] = torch.add(
+                        dish_eating_posteriors_running_sum[obs_idx - 1, :],
+                        dish_eating_posteriors[obs_idx, :])
+
+                    # update how many dishes have been sampled
+                    non_eaten_dishes_posteriors_running_prod[obs_idx, :] = np.multiply(
+                        non_eaten_dishes_posteriors_running_prod[obs_idx - 1, :],
+                        1. - dish_eating_posteriors[obs_idx, :],
+                        # p(z_{tk} = 0|o_{\leq t}) = 1 - p(z_{tk} = 1|o_{\leq t})
+                    )
+
+                    approx_lower_bound = recursive_ibp_compute_approx_lower_bound(
+                        torch_observation=torch_observation,
+                        obs_idx=obs_idx,
+                        dish_eating_prior=dish_eating_prior,
+                        variable_variational_params=variational_parameters,
+                        sigma_obs_squared=model_params['gaussian_likelihood_cov_scaling'])
+                    approx_lower_bounds.append(approx_lower_bound.item())
+
+                    num_dishes_poisson_rate_posteriors[obs_idx] = torch.sum(
+                        1. - non_eaten_dishes_posteriors_running_prod[obs_idx, :])
+
+                    # update running sum of which customers ate which dishes
+                    dish_eating_posteriors_running_sum[obs_idx] = torch.add(
+                        dish_eating_posteriors_running_sum[obs_idx - 1, :],
+                        dish_eating_posteriors[obs_idx, :])
+
+            if plot_dir is not None:
+                plt.savefig(os.path.join(plot_dir, f'{simultaneous_or_sequential}_params_obs={obs_idx}.png'),
+                            bbox_inches='tight',
+                            dpi=300)
+                # plt.show()
+                plt.close()
+
+                plt.scatter(1 + np.arange(len(approx_lower_bounds)),
+                            approx_lower_bounds)
+                plt.xlabel('VI Step')
+                plt.ylabel('VI Approx Lower Bound')
+                plt.savefig(os.path.join(plot_dir, f'{simultaneous_or_sequential}_approxlowerbound_obs={obs_idx}.png'),
+                            bbox_inches='tight',
+                            dpi=300)
+                # plt.show()
+                plt.close()
+
+        # Remember to cut off the first index.y
+        numpy_variable_params = {
+            var_name: {param_name: param_tensor.detach().numpy()[1:]
+                       for param_name, param_tensor in var_params.items()}
+            for var_name, var_params in variational_parameters.items()
+        }
+        bayesian_recursion_results = dict(
+            dish_eating_priors=dish_eating_priors.numpy()[1:],
+            dish_eating_posteriors=dish_eating_posteriors.numpy()[1:],
+            dish_eating_posteriors_running_sum=dish_eating_posteriors_running_sum.numpy()[1:],
+            non_eaten_dishes_posteriors_running_prod=non_eaten_dishes_posteriors_running_prod.numpy()[1:],
+            num_dishes_poisson_rate_priors=num_dishes_poisson_rate_priors.numpy()[1:],
+            num_dishes_poisson_rate_posteriors=num_dishes_poisson_rate_posteriors.numpy()[1:],
+            variational_parameters=numpy_variable_params,
+            model_params=self.model_params,
+        )
+
+        return bayesian_recursion_results
+
+    def sample_params_for_predictive_posterior(self,
+                                               num_samples: int) -> Dict[str, np.ndarray]:
+        raise NotImplementedError
+
+
+class WidjajaLinearGaussian(LinearGaussianModel):
+    """
+    Implementation of Widjaja 2017 Streaming Variational Inference for the IBP.
+    """
+
+    def __init__(self,
+                 model_str: str,
+                 model_params: Dict[str, float],
+                 max_num_features: int = None,
+                 plot_dir: str = None
+                 ):
+        self.model_str = model_str
+        self.model_params = model_params
+        self.max_num_features = max_num_features
+        self.plot_dir = plot_dir
+
+    def fit(self,
+            observations: np.ndarray):
+        num_obs, obs_dim = observations.shape
+        if self.max_num_features is None:
+            self.max_num_features = compute_max_num_features(
+                alpha=self.model_params['alpha'],
+                beta=self.model_params['beta'],
+                num_obs=num_obs)
+
+        online_model = utils.inference_widjaja.OnlineFinite(
+            obs_dim=obs_dim,
+            max_num_features=self.max_num_features,
+            alpha=self.model_params['alpha'],
+            beta=self.model_params['beta'],
+            sigma_a=np.sqrt(self.model_params['gaussian_prior_cov_scaling']),
+            sigma_x=np.sqrt(self.model_params['gaussian_likelihood_cov_scaling']),
+            t0=1,
+            kappa=0.5)
+
+        online_strategy = utils.inference_widjaja.Static(
+            online_model,
+            observations,
+            minibatch_size=10)
+
+        dish_eating_priors = np.zeros(shape=(num_obs, self.max_num_features))
+
+        dish_eating_posteriors = np.zeros(shape=(num_obs, self.max_num_features))
+
+        beta_param_1 = np.zeros(shape=(num_obs, self.max_num_features))
+        beta_param_2 = np.zeros(shape=(num_obs, self.max_num_features))
+
+        A_means = np.zeros(shape=(num_obs, self.max_num_features, obs_dim))
+        # They assume a diagonal covariance. We will later expand.
+        A_covs = np.zeros(shape=(num_obs, self.max_num_features, obs_dim))
+
+        for obs_idx in range(num_obs):
+            obs_indices = slice(obs_idx, obs_idx + 1, 1)
+            step_results = online_strategy.step(obs_indices=obs_indices)
+            dish_eating_priors[obs_idx, :] = step_results['dish_eating_prior'][0, :]
+            dish_eating_posteriors[obs_idx] = step_results['dish_eating_posterior'][0, :]
+            A_means[obs_idx] = step_results['A_mean']
+            A_covs[obs_idx] = step_results['A_cov']
+            beta_param_1[obs_idx] = step_results['beta_param_1']
+            beta_param_2[obs_idx] = step_results['beta_param_2']
+
+        # Their model assumes a diagonal covariance. Convert to full covariance.
+        A_covs = np.apply_along_axis(
+            func1d=np.diag,
+            axis=2,
+            arr=A_covs,
+        )
+        variational_parameters = dict(
+            A=dict(mean=A_means, cov=A_covs),
+            pi=dict(param_1=beta_param_1, param_2=beta_param_2)
+        )
+
+        dish_eating_posteriors_running_sum = np.cumsum(dish_eating_posteriors, axis=0)
+
+        num_dishes_poisson_rate_posteriors = np.sum(dish_eating_posteriors_running_sum > 1e-2,
+                                                    axis=1).reshape(-1, 1)
+
+        dish_eating_priors_running_sum = np.cumsum(dish_eating_priors, axis=0)
+        num_dishes_poisson_rate_priors = np.sum(dish_eating_priors_running_sum > 1e-2,
+                                                axis=1).reshape(-1, 1)
+
+        fit_results = dict(
+            dish_eating_priors=dish_eating_priors,
+            dish_eating_posteriors=dish_eating_posteriors,
+            dish_eating_posteriors_running_sum=dish_eating_posteriors_running_sum,
+            num_dishes_poisson_rate_priors=num_dishes_poisson_rate_priors,
+            num_dishes_poisson_rate_posteriors=num_dishes_poisson_rate_posteriors,
+            variational_parameters=variational_parameters,
+            model_params=self.model_params,
+        )
+
+        return fit_results
+
+    def sample_params_for_predictive_posterior(self,
+                                               num_samples: int) -> Dict[str, np.ndarray]:
+
+        var_params = self.fit_results['variational_params']
+        # TODO: investigate why some param_2 are negative and how to stop it.
+        # Something in the original Widjaja code is screwing up.
+        param_1 = var_params['pi']['param_1']
+        param_1[param_1 < 1e-10] = 1e-10
+        param_2 = var_params['pi']['param_2']
+        param_2[param_2 < 1e-10] = 1e-10
+
+        indicators_probs = np.random.beta(
+            a=param_1[-1, :],
+            b=param_2[-1, :],
+            size=num_samples)
+        features = np.stack([np.random.multivariate_normal(mean=var_params['A']['mean'][-1, k, :],
+                                                           cov=var_params['A']['cov'][-1, k, :],
+                                                           size=num_samples)
+                             for k in range(len(indicators_probs))])
+
+        sampled_parameters = dict(
+            indicators_probs=indicators_probs,
+            features=features)
+
+        return sampled_parameters
+
+
+def compute_max_num_features(alpha: float,
+                             beta: float,
+                             num_obs: int,
+                             prefactor: int = 10):
+    # Note: the expected number of latents grows logarithmically as a*b*log(1 + N/sticks)
+    # The 10 is a hopefully conservative heuristic to preallocate.
+    return prefactor * int(alpha * beta * np.log(1 + num_obs / beta))
 
 
 def create_new_feature_params_multivariate_normal(torch_observation: torch.Tensor,
@@ -474,16 +1338,14 @@ def run_inference_alg(inference_alg_str: str,
                       observations: np.ndarray,
                       model_str: str,
                       model_params: dict = None,
-                      plot_dir: str = None,
-                      learning_rate: float = 1e0):
-
+                      plot_dir: str = None):
     # create dict to store algorithm-specific arguments to inference alg function
     if model_params is None:
         model_params = {}
 
     if model_str == 'linear_gaussian':
         model_params['gaussian_likelihood_cov_scaling'] = 1.
-        model_params['gaussian_prior_cov_scaling']  = 100.
+        model_params['gaussian_prior_cov_scaling'] = 100.
     elif model_str == 'factor_analysis':
         raise NotImplementedError
     elif model_str == 'nonnegative_matrix_factorization':
@@ -493,14 +1355,24 @@ def run_inference_alg(inference_alg_str: str,
 
     # select inference alg and add kwargs as necessary
     if inference_alg_str == 'Doshi-Velez':
-        inference_alg = variational_inference_offline
+        # TODO: investigate what these are
+        model_params['t0'] = 1
+        model_params['kappa'] = 0.5
+        inference_alg = DoshiVelezLinearGaussian(
+            model_str=model_str,
+            model_params=model_params)
     elif inference_alg_str == 'R-IBP':
-        inference_alg = utils.inference_refactor.RecursiveIBP(
+        inference_alg = RecursiveIBPLinearGaussian(
             model_str=model_str,
             model_params=model_params,
             plot_dir=plot_dir)
     elif inference_alg_str == 'Widjaja':
-        inference_alg = variational_inference_online
+        # TODO: investigate what these are
+        model_params['t0'] = 1
+        model_params['kappa'] = 0.5
+        inference_alg = WidjajaLinearGaussian(
+            model_str=model_str,
+            model_params=model_params)
     # elif inference_alg_str == 'Online CRP':
     #     inference_alg = online_crp
     # elif inference_alg_str == 'SUSG':
@@ -516,7 +1388,7 @@ def run_inference_alg(inference_alg_str: str,
     #     else:
     #         raise ValueError('Invalid DP Means')
     elif inference_alg_str.startswith('HMC-Gibbs'):
-        inference_alg = utils.inference_refactor.HMCGibbs(
+        inference_alg = HMCGibbsLinearGaussian(
             model_str=model_str,
             model_params=model_params,
             num_samples=100,
@@ -536,10 +1408,10 @@ def run_inference_alg(inference_alg_str: str,
     #     inference_alg_kwargs['num_steps'] = num_steps
     #     # Note: these are the ground truth parameters
     #     if likelihood_model == 'dirichlet_multinomial':
-    #         inference_alg_kwargs['model_parameters'] = dict(
+    #         inference_alg_kwargs['model_params'] = dict(
     #             dirichlet_inference_params=10.)  # same as R-CRP
     #     elif likelihood_model == 'multivariate_normal':
-    #         inference_alg_kwargs['model_parameters'] = dict(
+    #         inference_alg_kwargs['model_params'] = dict(
     #             gaussian_mean_prior_cov_scaling=6.,
     #             gaussian_cov_scaling=0.3)
     #     else:
@@ -563,184 +1435,3 @@ def run_inference_alg(inference_alg_str: str,
     inference_alg_results['inference_alg'] = inference_alg
 
     return inference_alg_results
-
-
-def variational_inference_offline(observations,
-                                  inference_params: Dict[str, float],
-                                  likelihood_model: str,
-                                  model_parameters: Dict[str, float],
-                                  max_num_features: int = None,
-                                  num_coordinate_ascent_steps: int = 100,
-                                  plot_dir: str = None, ):
-    """
-    Implementation of Doshi-Velez 2009 Variational Inference for the IBP.
-    """
-
-    if likelihood_model != 'linear_gaussian':
-        raise NotImplementedError
-
-    assert num_coordinate_ascent_steps > 0
-    num_obs, obs_dim = observations.shape
-    if max_num_features is None:
-        # Note: the expected number of latents grows logarithmically as a*b*log(1 + N/sticks)
-        # The 10 is a hopefully conservative heuristic to preallocate.
-        max_num_features = 10 * int(inference_params['alpha'] * inference_params['beta'] * \
-                                    np.log(1 + num_obs / inference_params['beta']))
-
-    offline_model = utils.inference_widjaja.OfflineFinite(
-        obs_dim=obs_dim,
-        num_obs=num_obs,
-        max_num_features=max_num_features,
-        alpha=inference_params['alpha'],
-        beta=inference_params['beta'],
-        sigma_a=np.sqrt(model_parameters['gaussian_prior_cov_scaling']),
-        sigma_x=np.sqrt(model_parameters['gaussian_likelihood_cov_scaling']),
-        t0=1,
-        kappa=0.5)
-
-    offline_strategy = utils.inference_widjaja.Static(
-        offline_model,
-        observations,
-        minibatch_size=num_obs,  # full batch
-    )
-
-    dish_eating_priors = np.zeros(shape=(num_obs, max_num_features))
-    dish_eating_posteriors = np.zeros(shape=(num_obs, max_num_features))
-    beta_param_1 = np.zeros(shape=(max_num_features,))
-    beta_param_2 = np.zeros(shape=(max_num_features,))
-
-    # Always use full batch
-    obs_indices = slice(0, num_obs, 1)
-    for step_idx in range(num_coordinate_ascent_steps):
-        step_results = offline_strategy.step(obs_indices=obs_indices)
-    dish_eating_priors[:, :] = step_results['dish_eating_prior']
-    dish_eating_posteriors[:, :] = step_results['dish_eating_posterior']
-    beta_param_1[:] = step_results['beta_param_1']
-    beta_param_2[:] = step_results['beta_param_2']
-
-    # shape (max number of features, obs dim)
-    A_means = step_results['A_mean']
-    # shape (max number of features, obs dim)
-    # They assume a diagonal covariance. We will later expand.
-    A_covs = step_results['A_cov']
-
-    # Their model assumes a diagonal covariance. Convert to full covariance.
-    A_covs = np.apply_along_axis(
-        func1d=np.diag,
-        axis=1,
-        arr=A_covs,
-    )
-    variable_parameters = dict(
-        A=dict(mean=A_means, cov=A_covs),
-        pi=dict(param_1=beta_param_1, param_2=beta_param_2)
-    )
-
-    dish_eating_posteriors_running_sum = np.cumsum(dish_eating_posteriors, axis=0)
-
-    num_dishes_poisson_rate_posteriors = np.sum(
-        dish_eating_posteriors_running_sum > 1e-10,
-        axis=1).reshape(-1, 1)
-
-    num_dishes_poisson_rate_priors = np.full(fill_value=np.nan,
-                                             shape=num_dishes_poisson_rate_posteriors.shape)
-
-    variational_inference_offline_results = dict(
-        dish_eating_priors=dish_eating_priors,
-        dish_eating_posteriors=dish_eating_posteriors,
-        dish_eating_posteriors_running_sum=dish_eating_posteriors_running_sum,
-        num_dishes_poisson_rate_priors=num_dishes_poisson_rate_priors,
-        num_dishes_poisson_rate_posteriors=num_dishes_poisson_rate_posteriors,
-        variable_parameters=variable_parameters,
-        model_parameters=model_parameters,
-    )
-
-    return variational_inference_offline_results
-
-
-def variational_inference_online(observations,
-                                 inference_params: Dict[str, float],
-                                 likelihood_model: str,
-                                 model_parameters: Dict[str, float],
-                                 max_num_features: int = None,
-                                 plot_dir: str = None, ):
-    """
-    Implementation of Widjaja 2017 Streaming Variational Inference for the IBP.
-    """
-
-    if likelihood_model != 'linear_gaussian':
-        raise NotImplementedError
-
-    num_obs, obs_dim = observations.shape
-    if max_num_features is None:
-        # Note: the expected number of latents grows logarithmically as a*b*log(1 + N/sticks)
-        # The 10 is a hopefully conservative heuristic to preallocate.
-        max_num_features = 10 * int(inference_params['alpha'] * inference_params['beta'] * \
-                                    np.log(1 + num_obs / inference_params['beta']))
-
-    online_model = utils.inference_widjaja.OnlineFinite(
-        obs_dim=obs_dim,
-        max_num_features=max_num_features,
-        alpha=inference_params['alpha'],
-        beta=inference_params['beta'],
-        sigma_a=np.sqrt(model_parameters['gaussian_prior_cov_scaling']),
-        sigma_x=np.sqrt(model_parameters['gaussian_likelihood_cov_scaling']),
-        t0=1,
-        kappa=0.5)
-
-    online_strategy = utils.inference_widjaja.Static(
-        online_model,
-        observations,
-        minibatch_size=10)
-
-    dish_eating_priors = np.zeros(shape=(num_obs, max_num_features))
-
-    dish_eating_posteriors = np.zeros(shape=(num_obs, max_num_features))
-
-    beta_param_1 = np.zeros(shape=(num_obs, max_num_features))
-    beta_param_2 = np.zeros(shape=(num_obs, max_num_features))
-
-    A_means = np.zeros(shape=(num_obs, max_num_features, obs_dim))
-    # They assume a diagonal covariance. We will later expand.
-    A_covs = np.zeros(shape=(num_obs, max_num_features, obs_dim))
-
-    for obs_idx in range(num_obs):
-        obs_indices = slice(obs_idx, obs_idx + 1, 1)
-        step_results = online_strategy.step(obs_indices=obs_indices)
-        dish_eating_priors[obs_idx, :] = step_results['dish_eating_prior'][0, :]
-        dish_eating_posteriors[obs_idx] = step_results['dish_eating_posterior'][0, :]
-        A_means[obs_idx] = step_results['A_mean']
-        A_covs[obs_idx] = step_results['A_cov']
-        beta_param_1[obs_idx] = step_results['beta_param_1']
-        beta_param_2[obs_idx] = step_results['beta_param_2']
-
-    # Their model assumes a diagonal covariance. Convert to full covariance.
-    A_covs = np.apply_along_axis(
-        func1d=np.diag,
-        axis=2,
-        arr=A_covs,
-    )
-    variable_parameters = dict(
-        A=dict(mean=A_means, cov=A_covs),
-        pi=dict(param_1=beta_param_1, param_2=beta_param_2)
-    )
-
-    dish_eating_posteriors_running_sum = np.cumsum(dish_eating_posteriors, axis=0)
-
-    num_dishes_poisson_rate_posteriors = np.sum(dish_eating_posteriors_running_sum > 1e-2,
-                                                axis=1).reshape(-1, 1)
-
-    dish_eating_priors_running_sum = np.cumsum(dish_eating_priors, axis=0)
-    num_dishes_poisson_rate_priors = np.sum(dish_eating_priors_running_sum > 1e-2,
-                                            axis=1).reshape(-1, 1)
-
-    variational_inference_online_results = dict(
-        dish_eating_priors=dish_eating_priors,
-        dish_eating_posteriors=dish_eating_posteriors,
-        dish_eating_posteriors_running_sum=dish_eating_posteriors_running_sum,
-        num_dishes_poisson_rate_priors=num_dishes_poisson_rate_priors,
-        num_dishes_poisson_rate_posteriors=num_dishes_poisson_rate_posteriors,
-        variable_parameters=variable_parameters,
-        model_parameters=model_parameters,
-    )
-
-    return variational_inference_online_results

@@ -43,7 +43,7 @@ def run_one(args: argparse.Namespace):
 
     logging.info('Successfully ran and plotted {} with params {} on dataset {}'.format(
         setup_results['inference_alg_str'],
-        setup_results['inference_alg_params'],
+        setup_results['model_params'],
         args.run_one_results_dir))
 
 
@@ -78,7 +78,6 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
         observations=sampled_linear_gaussian_data['train_observations'],
         model_str='linear_gaussian',
         model_params=model_params,
-        learning_rate=1e0,
         plot_dir=inference_results_dir)
 
     # record elapsed time
@@ -86,7 +85,7 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
     runtime = stop_time - start_time
 
     # record scores
-    log_posterior_predictive_results = utils.metrics.compute_log_posterior_predictive(
+    log_posterior_predictive_results = utils.metrics.compute_log_posterior_predictive_linear_gaussian(
         test_observations=sampled_linear_gaussian_data['test_observations'],
         inference_alg=inference_alg_results['inference_alg'])
 
@@ -160,7 +159,7 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=0,
                         help='Pseudo-random seed for NumPy/PyTorch.')
     parser.add_argument('--inference_alg_str', type=str,
-                        choices=utils.inference.inference_alg_strs,
+                        choices=utils.inference.inference_algs,
                         help='Inference algorithm to run on dataset')
     parser.add_argument('--alpha', type=float,
                         help='IBP alpha parameter.')
