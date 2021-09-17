@@ -39,7 +39,7 @@ def load_all_datasets_all_alg_results(results_dir_path) -> pd.DataFrame:
         sampling_dir_path = os.path.join(results_dir_path, sampling_dir)
         # Iterate through each sampled dataset
         dataset_dirs = [subdir for subdir in os.listdir(sampling_dir_path)
-                        if os.path.isdir(subdir)]
+                        if os.path.isdir(os.path.join(sampling_dir_path, subdir))]
         for dataset_dir in dataset_dirs:
             dataset_dir_path = os.path.join(sampling_dir_path, dataset_dir)
             # Find all algorithms that were run

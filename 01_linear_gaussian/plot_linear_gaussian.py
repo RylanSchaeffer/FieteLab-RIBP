@@ -32,7 +32,7 @@ def plot_analyze_all_negative_posterior_predictive_vs_runtime(results_df: pd.Dat
         plt.ylabel('Negative Log Posterior Predictive')
         plt.xscale('log')
         plt.yscale('log')
-        plt.savefig(os.path.join(sampling_results_dir_path, 'gaussian_features_by_num_obs.png'),
+        plt.savefig(os.path.join(sampling_results_dir_path, 'negative_posterior_predictive_vs_runtime.png'),
                     bbox_inches='tight',
                     dpi=300)
         # plt.show()

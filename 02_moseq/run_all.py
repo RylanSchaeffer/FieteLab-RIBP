@@ -49,7 +49,7 @@ def run_all():
         logging.info(f'Sampling: {indicator_sampling}, Dataset Index: {dataset_idx}')
         sampled_linear_gaussian_data = utils.data_synthetic.sample_from_linear_gaussian(
             num_obs=num_customers,
-            indicator_sampling=indicator_sampling,
+            indicator_sampling_str=indicator_sampling,
             indicator_sampling_params=indicator_sampling_params,
             gaussian_prior_params=dict(gaussian_cov_scaling=gaussian_cov_scaling,
                                        gaussian_mean_prior_cov_scaling=gaussian_mean_prior_cov_scaling))

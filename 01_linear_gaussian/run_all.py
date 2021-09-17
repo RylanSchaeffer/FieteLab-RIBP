@@ -24,8 +24,9 @@ def run_all():
     os.makedirs(results_dir_path, exist_ok=True)
 
     feature_samplings = [
+        ('GriffithsGhahramani', dict()),
         # ('categorical', dict(probs=np.ones(5) / 5.)),
-        ('categorical', dict(probs=np.array([0.4, 0.25, 0.2, 0.1, 0.05]))),
+        # ('categorical', dict(probs=np.array([0.4, 0.25, 0.2, 0.1, 0.05]))),
         # ('IBP', dict(alpha=1.17, beta=0.58)),
         # ('IBP', dict(alpha=1.17, beta=2.4)),
         # ('IBP', dict(alpha=5.98, beta=2.4)),
@@ -40,9 +41,9 @@ def run_all():
     betas = np.round(np.linspace(0.3, 6.7, 3), 2)
     inference_alg_strs = [
         'R-IBP',
-        'HMC-Gibbs',
-        'Doshi-Velez',
-        'Widjaja',
+        # 'HMC-Gibbs',
+        # 'Doshi-Velez',
+        # 'Widjaja',
     ]
     hyperparams = [alphas, betas, inference_alg_strs]
 
@@ -53,7 +54,7 @@ def run_all():
         logging.info(f'Sampling: {indicator_sampling}, Dataset Index: {dataset_idx}')
         sampled_linear_gaussian_data = utils.data_synthetic.sample_from_linear_gaussian(
             num_obs=num_customers,
-            indicator_sampling=indicator_sampling,
+            indicator_sampling_str=indicator_sampling,
             indicator_sampling_params=indicator_sampling_params,
             gaussian_prior_params=dict(gaussian_cov_scaling=gaussian_cov_scaling,
                                        gaussian_mean_prior_cov_scaling=gaussian_mean_prior_cov_scaling))

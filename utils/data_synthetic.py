@@ -126,7 +126,7 @@ def sample_ibp(num_mc_sample: int,
 
 
 def sample_from_linear_gaussian(num_obs: int = 100,
-                                indicator_sampling: str = 'categorical',
+                                indicator_sampling_str: str = 'categorical',
                                 indicator_sampling_params: Dict[str, float] = None,
                                 gaussian_prior_params: Dict[str, float] = None,
                                 gaussian_likelihood_params: Dict[str, float] = None) -> Dict[str, np.ndarray]:
@@ -139,49 +139,62 @@ def sample_from_linear_gaussian(num_obs: int = 100,
                                 binary linear-Gaussian samples
     """
 
-    if indicator_sampling not in {'categorical', 'IBP'}:
-        raise ValueError(f'Impermissible class sampling value: {indicator_sampling}')
-
-    if indicator_sampling is None:
-        indicator_sampling_params = dict()
-
-    if indicator_sampling == 'categorical':
-
-        # if probabilities per cluster aren't specified, go with uniform probabilities
-        if 'probs' not in indicator_sampling_params:
-            indicator_sampling_params['probs'] = np.ones(5) / 5
-
-        indicator_sampling_descr_str = '{}_probs={}'.format(
-            indicator_sampling,
-            list(indicator_sampling_params['probs']))
-        indicator_sampling_descr_str = indicator_sampling_descr_str.replace(' ', '')
-
-    elif indicator_sampling == 'IBP':
-        if 'alpha' not in indicator_sampling_params:
-            indicator_sampling_params['alpha'] = 3.98
-        if 'beta' not in indicator_sampling_params:
-            indicator_sampling_params['beta'] = 4.97
-        indicator_sampling_descr_str = '{}_a={}_b={}'.format(
-            indicator_sampling,
-            indicator_sampling_params['alpha'],
-            indicator_sampling_params['beta'])
-
-    else:
-        raise NotImplementedError
-
     if gaussian_prior_params is None:
         gaussian_prior_params = {}
 
     if gaussian_likelihood_params is None:
         gaussian_likelihood_params = {'sigma_x': 1e-10}
 
-    if indicator_sampling == 'categorical':
+    # Otherwise, use categorical or IBP to sample number of features
+    if indicator_sampling_str not in {'categorical', 'IBP', 'GriffithsGhahramani'}:
+        raise ValueError(f'Impermissible class sampling value: {indicator_sampling_str}')
+
+    # Unique case of generating Griffiths & Ghahramani data
+    if indicator_sampling_str == 'GriffithsGhahramani':
+        sampled_data_result = sample_from_griffiths_ghahramani_2005(
+            num_obs=num_obs,
+            gaussian_likelihood_params=gaussian_likelihood_params)
+        sampled_data_result['indicator_sampling_str'] = indicator_sampling_str
+        indicator_sampling_descr_str = '{}_probs={}'.format(
+            indicator_sampling_str,
+            list(sampled_data_result['indicator_sampling_params']['probs']))
+        sampled_data_result['indicator_sampling_descr_str'] = indicator_sampling_descr_str
+        return sampled_data_result
+
+    if indicator_sampling_str is None:
+        indicator_sampling_params = dict()
+
+    if indicator_sampling_str == 'categorical':
+
+        # if probabilities per cluster aren't specified, go with uniform probabilities
+        if 'probs' not in indicator_sampling_params:
+            indicator_sampling_params['probs'] = np.ones(5) / 5
+
+        indicator_sampling_descr_str = '{}_probs={}'.format(
+            indicator_sampling_str,
+            list(indicator_sampling_params['probs']))
+        indicator_sampling_descr_str = indicator_sampling_descr_str.replace(' ', '')
+
+    elif indicator_sampling_str == 'IBP':
+        if 'alpha' not in indicator_sampling_params:
+            indicator_sampling_params['alpha'] = 3.98
+        if 'beta' not in indicator_sampling_params:
+            indicator_sampling_params['beta'] = 4.97
+        indicator_sampling_descr_str = '{}_a={}_b={}'.format(
+            indicator_sampling_str,
+            indicator_sampling_params['alpha'],
+            indicator_sampling_params['beta'])
+
+    else:
+        raise NotImplementedError
+
+    if indicator_sampling_str == 'categorical':
         num_gaussians = indicator_sampling_params['probs'].shape[0]
         sampled_indicators = np.random.binomial(
             n=1,
             p=indicator_sampling_params['probs'][np.newaxis, :],
             size=(num_obs, num_gaussians))
-    elif indicator_sampling == 'IBP':
+    elif indicator_sampling_str == 'IBP':
         sampled_indicators = sample_ibp(
             num_mc_sample=1,
             num_customer=num_obs,
@@ -190,7 +203,7 @@ def sample_from_linear_gaussian(num_obs: int = 100,
         num_gaussians = np.argwhere(np.sum(sampled_indicators, axis=0) == 0.)[0, 0]
         sampled_indicators = sampled_indicators[:, :num_gaussians]
     else:
-        raise ValueError(f'Impermissible class sampling: {indicator_sampling}')
+        raise ValueError(f'Impermissible class sampling: {indicator_sampling_str}')
 
     gaussian_params = generate_gaussian_params_from_gaussian_prior(
         num_gaussians=num_gaussians,
@@ -206,19 +219,19 @@ def sample_from_linear_gaussian(num_obs: int = 100,
             cov=obs_cov)
         for obs_idx in range(num_obs)])
 
-    result = dict(
+    sampled_data_result = dict(
         gaussian_params=gaussian_params,
         sampled_indicators=sampled_indicators,
         observations=observations,
         features=features,
-        indicator_sampling=indicator_sampling,
+        indicator_sampling_str=indicator_sampling_str,
         indicator_sampling_params=indicator_sampling_params,
         indicator_sampling_descr_str=indicator_sampling_descr_str,
         gaussian_prior_params=gaussian_prior_params,
         gaussian_likelihood_params=gaussian_likelihood_params,
     )
 
-    return result
+    return sampled_data_result
 
 
 def sample_from_griffiths_ghahramani_2005(num_obs: int = 100,
@@ -281,7 +294,7 @@ def sample_from_griffiths_ghahramani_2005(num_obs: int = 100,
     observations = np.matmul(sampled_indicators, features)
     observations += scipy.stats.norm.rvs(loc=0.0, scale=gaussian_likelihood_params['sigma_x'], size=observations.shape)
 
-    result = dict(
+    sampled_data_result = dict(
         sampled_indicators=sampled_indicators,
         observations=observations,
         features=features,
@@ -290,7 +303,7 @@ def sample_from_griffiths_ghahramani_2005(num_obs: int = 100,
         original_features_shape=(num_features, 6, 6),  # sqrt(36)
     )
 
-    return result
+    return sampled_data_result
 
 
 def sample_sequence_from_factor_analysis(seq_len: int,
