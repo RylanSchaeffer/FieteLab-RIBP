@@ -57,6 +57,7 @@ def load_all_datasets_all_alg_results(results_dir_path) -> pd.DataFrame:
                            stored_data['inference_alg_params']['beta'],
                            stored_data['runtime'],
                            stored_data['log_posterior_predictive']['mean']]
+                del stored_data
                 rows.append(new_row)
 
     results_df = pd.DataFrame(
