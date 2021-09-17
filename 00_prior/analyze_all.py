@@ -17,7 +17,7 @@ import scipy.stats
 import plot_prior
 
 
-def run_mse(args: argparse.Namespace):
+def analyze_all(args: argparse.Namespace):
 
     # create directory
     exp_dir_path = '00_prior'
@@ -86,5 +86,5 @@ if __name__ == '__main__':
     parser.add_argument('--num_bootstraps', type=int, default=10,
                         help='Number of bootstraps to draw.')
     args = parser.parse_args()
-    run_mse(args=args)
+    analyze_all(args=args)
     logging.info('Finished.')
