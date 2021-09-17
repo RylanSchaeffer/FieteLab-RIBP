@@ -7,4 +7,4 @@
 #SBATCH --mail-type=FAIL
 
 export PYTHONPATH=.
-python -u 00_prior/run_mse.py        # -u flushes output buffer immediately
+python -u 00_prior/analyze_all.py        # -u flushes output buffer immediately

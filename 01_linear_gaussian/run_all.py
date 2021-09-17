@@ -37,8 +37,13 @@ def run_all():
     num_customers = 100
 
     alphas = np.round(np.linspace(1.1, 5.91, 3), 2)
-    betas = np.round(np.linspace(0.3, 8.7, 3), 2)
-    inference_alg_strs = ['R-IBP', 'HMC-Gibbs', 'Doshi-Velez', 'Widjaja']
+    betas = np.round(np.linspace(0.3, 6.7, 3), 2)
+    inference_alg_strs = [
+        'R-IBP',
+        'HMC-Gibbs',
+        'Doshi-Velez',
+        'Widjaja',
+    ]
     hyperparams = [alphas, betas, inference_alg_strs]
 
     # generate several datasets and independently launch inference

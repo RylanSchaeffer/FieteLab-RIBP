@@ -248,7 +248,7 @@ class HMCGibbsLinearGaussian(LinearGaussianModel):
         samples = mcmc.get_samples()
 
         # For some reason, Pyro puts the obs dimension last, so we transpose
-        Z_samples = np.array(samples['Z'].transpose(0, 2, 1))
+        Z_samples = np.array(samples['Z']).transpose(0, 2, 1)
         dish_eating_posteriors = np.mean(
             Z_samples[::self.num_thinning_samples],
             axis=0)

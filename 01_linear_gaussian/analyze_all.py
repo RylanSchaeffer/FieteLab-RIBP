@@ -4,7 +4,7 @@ then plot MSE as function of
 
 Example usage:
 
-00_prior/analyze_all.py
+00_prior/run_mse.py
 """
 import argparse
 import joblib
