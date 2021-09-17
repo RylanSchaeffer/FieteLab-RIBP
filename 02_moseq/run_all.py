@@ -63,7 +63,7 @@ def run_all():
         joblib.dump(sampled_linear_gaussian_data,
                     filename=os.path.join(dataset_dir, 'data.joblib'))
 
-        plot.plot_sample_from_linear_gaussian(
+        plot.plot_run_one_sample_from_linear_gaussian(
             features=sampled_linear_gaussian_data['features'],
             observations=sampled_linear_gaussian_data['observations'],
             plot_dir=dataset_dir)

@@ -9,11 +9,11 @@ import seaborn as sns
 from utils.numpy_helpers import compute_largest_dish_idx
 
 
-def plot_indicators_by_num_obs(indicators: np.ndarray,
-                               dish_eating_priors,
-                               dish_eating_posteriors,
-                               plot_dir,
-                               cutoff: float = 1e-2):
+def plot_run_one_indicators_by_num_obs(indicators: np.ndarray,
+                                       dish_eating_priors,
+                                       dish_eating_posteriors,
+                                       plot_dir,
+                                       cutoff: float = 1e-2):
     """
     Plot three heatmaps together. The left is the ground truth indicators (y)
     vs observation index (x). The middle is the prior over indicators and the
@@ -253,10 +253,10 @@ def plot_inference_algs_runtimes_by_param(runtimes_by_dataset_by_inference_alg: 
     plt.close()
 
 
-def plot_num_features_by_num_obs(indicators,
-                                 num_dishes_poisson_rate_priors,
-                                 num_dishes_poisson_rate_posteriors,
-                                 plot_dir):
+def plot_run_one_num_features_by_num_obs(indicators,
+                                         num_dishes_poisson_rate_priors,
+                                         num_dishes_poisson_rate_posteriors,
+                                         plot_dir):
     """
     Plot inferred Poisson rates of number of dishes (Y) vs number of observations (X).
     """

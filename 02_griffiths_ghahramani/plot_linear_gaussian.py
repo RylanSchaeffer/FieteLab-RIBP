@@ -86,7 +86,7 @@ def plot_inference_results(sampled_linear_gaussian_data: dict,
         indicators=sampled_linear_gaussian_data['sampled_indicators'],
         plot_dir=plot_dir)
 
-    utils.plot.plot_indicators_by_num_obs(
+    utils.plot.plot_run_one_indicators_by_num_obs(
         dish_eating_priors=inference_alg_results['dish_eating_priors'],
         dish_eating_posteriors=inference_alg_results['dish_eating_posteriors'],
         indicators=sampled_linear_gaussian_data['sampled_indicators'],

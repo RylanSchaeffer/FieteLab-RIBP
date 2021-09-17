@@ -12,46 +12,60 @@ import logging
 import numpy as np
 import os
 import pandas as pd
-import scipy.stats
 
-import plot_prior
+import plot_linear_gaussian
 
 
 def analyze_all(args: argparse.Namespace):
-
     # create directory
-    exp_dir_path = '00_prior'
+    exp_dir_path = args.exp_dir_path
     results_dir_path = os.path.join(exp_dir_path, 'results')
 
-    num_boostraps = args.num_bootstraps
-    rows = []
-    for subdir in os.listdir(results_dir_path):
-        alpha, beta = subdir.split('_')
-        try:
-            analytical_results = joblib.load(os.path.join(results_dir_path, subdir, 'analytical.joblib'))
-            mc_results = joblib.load(os.path.join(results_dir_path, subdir, 'monte_carlo_samples=5000.joblib'))
-        except FileNotFoundError:
-            continue
+    results_df = load_all_datasets_all_alg_results(
+        results_dir_path=results_dir_path)
 
-        alpha = float(alpha[2:])
-        beta = float(beta[2:])
-        logging.info('')
-        numsample_meanerror_semerror = calc_analytical_vs_monte_carlo_mse(
-            analytical_marginals=analytical_results['analytical_dishes_by_customer_idx'],
-            mc_marginals=mc_results['sampled_dishes_by_customer_idx'],
-            num_boostraps=num_boostraps)
-        # add alpha, beta to list of [num_samples, mean_error, sem_error]
-        for entry in numsample_meanerror_semerror:
-            entry.extend([alpha, beta])
-        rows.extend(numsample_meanerror_semerror)
-
-    mse_df = pd.DataFrame(
-        rows,
-        columns=['num_samples', 'bootstrap_idx', 'mse', 'alpha', 'beta'])
-
-    plot_prior.plot_analytical_vs_monte_carlo_mse(
-        mse_df=mse_df,
+    plot_linear_gaussian.plot_analyze_all_results(
+        results_df=results_df,
         plot_dir=results_dir_path)
+
+
+def load_all_datasets_all_alg_results(results_dir_path) -> pd.DataFrame:
+
+    rows = []
+    sampling_dirs = [subdir for subdir in os.listdir(results_dir_path)]
+
+    # Iterate through each sampling scheme directory
+    for sampling_dir in sampling_dirs:
+        sampling_dir_path = os.path.join(results_dir_path, sampling_dir)
+        # Iterate through each sampled dataset
+        dataset_dirs = [subdir for subdir in os.listdir(sampling_dir_path)
+                        if os.path.isdir(subdir)]
+        for dataset_dir in dataset_dirs:
+            dataset_dir_path = os.path.join(sampling_dir_path, dataset_dir)
+            # Find all algorithms that were run
+            inference_alg_dirs = [sub_dir for sub_dir in os.listdir(dataset_dir_path)
+                                  if os.path.isdir(os.path.join(dataset_dir_path, sub_dir))]
+            for inference_alg_dir in inference_alg_dirs:
+                inference_alg_dir_path = os.path.join(dataset_dir_path, inference_alg_dir)
+                try:
+                    stored_data = joblib.load(
+                        os.path.join(inference_alg_dir_path, 'inference_alg_results.joblib'))
+                except FileNotFoundError:
+                    continue
+                new_row = [sampling_dir, dataset_dir, stored_data['inference_alg_str'],
+                           stored_data['inference_alg_params']['alpha'],
+                           stored_data['inference_alg_params']['beta'],
+                           stored_data['runtime'],
+                           stored_data['log_posterior_predictive']['mean']]
+                rows.append(new_row)
+
+    results_df = pd.DataFrame(
+        rows,
+        columns=['sampling', 'dataset', 'inference_alg', 'alpha',
+                 'beta', 'runtime', 'log_posterior_predictive'])
+
+    results_df['negative_log_posterior_predictive'] = -results_df['log_posterior_predictive']
+    return results_df
 
 
 def calc_analytical_vs_monte_carlo_mse(analytical_marginals: np.ndarray,
@@ -83,8 +97,9 @@ def calc_analytical_vs_monte_carlo_mse(analytical_marginals: np.ndarray,
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num_bootstraps', type=int, default=10,
-                        help='Number of bootstraps to draw.')
+    parser.add_argument('--exp_dir_path', type=str,
+                        default='01_linear_gaussian',
+                        help='Path to write plots and other results to.')
     args = parser.parse_args()
     analyze_all(args=args)
     logging.info('Finished.')
