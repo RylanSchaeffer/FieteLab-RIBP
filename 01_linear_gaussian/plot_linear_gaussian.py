@@ -89,17 +89,11 @@ def plot_inference_results(sampled_linear_gaussian_data: dict,
         indicators=sampled_linear_gaussian_data['train_sampled_indicators'],
         plot_dir=plot_dir)
 
-    # TODO: Fix this function
     plot_gaussian_features_by_num_obs(
         observations=sampled_linear_gaussian_data['train_observations'],
         gaussian_features=inference_alg_results['inference_alg'].features(),
         dish_eating_posteriors=inference_alg_results['dish_eating_posteriors'],
         plot_dir=plot_dir)
-
-    # plot_animation_gaussian_features_by_num_obs(
-    #     observations=sampled_linear_gaussian_data['observations'],
-    #     gaussian_features=inference_alg_results['variable_variational_params']['A']['mean'],
-    #     plot_dir=plot_dir)
 
 
 def plot_sample_from_linear_gaussian(features,

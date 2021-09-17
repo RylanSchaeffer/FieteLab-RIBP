@@ -19,7 +19,8 @@ def convert_half_cov_to_cov(half_cov: torch.Tensor) -> torch.Tensor:
     """
 
     # if no batch dimension is given, add one
-    if len(half_cov.shape) == 2:
+    has_batch_dim = len(half_cov.shape) == 3
+    if not has_batch_dim:
         half_cov = torch.unsqueeze(half_cov, dim=0)
 
     cov = torch.einsum(
@@ -32,7 +33,7 @@ def convert_half_cov_to_cov(half_cov: torch.Tensor) -> torch.Tensor:
     # assert torch.allclose(cov, cov_test)
 
     # if no batch dimension was originally given, remove
-    if len(half_cov.shape) == 2:
+    if not has_batch_dim:
         cov = torch.squeeze(cov, dim=0)
 
     assert_no_nan_no_inf(cov)
