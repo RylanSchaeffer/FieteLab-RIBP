@@ -124,7 +124,7 @@ def load_mnist_dataset(data_dir: str = 'data',
                        avg_pool: bool = False,
                        feature_extractor_method: str = 'pca'):
 
-    assert feature_extractor_method in {'pca', 'none'}
+    assert feature_extractor_method in {'pca', None}
     transforms = [torchvision.transforms.ToTensor()]
     if center_crop:
         transforms.append(torchvision.transforms.CenterCrop((80, 80)))
@@ -156,6 +156,9 @@ def load_mnist_dataset(data_dir: str = 'data',
         image_features = np.reshape(pca.inverse_transform(pca_latents),
                                     newshape=(num_data, image_height, image_width))
         feature_extractor = pca
+    elif feature_extractor_method is None:
+        image_features = observations.reshape(observations.shape[0], -1)
+        feature_extractor = None
     else:
         raise ValueError(f'Impermissible feature method: {feature_extractor_method}')
 
@@ -185,7 +188,7 @@ def load_omniglot_dataset(data_dir: str = 'data',
 
     """
 
-    assert feature_extractor_method in {'pca', 'cnn', 'vae', 'vae_old'}
+    assert feature_extractor_method in {'pca', 'cnn', 'vae', 'vae_old', None}
 
     # https://pytorch.org/tutorials/beginner/basics/data_tutorial.html
     transforms = [torchvision.transforms.ToTensor()]
@@ -230,8 +233,9 @@ def load_omniglot_dataset(data_dir: str = 'data',
         reshaped_images = np.reshape(images, newshape=(dataset_size, image_height * image_width))
         pca = PCA(n_components=20)
         pca_latents = pca.fit_transform(reshaped_images)
-        image_features = np.reshape(pca.inverse_transform(pca_latents),
-                                    newshape=(dataset_size, image_height, image_width))
+        image_features = pca.inverse_transform(pca_latents)
+        # image_features = np.reshape(pca.inverse_transform(pca_latents),
+        #                             newshape=(dataset_size, image_height, image_width))
         feature_extractor = pca
     elif feature_extractor_method == 'cnn':
         # # for some reason, omniglot uses 1 for background and 0 for stroke
@@ -269,6 +273,9 @@ def load_omniglot_dataset(data_dir: str = 'data',
         labels = labels[indices_to_sort_labels][:num_data]
         images = vae_data['images'][indices_to_sort_labels][:num_data, :, :]
         image_features = vae_data['latents'][indices_to_sort_labels][:num_data, :]
+        feature_extractor = None
+    elif feature_extractor_method is None:
+        image_features = np.reshape(images, newshape=(dataset_size, image_height * image_width))
         feature_extractor = None
     else:
         raise ValueError(f'Impermissible feature method: {feature_extractor_method}')

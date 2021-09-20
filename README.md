@@ -37,12 +37,16 @@ subdirectory (e.g. `exp_00_ibp_prior/plots`) and then reproduces the plots in th
 ## TODO
 
 - Implement IBP baselines
-  - HMC Gibbs sampling
-  - Variational Inference (Doshi Velez)
-  - Streaming VI (Widjaja)
+  - One of Paisley & Carin's papers
+  - Particle Filtering
+
 - Derive Factor Analysis and Non-negative Matrix Factorization
 - Implement Factor Analysis and Non-negative Matrix Factorization
-- Why are we getting OOM errors after 40 minutes into inference?
+- Implement Omniglot
+- Plot comparison of ground-truth features and inferred features
+- Plot comparison of ground-truth indicators and inferred indicators
+- Implement MNIST comparison of classes based on inferred features
+  - PCA MNist
 
 ## Contact
 

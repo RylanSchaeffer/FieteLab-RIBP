@@ -1426,9 +1426,9 @@ def run_inference_alg(inference_alg_str: str,
         inference_alg = HMCGibbsLinearGaussian(
             model_str=model_str,
             model_params=model_params,
-            num_samples=300000,
+            num_samples=100000,
             num_warmup_samples=50000,
-            num_thinning_samples=5000)
+            num_thinning_samples=1000)
 
         # Suppose inference_alg_str is 'HMC-Gibbs (5000 Samples)'. We want to extract
         # the number of samples. To do this, we use the following
