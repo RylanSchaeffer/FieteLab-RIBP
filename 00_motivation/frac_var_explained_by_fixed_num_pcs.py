@@ -20,8 +20,8 @@ plot_dir = '00_motivation'
 
 
 datasets = ['Omniglot', 'MNIST']
-num_pcs = [100, 500, 1000, 1500]
-dataset_sizes = [100, 250, 1000, 2500]
+num_pcs = [100, 250, 500, 1000]
+dataset_sizes = np.arange(100, 5001, 100)
 for dataset in datasets:
     if dataset == 'MNIST':
         mnist_results = utils.data_real.load_mnist_dataset(
@@ -51,11 +51,11 @@ for dataset in datasets:
                 (num_pc, dataset_size, frac_var_explained))
     df = pd.DataFrame(
         frac_var_explained_by_num_pcs_and_dataset_size,
-        columns=['num_pc', 'dataset_size', 'frac_var_explained'])
+        columns=['Num PCs', 'dataset_size', 'frac_var_explained'])
     sns.lineplot(data=df,
                  x='dataset_size',
                  y='frac_var_explained',
-                 hue='num_pc',
+                 hue='Num PCs',
                  legend='full',  # necessary to force seaborn to not try binning based on hue
                  )
     plt.title(f'{dataset}')
