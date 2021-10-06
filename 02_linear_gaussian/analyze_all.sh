@@ -7,4 +7,4 @@
 #SBATCH --mail-type=FAIL
 
 export PYTHONPATH=.
-python -u 01_linear_gaussian/analyze_all.py        # -u flushes output buffer immediately
+python -u 02_linear_gaussian/analyze_all.py        # -u flushes output buffer immediately

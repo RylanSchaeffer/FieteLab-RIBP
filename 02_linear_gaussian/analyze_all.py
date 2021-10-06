@@ -4,7 +4,7 @@ then plot MSE as function of
 
 Example usage:
 
-00_prior/run_mse.py
+01_prior/run_mse.py
 """
 import argparse
 import joblib
@@ -99,7 +99,7 @@ def calc_analytical_vs_monte_carlo_mse(analytical_marginals: np.ndarray,
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--exp_dir_path', type=str,
-                        default='01_linear_gaussian',
+                        default='02_linear_gaussian',
                         help='Path to write plots and other results to.')
     args = parser.parse_args()
     analyze_all(args=args)

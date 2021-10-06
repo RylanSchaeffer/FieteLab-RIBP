@@ -1,9 +1,8 @@
-# Efficient Online Inference for Infinite Latent Feature Models
+# Efficient Streaming Inference for Infinite Feature Models
 
-This code corresponds to the [NeurIPS 2021](https://nips.cc/Conferences/2021/Dates)
-paper.
+This code corresponds to the AISTATS 2021 submission.
 
-![](exp_00_ibp_prior/plots/ibp_dish_distribution_alpha=10.37.png)
+![](01_prior/results/a=10.78_b=2.3/ibp_recursion_a=10.78_b=2.3.png)
 
 ## Setup
 
@@ -35,14 +34,16 @@ subdirectory (e.g. `exp_00_ibp_prior/plots`) and then reproduces the plots in th
 `python3 exp_00_ibp_prior/main.py`
 
 ## TODO
-
+- Derive
+  - Factor Analysis
+  - Non-negative Matrix Factorization
+- Implement
+  - Factor Analysis
+  - Non-negative Matrix Factorization
+- Implement Omniglot
 - Implement IBP baselines
   - One of Paisley & Carin's papers
   - Particle Filtering
-
-- Derive Factor Analysis and Non-negative Matrix Factorization
-- Implement Factor Analysis and Non-negative Matrix Factorization
-- Implement Omniglot
 - Plot comparison of ground-truth features and inferred features
 - Plot comparison of ground-truth indicators and inferred indicators
 - Implement MNIST comparison of classes based on inferred features

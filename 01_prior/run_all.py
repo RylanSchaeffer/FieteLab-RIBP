@@ -5,7 +5,7 @@ marginal distribution.
 
 Example usage:
 
-00_prior/run_all.py
+01_prior/run_all.py
 """
 
 import itertools
@@ -16,7 +16,7 @@ import subprocess
 
 def run_all():
     # create directory
-    exp_dir_path = '00_prior'
+    exp_dir_path = '01_prior'
     results_dir_path = os.path.join(exp_dir_path, 'results')
     os.makedirs(results_dir_path, exist_ok=True)
 

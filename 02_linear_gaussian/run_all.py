@@ -3,7 +3,7 @@ Launch run_one.py with each configuration of the hyperparameters.
 
 Example usage:
 
-01_linear_gaussian/run_all.py
+02_linear_gaussian/run_all.py
 """
 
 import itertools
@@ -19,7 +19,7 @@ import utils.data_synthetic
 
 def run_all():
     # create directory
-    exp_dir_path = '01_linear_gaussian'
+    exp_dir_path = '02_linear_gaussian'
     results_dir_path = os.path.join(exp_dir_path, 'results')
     os.makedirs(results_dir_path, exist_ok=True)
 

@@ -4,7 +4,7 @@ then plot MSE as function of
 
 Example usage:
 
-00_prior/analyze_all.py
+01_prior/analyze_all.py
 """
 import argparse
 import joblib
@@ -20,7 +20,7 @@ import plot_prior
 def analyze_all(args: argparse.Namespace):
 
     # create directory
-    exp_dir_path = '00_prior'
+    exp_dir_path = '01_prior'
     results_dir_path = os.path.join(exp_dir_path, 'results')
 
     num_boostraps = args.num_bootstraps

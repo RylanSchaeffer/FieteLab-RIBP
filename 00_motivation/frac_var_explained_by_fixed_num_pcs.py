@@ -16,7 +16,8 @@ from sklearn.decomposition import PCA
 
 import utils.data_real
 
-plot_dir = '00_motivation'
+plot_dir = '00_motivation/results'
+os.makedirs(plot_dir, exist_ok=True)
 
 
 datasets = ['Omniglot', 'MNIST']
@@ -49,22 +50,23 @@ for dataset in datasets:
             frac_var_explained = np.sum(pca.explained_variance_ratio_[:num_pc])
             frac_var_explained_by_num_pcs_and_dataset_size.append(
                 (num_pc, dataset_size, frac_var_explained))
-    df = pd.DataFrame(
-        frac_var_explained_by_num_pcs_and_dataset_size,
-        columns=['Num PCs', 'dataset_size', 'frac_var_explained'])
-    sns.lineplot(data=df,
-                 x='dataset_size',
-                 y='frac_var_explained',
-                 hue='Num PCs',
-                 legend='full',  # necessary to force seaborn to not try binning based on hue
-                 )
-    plt.title(f'{dataset}')
-    plt.xlabel('Dataset Size')
-    plt.ylabel(f'Fraction of Variance Explained')
-    plt.savefig(os.path.join(plot_dir,
-                             f'{dataset.lower()}_frac_var_explained_by_fixed_num_pcs.png'),
-                bbox_inches='tight',
-                dpi=300)
-    # plt.show()
-    plt.close()
+
+            df = pd.DataFrame(
+                frac_var_explained_by_num_pcs_and_dataset_size,
+                columns=['Num PCs', 'dataset_size', 'frac_var_explained'])
+            sns.lineplot(data=df,
+                         x='dataset_size',
+                         y='frac_var_explained',
+                         hue='Num PCs',
+                         legend='full',  # necessary to force seaborn to not try binning based on hue
+                         )
+            plt.title(f'{dataset}')
+            plt.xlabel('Dataset Size')
+            plt.ylabel(f'Fraction of Variance Explained')
+            plt.savefig(os.path.join(plot_dir,
+                                     f'{dataset.lower()}_frac_var_explained_by_fixed_num_pcs.png'),
+                        bbox_inches='tight',
+                        dpi=300)
+            # plt.show()
+            plt.close()
 

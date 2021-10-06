@@ -16,7 +16,8 @@ from sklearn.decomposition import PCA
 
 import utils.data_real
 
-plot_dir = '00_motivation'
+plot_dir = '00_motivation/results'
+os.makedirs(plot_dir, exist_ok=True)
 
 
 datasets = ['Omniglot', 'MNIST']

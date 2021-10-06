@@ -4,8 +4,8 @@ for the specified inference algorithm.
 
 Example usage:
 
-01_linear_gaussian/run_one.py \
- --run_one_results_dir=01_linear_gaussian/results/categorical_probs=[0.2,0.2,0.2,0.2,0.2]/dataset=1 \
+02_linear_gaussian/run_one.py \
+ --run_one_results_dir=02_linear_gaussian/results/categorical_probs=[0.2,0.2,0.2,0.2,0.2]/dataset=1 \
  --inference_alg_str=R-IBP \
  --alpha=5.91 \
  --beta=4.3

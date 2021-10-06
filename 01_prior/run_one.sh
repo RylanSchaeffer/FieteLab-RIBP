@@ -20,7 +20,7 @@ export PYTHONPATH=.
 set -x
 
 # -u flushes output buffer immediately
-python -u 00_prior/run_one.py \
+python -u 01_prior/run_one.py \
 --results_dir_path="${run_one_results_dir_path}" \
 --num_customer="${num_customer}" \
 --num_mc_sample="${num_mc_sample}" \

@@ -4,7 +4,7 @@ Monte-Carlo estimates of the RCRP marginal distribution.
 
 Example usage:
 
-00_prior/run_one.py --results_dir_path=00_prior/results \
+01_prior/run_one.py --results_dir_path=01_prior/results \
  --num_customer=50 --num_mc_sample=2000 \
  --alpha=2.51 --beta=3.7
 """
