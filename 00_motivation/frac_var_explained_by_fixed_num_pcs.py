@@ -22,7 +22,7 @@ os.makedirs(plot_dir, exist_ok=True)
 
 datasets = ['Omniglot', 'MNIST']
 num_pcs = [100, 250, 500, 1000]
-dataset_sizes = np.arange(100, 5001, 100)
+dataset_sizes = np.arange(100, 3501, 100)
 for dataset in datasets:
     if dataset == 'MNIST':
         mnist_results = utils.data_real.load_mnist_dataset(

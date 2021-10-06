@@ -34,20 +34,23 @@ subdirectory (e.g. `exp_00_ibp_prior/plots`) and then reproduces the plots in th
 `python3 exp_00_ibp_prior/main.py`
 
 ## TODO
+- Results on Linear Gaussian
+  - Plot comparison of ground-truth features and inferred features
+  - Plot comparison of ground-truth indicators and inferred indicators
+- MNIST
+  - Implement MNIST comparison of classes based on inferred features
+  - PCA MNIST
+- Omniglot
+  - Implement Omniglot
 - Derive
   - Factor Analysis
   - Non-negative Matrix Factorization
 - Implement
   - Factor Analysis
   - Non-negative Matrix Factorization
-- Implement Omniglot
 - Implement IBP baselines
   - One of Paisley & Carin's papers
-  - Particle Filtering
-- Plot comparison of ground-truth features and inferred features
-- Plot comparison of ground-truth indicators and inferred indicators
-- Implement MNIST comparison of classes based on inferred features
-  - PCA MNist
+  - Particle Filtering (Wood and Griffiths)
 
 ## Contact
 
