@@ -1,5 +1,9 @@
 # Streaming Inference for Infinite Feature Models
 
+### Authors: Rylan Schaeffer, Yilun Du, Ila Rani Fiete
+
+-----
+
 This code corresponds to our AISTATS 2021 submission.
 
 ![](01_prior/results/a=10.78_b=2.3/ibp_recursion_a=10.78_b=2.3.png)
@@ -34,6 +38,7 @@ subdirectory (e.g. `exp_00_ibp_prior/plots`) and then reproduces the plots in th
 `python3 exp_00_ibp_prior/main.py`
 
 ## TODO
+- Convert Widjaja into torch
 - Results on synthetic linear-gaussian data
   - Plot comparison of ground-truth features and inferred features
   - Plot comparison of ground-truth indicators and inferred indicators
@@ -54,6 +59,7 @@ subdirectory (e.g. `exp_00_ibp_prior/plots`) and then reproduces the plots in th
 - Implement IBP baselines
   - One of Paisley & Carin's papers
   - Particle Filtering (Wood and Griffiths)
+- Refactor code into python package
 
 ## Contact
 

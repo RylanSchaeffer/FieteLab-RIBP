@@ -4,7 +4,7 @@ then plot MSE as function of
 
 Example usage:
 
-01_prior/run_mse.py
+02_prior/analyze_all.py
 """
 import argparse
 import joblib
@@ -67,33 +67,6 @@ def load_all_datasets_all_alg_results(results_dir_path) -> pd.DataFrame:
 
     results_df['negative_log_posterior_predictive'] = -results_df['log_posterior_predictive']
     return results_df
-
-
-def calc_analytical_vs_monte_carlo_mse(analytical_marginals: np.ndarray,
-                                       mc_marginals: np.ndarray,
-                                       num_boostraps: int = 10,
-                                       num_samples: list = None) -> pd.DataFrame:
-    """
-    Calculate MSE between analytical marginal matrix (num obs, max num features)
-    and Monte Carlo marginals matrix (num samples, num obs, max num features).
-    """
-
-    if num_samples is None:
-        # num_samples = [10, 25, 100, 250, 1000, 2500]
-        num_samples = [10, 100, 1000]
-    numsample_meanerror_semerror = []
-    for num_sample in num_samples:
-        for boostrap_idx in range(num_boostraps):
-            # draw sample from CRP
-            rand_indices = np.random.choice(np.arange(mc_marginals.shape[0]),
-                                            size=num_sample)
-            mean_mc_marginals_of_rand_indices = np.mean(
-                mc_marginals[rand_indices],
-                axis=0)
-            mse = np.square(np.linalg.norm(
-                analytical_marginals - mean_mc_marginals_of_rand_indices))
-            numsample_meanerror_semerror.append([num_sample, boostrap_idx, mse])
-    return numsample_meanerror_semerror
 
 
 if __name__ == '__main__':

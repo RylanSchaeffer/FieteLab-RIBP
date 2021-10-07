@@ -59,8 +59,9 @@ def plot_run_one_indicators_by_num_obs(indicators: np.ndarray,
                 vmin=cutoff,
                 vmax=1.,
                 norm=LogNorm(),
-                xticklabels=xticklabels,
-                yticklabels=yticklabels)
+                # xticklabels=xticklabels,
+                # yticklabels=yticklabels,
+                )
     axes[0].set_ylabel('Observation Index')
     axes[0].set_xlabel('Feature Index')
 
@@ -75,8 +76,9 @@ def plot_run_one_indicators_by_num_obs(indicators: np.ndarray,
                 vmin=cutoff,
                 vmax=1.,
                 norm=LogNorm(),
-                xticklabels=xticklabels,
-                yticklabels=yticklabels)
+                # xticklabels=xticklabels,
+                # yticklabels=yticklabels,
+                )
     axes[2].set_ylabel('Observation Index')
     axes[2].set_xlabel('Feature Index')
     axes[3].axis('off')
@@ -90,8 +92,8 @@ def plot_run_one_indicators_by_num_obs(indicators: np.ndarray,
                 vmin=cutoff,
                 vmax=1.,
                 norm=LogNorm(),
-                xticklabels=xticklabels,
-                yticklabels=yticklabels,
+                # xticklabels=xticklabels,
+                # yticklabels=yticklabels,
                 )
     axes[4].set_ylabel('Observation Index')
     axes[4].set_xlabel('Feature Index')

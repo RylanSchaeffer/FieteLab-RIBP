@@ -64,8 +64,7 @@ def calc_analytical_vs_monte_carlo_mse(analytical_marginals: np.ndarray,
     """
 
     if num_samples is None:
-        # num_samples = [10, 25, 100, 250, 1000, 2500]
-        num_samples = [10, 100, 1000]
+        num_samples = [10, 25, 100, 250, 1000, 2500]
     numsample_meanerror_semerror = []
     for num_sample in num_samples:
         for boostrap_idx in range(num_boostraps):

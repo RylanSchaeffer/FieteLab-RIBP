@@ -70,40 +70,42 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
         inference_results_dir,
         'inference_alg_results.joblib')
 
-    # run inference algorithm
-    # time using timer because https://stackoverflow.com/a/25823885/4570472
-    start_time = timer()
-    inference_alg_results = utils.inference.run_inference_alg(
-        inference_alg_str=inference_alg_str,
-        observations=sampled_linear_gaussian_data['train_observations'],
-        model_str='linear_gaussian',
-        model_params=model_params,
-        plot_dir=inference_results_dir)
+    if not os.path.isfile(inference_results_path):
 
-    # record elapsed time
-    stop_time = timer()
-    runtime = stop_time - start_time
+        # run inference algorithm
+        # time using timer because https://stackoverflow.com/a/25823885/4570472
+        start_time = timer()
+        inference_alg_results = utils.inference.run_inference_alg(
+            inference_alg_str=inference_alg_str,
+            observations=sampled_linear_gaussian_data['train_observations'],
+            model_str='linear_gaussian',
+            model_params=model_params,
+            plot_dir=inference_results_dir)
 
-    # record scores
-    log_posterior_predictive_results = utils.metrics.compute_log_posterior_predictive_linear_gaussian(
-        test_observations=sampled_linear_gaussian_data['test_observations'],
-        inference_alg=inference_alg_results['inference_alg'])
+        # record elapsed time
+        stop_time = timer()
+        runtime = stop_time - start_time
 
-    # count number of indicators
-    num_indicators = np.sum(
-        np.sum(inference_alg_results['dish_eating_posteriors'], axis=0) > 0.)
+        # record scores
+        log_posterior_predictive_results = utils.metrics.compute_log_posterior_predictive_linear_gaussian(
+            test_observations=sampled_linear_gaussian_data['test_observations'],
+            inference_alg=inference_alg_results['inference_alg'])
 
-    data_to_store = dict(
-        inference_alg_str=inference_alg_str,
-        inference_alg_params=model_params,
-        inference_alg_results=inference_alg_results,
-        num_indicators=num_indicators,
-        log_posterior_predictive=dict(mean=log_posterior_predictive_results['mean'],
-                                      std=log_posterior_predictive_results['std']),
-        runtime=runtime)
+        # count number of indicators
+        num_indicators = np.sum(
+            np.sum(inference_alg_results['dish_eating_posteriors'], axis=0) > 0.)
 
-    joblib.dump(data_to_store,
-                filename=inference_results_path)
+        data_to_store = dict(
+            inference_alg_str=inference_alg_str,
+            inference_alg_params=model_params,
+            inference_alg_results=inference_alg_results,
+            num_indicators=num_indicators,
+            log_posterior_predictive=dict(mean=log_posterior_predictive_results['mean'],
+                                          std=log_posterior_predictive_results['std']),
+            runtime=runtime)
+
+        joblib.dump(data_to_store,
+                    filename=inference_results_path)
 
     # read results from disk
     stored_data = joblib.load(inference_results_path)
@@ -114,6 +116,7 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
         inference_alg_results=stored_data['inference_alg_results'],
         inference_alg_str=stored_data['inference_alg_str'],
         inference_alg_params=stored_data['inference_alg_params'],
+        log_posterior_predictive_dict=stored_data['log_posterior_predictive'],
         plot_dir=inference_results_dir)
 
 

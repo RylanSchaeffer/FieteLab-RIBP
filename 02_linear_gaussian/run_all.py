@@ -80,7 +80,7 @@ def run_all():
                 inference_alg_str=inference_alg_str,
                 alpha=alpha,
                 beta=beta)
-            # continue
+            continue
 
 
 def launch_run_one(exp_dir_path: str,

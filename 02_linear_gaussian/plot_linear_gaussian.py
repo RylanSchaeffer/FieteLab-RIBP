@@ -3,7 +3,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
+from scipy.spatial.distance import cdist
 import seaborn as sns
+from typing import Dict
 
 # common plotting functions
 import utils.plot
@@ -19,7 +21,6 @@ def plot_analyze_all_results(results_df: pd.DataFrame,
 
 def plot_analyze_all_negative_posterior_predictive_vs_runtime(results_df: pd.DataFrame,
                                                               plot_dir: str):
-
     # In alpha (X) vs beta (Y) space, plot runtime (grouping by algorithm,
     for sampling_scheme, results_by_sampling_df in results_df.groupby('sampling'):
         sampling_results_dir_path = os.path.join(plot_dir, sampling_scheme)
@@ -64,7 +65,7 @@ def plot_run_one_gaussian_features_by_num_obs(observations: np.ndarray,
     fig, axes = plt.subplots(
         nrows=num_rows,
         ncols=num_cols,
-        figsize=(3*num_cols, 3*num_rows),
+        figsize=(3 * num_cols, 3 * num_rows),
         sharex=True,
         sharey=True)
 
@@ -76,7 +77,7 @@ def plot_run_one_gaussian_features_by_num_obs(observations: np.ndarray,
                    s=1,
                    color='k',
                    label='Observations')
-        ax.set_title(f'Obs {obs_idx+1}')
+        ax.set_title(f'Obs {obs_idx + 1}')
         for feature_idx in range(max_num_features):
             if gaussian_features_have_obs_dim:
                 ax.plot([0, gaussian_features[obs_idx, feature_idx, 0]],
@@ -102,11 +103,42 @@ def plot_run_one_gaussian_features_by_num_obs(observations: np.ndarray,
     plt.close()
 
 
+def plot_run_one_true_features_vs_inferred_feature_means(true_features: np.ndarray,
+                                                         inferred_feature_means: np.ndarray,
+                                                         plot_dir: str,
+                                                         metric_str: str = 'euclidean'):
+    distances = cdist(true_features,
+                      inferred_feature_means,
+                      metric=metric_str)
+
+    non_nan_columns = np.sum(np.isnan(distances), axis=0) == 0
+    distances = distances[:, non_nan_columns]
+
+    ax = sns.heatmap(distances,
+                     mask=np.isnan(distances),
+                     annot=True)
+    ax.invert_yaxis()
+    plt.ylabel('True Feature Index')
+    plt.xlabel('Inferred Feature Index')
+    plt.title(f'Distance: {metric_str}')
+    plt.savefig(os.path.join(plot_dir, f'true_features_vs_inferred_feature_means_{metric_str}.png'),
+                bbox_inches='tight',
+                dpi=300)
+    # plt.show()
+    plt.close()
+
+
 def plot_run_one_inference_results(sampled_linear_gaussian_data: dict,
                                    inference_alg_results: dict,
                                    inference_alg_str: str,
-                                   inference_alg_params: dict,
+                                   inference_alg_params: Dict[str, float],
+                                   log_posterior_predictive_dict: Dict[str, float],
                                    plot_dir):
+    plot_run_one_true_features_vs_inferred_feature_means(
+        true_features=sampled_linear_gaussian_data['gaussian_params']['means'],
+        inferred_feature_means=inference_alg_results['inference_alg'].features()[-1, :, :],
+        metric_str='cosine',
+        plot_dir=plot_dir)
 
     utils.plot.plot_run_one_num_features_by_num_obs(
         num_dishes_poisson_rate_priors=inference_alg_results['num_dishes_poisson_rate_priors'],

@@ -30,8 +30,10 @@ class OnlineFinite:
 
         self.tau_1 = np.full(max_num_features, fill_value=alpha * beta / max_num_features)
         self.tau_2 = np.full(max_num_features, fill_value=beta)
-        self.phi = stats.norm.rvs(scale=0.01, size=(obs_dim, max_num_features))
-        self.Phi = stats.norm.rvs(scale=0.1, size=(obs_dim, max_num_features))
+        # self.phi = stats.norm.rvs(scale=0.01, size=(obs_dim, max_num_features))
+        # self.Phi = stats.norm.rvs(scale=0.1, size=(obs_dim, max_num_features))
+        self.phi = np.zeros(shape=(obs_dim, max_num_features))
+        self.Phi = np.zeros(shape=(obs_dim, max_num_features))
 
         self.iteration = 0
 
@@ -163,8 +165,10 @@ class OnlineInfinite:
 
         self.tau_1 = np.full(max_num_features, fill_value=alpha)
         self.tau_2 = np.ones(max_num_features)
-        self.phi = stats.norm.rvs(scale=0.01, size=(obs_dim, max_num_features))
-        self.Phi = stats.norm.rvs(scale=0.1, size=(obs_dim, max_num_features))
+        # self.phi = stats.norm.rvs(scale=0.01, size=(obs_dim, max_num_features))
+        # self.Phi = stats.norm.rvs(scale=0.1, size=(obs_dim, max_num_features))
+        self.phi = np.zeros(shape=(obs_dim, max_num_features))
+        self.Phi = np.zeros(shape=(obs_dim, max_num_features))
 
         self.iteration = 0
 
@@ -338,8 +342,10 @@ class OfflineFinite:
         self.tau_2 = np.full(max_num_features, fill_value=beta)
         self.mu = stats.norm.rvs(scale=0.01, size=(obs_dim, max_num_features))
         self.tau = stats.norm.rvs(scale=0.1, size=(obs_dim, max_num_features))
-        self.phi = stats.norm.rvs(scale=0.01, size=(obs_dim, max_num_features))
-        self.Phi = stats.norm.rvs(scale=0.1, size=(obs_dim, max_num_features))
+        # self.phi = stats.norm.rvs(scale=0.01, size=(obs_dim, max_num_features))
+        # self.Phi = stats.norm.rvs(scale=0.1, size=(obs_dim, max_num_features))
+        self.phi = np.zeros(shape=(obs_dim, max_num_features))
+        self.Phi = np.zeros(shape=(obs_dim, max_num_features))
 
         self.iteration = 0
 
@@ -484,8 +490,10 @@ class OfflineInfinite:
         self.tau_2 = np.ones(max_num_features)
         self.mu = stats.norm.rvs(scale=0.01, size=(obs_dim, max_num_features))
         self.tau = stats.norm.rvs(scale=0.1, size=(obs_dim, max_num_features))
-        self.phi = stats.norm.rvs(scale=0.01, size=(obs_dim, max_num_features))
-        self.Phi = stats.norm.rvs(scale=0.1, size=(obs_dim, max_num_features))
+        # self.phi = stats.norm.rvs(scale=0.01, size=(obs_dim, max_num_features))
+        # self.Phi = stats.norm.rvs(scale=0.1, size=(obs_dim, max_num_features))
+        self.phi = np.zeros(shape=(obs_dim, max_num_features))
+        self.Phi = np.zeros(shape=(obs_dim, max_num_features))
 
         self.iteration = 0
 
