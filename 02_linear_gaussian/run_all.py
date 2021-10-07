@@ -24,12 +24,12 @@ def run_all():
     os.makedirs(results_dir_path, exist_ok=True)
 
     feature_samplings = [
-        ('GriffithsGhahramani', dict()),
-        ('categorical', dict(probs=np.ones(5) / 5.)),
+        # ('GriffithsGhahramani', dict()),
+        # ('categorical', dict(probs=np.ones(5) / 5.)),
         ('categorical', dict(probs=np.array([0.4, 0.25, 0.2, 0.1, 0.05]))),
-        ('IBP', dict(alpha=1.17, beta=0.58)),
-        ('IBP', dict(alpha=1.17, beta=2.4)),
-        ('IBP', dict(alpha=5.98, beta=2.4)),
+        # ('IBP', dict(alpha=1.17, beta=0.58)),
+        # ('IBP', dict(alpha=1.17, beta=2.4)),
+        # ('IBP', dict(alpha=5.98, beta=2.4)),
     ]
 
     num_datasets = 5

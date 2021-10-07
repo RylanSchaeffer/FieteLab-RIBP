@@ -134,11 +134,6 @@ def plot_run_one_inference_results(sampled_linear_gaussian_data: dict,
                                    inference_alg_params: Dict[str, float],
                                    log_posterior_predictive_dict: Dict[str, float],
                                    plot_dir):
-    plot_run_one_true_features_vs_inferred_feature_means(
-        true_features=sampled_linear_gaussian_data['gaussian_params']['means'],
-        inferred_feature_means=inference_alg_results['inference_alg'].features()[-1, :, :],
-        metric_str='cosine',
-        plot_dir=plot_dir)
 
     utils.plot.plot_run_one_num_features_by_num_obs(
         num_dishes_poisson_rate_priors=inference_alg_results['num_dishes_poisson_rate_priors'],
@@ -156,6 +151,13 @@ def plot_run_one_inference_results(sampled_linear_gaussian_data: dict,
         observations=sampled_linear_gaussian_data['train_observations'],
         gaussian_features=inference_alg_results['inference_alg'].features(),
         dish_eating_posteriors=inference_alg_results['dish_eating_posteriors'],
+        plot_dir=plot_dir)
+
+    plot_run_one_true_features_vs_inferred_feature_means(
+        true_features=sampled_linear_gaussian_data['gaussian_params']['means'],
+        # TODO: IndexError: too many indices for array: array is 2-dimensional, but 3 were indexed
+        inferred_feature_means=inference_alg_results['inference_alg'].features()[-1, :, :],
+        metric_str='cosine',
         plot_dir=plot_dir)
 
 
