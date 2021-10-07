@@ -1,6 +1,6 @@
-# Efficient Streaming Inference for Infinite Feature Models
+# Streaming Inference for Infinite Feature Models
 
-This code corresponds to the AISTATS 2021 submission.
+This code corresponds to our AISTATS 2021 submission.
 
 ![](01_prior/results/a=10.78_b=2.3/ibp_recursion_a=10.78_b=2.3.png)
 
@@ -58,4 +58,5 @@ subdirectory (e.g. `exp_00_ibp_prior/plots`) and then reproduces the plots in th
 ## Contact
 
 Questions? Comments? Interested in collaborating? Open an issue or 
-email Rylan Schaeffer at rylanschaeffer@gmail.com and cc Ila Fiete at fiete@mit.edu.
+email Rylan Schaeffer (rylanschaeffer@gmail.com) and cc Yilun Du
+(yilundu@gmail.com) and Ila Fiete (fiete@mit.edu).
