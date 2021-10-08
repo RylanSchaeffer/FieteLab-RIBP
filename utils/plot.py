@@ -8,6 +8,13 @@ import seaborn as sns
 
 from utils.numpy_helpers import compute_largest_dish_idx
 
+# inference_alg_color_map = {
+#     'HMC-Gibbs': 'Green',
+#     'Doshi-Velez': 'Purple',
+#     'R-IBP': 'Blue',
+#     'Widjaja': 'Orange',
+# }
+
 
 def plot_run_one_indicators_by_num_obs(indicators: np.ndarray,
                                        dish_eating_priors,

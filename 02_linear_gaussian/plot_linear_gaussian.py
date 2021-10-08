@@ -126,7 +126,8 @@ def plot_run_one_distance_btwn_true_features_and_inferred_feature_means(true_fea
 
     ax = sns.heatmap(distances,
                      mask=np.isnan(distances),
-                     annot=True)
+                     # annot=True,
+                     )
     ax.invert_yaxis()
     plt.ylabel('True Feature Index')
     plt.xlabel('Inferred Feature Index')

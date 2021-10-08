@@ -109,9 +109,10 @@ class DoshiVelezLinearGaussian(LinearGaussianModel):
             t0=self.model_params['t0'],
             kappa=self.model_params['kappa'])
 
+        torch_observations = torch.from_numpy(observations).float()
         offline_strategy = utils.inference_widjaja.Static(
             offline_model,
-            observations,
+            torch_observations,
             minibatch_size=num_obs,  # full batch
         )
 
@@ -124,16 +125,16 @@ class DoshiVelezLinearGaussian(LinearGaussianModel):
         obs_indices = slice(0, num_obs, 1)
         for step_idx in range(self.num_coordinate_ascent_steps):
             step_results = offline_strategy.step(obs_indices=obs_indices)
-        dish_eating_priors[:, :] = step_results['dish_eating_prior']
-        dish_eating_posteriors[:, :] = step_results['dish_eating_posterior']
-        beta_param_1[:] = step_results['beta_param_1']
-        beta_param_2[:] = step_results['beta_param_2']
+        dish_eating_priors[:, :] = step_results['dish_eating_prior'].numpy()
+        dish_eating_posteriors[:, :] = step_results['dish_eating_posterior'].numpy()
+        beta_param_1[:] = step_results['beta_param_1'].numpy()
+        beta_param_2[:] = step_results['beta_param_2'].numpy()
 
         # shape (max number of features, obs dim)
-        A_means = step_results['A_mean']
+        A_means = step_results['A_mean'].numpy()
         # shape (max number of features, obs dim)
         # They assume a diagonal covariance. We will later expand.
-        A_covs = step_results['A_cov']
+        A_covs = step_results['A_cov'].numpy()
 
         # Their model assumes a diagonal covariance. Convert to full covariance.
         A_covs = np.apply_along_axis(
@@ -848,9 +849,10 @@ class WidjajaLinearGaussian(LinearGaussianModel):
             t0=1,
             kappa=0.5)
 
+        torch_observations = torch.from_numpy(observations).float()
         online_strategy = utils.inference_widjaja.Static(
             online_model,
-            observations,
+            torch_observations,
             minibatch_size=10)
 
         dish_eating_priors = np.zeros(shape=(num_obs, self.max_num_features))
@@ -867,12 +869,12 @@ class WidjajaLinearGaussian(LinearGaussianModel):
         for obs_idx in range(num_obs):
             obs_indices = slice(obs_idx, obs_idx + 1, 1)
             step_results = online_strategy.step(obs_indices=obs_indices)
-            dish_eating_priors[obs_idx, :] = step_results['dish_eating_prior'][0, :]
-            dish_eating_posteriors[obs_idx] = step_results['dish_eating_posterior'][0, :]
-            A_means[obs_idx] = step_results['A_mean']
-            A_covs[obs_idx] = step_results['A_cov']
-            beta_param_1[obs_idx] = step_results['beta_param_1']
-            beta_param_2[obs_idx] = step_results['beta_param_2']
+            dish_eating_priors[obs_idx, :] = step_results['dish_eating_prior'][0, :].numpy()
+            dish_eating_posteriors[obs_idx] = step_results['dish_eating_posterior'][0, :].numpy()
+            A_means[obs_idx] = step_results['A_mean'].numpy()
+            A_covs[obs_idx] = step_results['A_cov'].numpy()
+            beta_param_1[obs_idx] = step_results['beta_param_1'].numpy()
+            beta_param_2[obs_idx] = step_results['beta_param_2'].numpy()
 
         # Their model assumes a diagonal covariance. Convert to full covariance.
         A_covs = np.apply_along_axis(
