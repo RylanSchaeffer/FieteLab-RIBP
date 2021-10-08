@@ -11,18 +11,18 @@ from typing import Dict
 import utils.plot
 
 
-def plot_analyze_all_results(results_df: pd.DataFrame,
-                             plot_dir: str):
+def plot_analyze_all_algorithms_results(inf_algorithms_results_df: pd.DataFrame,
+                                        plot_dir: str):
 
     plot_analyze_all_negative_posterior_predictive_vs_runtime(
-        results_df=results_df,
+        inf_algorithms_results_df=inf_algorithms_results_df,
         plot_dir=plot_dir)
 
 
-def plot_analyze_all_negative_posterior_predictive_vs_runtime(results_df: pd.DataFrame,
+def plot_analyze_all_negative_posterior_predictive_vs_runtime(inf_algorithms_results_df: pd.DataFrame,
                                                               plot_dir: str):
     # In alpha (X) vs beta (Y) space, plot runtime (grouping by algorithm,
-    for sampling_scheme, results_by_sampling_df in results_df.groupby('sampling'):
+    for sampling_scheme, results_by_sampling_df in inf_algorithms_results_df.groupby('sampling'):
         sampling_results_dir_path = os.path.join(plot_dir, sampling_scheme)
 
         sns.relplot(x='runtime',
@@ -39,6 +39,7 @@ def plot_analyze_all_negative_posterior_predictive_vs_runtime(results_df: pd.Dat
                     dpi=300)
         # plt.show()
         plt.close()
+    print(10)
 
 
 def plot_run_one_gaussian_features_by_num_obs(observations: np.ndarray,
@@ -103,10 +104,19 @@ def plot_run_one_gaussian_features_by_num_obs(observations: np.ndarray,
     plt.close()
 
 
-def plot_run_one_true_features_vs_inferred_feature_means(true_features: np.ndarray,
-                                                         inferred_feature_means: np.ndarray,
-                                                         plot_dir: str,
-                                                         metric_str: str = 'euclidean'):
+def plot_run_one_distance_btwn_true_features_and_inferred_feature_means(true_features: np.ndarray,
+                                                                        inferred_feature_means: np.ndarray,
+                                                                        plot_dir: str,
+                                                                        metric_str: str = 'euclidean'):
+    """
+    Plo
+
+    :param true_features: shape (num true features, feature dimension)
+    :param inferred_feature_means: shape (num inferred features, feature dimension)
+    :param plot_dir:
+    :param metric_str:
+    :return:
+    """
     distances = cdist(true_features,
                       inferred_feature_means,
                       metric=metric_str)
@@ -149,14 +159,13 @@ def plot_run_one_inference_results(sampled_linear_gaussian_data: dict,
 
     plot_run_one_gaussian_features_by_num_obs(
         observations=sampled_linear_gaussian_data['train_observations'],
-        gaussian_features=inference_alg_results['inference_alg'].features(),
+        gaussian_features=inference_alg_results['inference_alg'].features_after_last_obs(),
         dish_eating_posteriors=inference_alg_results['dish_eating_posteriors'],
         plot_dir=plot_dir)
 
-    plot_run_one_true_features_vs_inferred_feature_means(
+    plot_run_one_distance_btwn_true_features_and_inferred_feature_means(
         true_features=sampled_linear_gaussian_data['gaussian_params']['means'],
-        # TODO: IndexError: too many indices for array: array is 2-dimensional, but 3 were indexed
-        inferred_feature_means=inference_alg_results['inference_alg'].features()[-1, :, :],
+        inferred_feature_means=inference_alg_results['inference_alg'].features_after_last_obs(),
         metric_str='cosine',
         plot_dir=plot_dir)
 

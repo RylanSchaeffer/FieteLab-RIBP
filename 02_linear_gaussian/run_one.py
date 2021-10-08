@@ -72,6 +72,9 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
 
     if not os.path.isfile(inference_results_path):
 
+        logging.info(f'Inference results not found at: {inference_results_path}')
+        logging.info('Generating inference results...')
+
         # run inference algorithm
         # time using timer because https://stackoverflow.com/a/25823885/4570472
         start_time = timer()
@@ -85,11 +88,13 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
         # record elapsed time
         stop_time = timer()
         runtime = stop_time - start_time
+        logging.info('Generated inference results.')
 
         # record scores
         log_posterior_predictive_results = utils.metrics.compute_log_posterior_predictive_linear_gaussian(
             test_observations=sampled_linear_gaussian_data['test_observations'],
             inference_alg=inference_alg_results['inference_alg'])
+        logging.info('Computed log posterior predictive.')
 
         # count number of indicators
         num_indicators = np.sum(
@@ -104,13 +109,18 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
                                           std=log_posterior_predictive_results['std']),
             runtime=runtime)
 
+        logging.info(f'Writing inference results to disk at:'
+                     f' {inference_results_path}')
         joblib.dump(data_to_store,
                     filename=inference_results_path)
+
+    logging.info(f'Loading inference from {inference_results_path}')
 
     # read results from disk
     stored_data = joblib.load(inference_results_path)
 
     # TODO: separate train and test data when plotting, otherwise arrays of unequal length
+    logging.info('Plotting inference algorithm results...')
     plot_linear_gaussian.plot_run_one_inference_results(
         sampled_linear_gaussian_data=sampled_linear_gaussian_data,
         inference_alg_results=stored_data['inference_alg_results'],
@@ -118,6 +128,7 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
         inference_alg_params=stored_data['inference_alg_params'],
         log_posterior_predictive_dict=stored_data['log_posterior_predictive'],
         plot_dir=inference_results_dir)
+    logging.info('Plotted inference algorithm results.')
 
 
 def setup(args: argparse.Namespace):

@@ -50,7 +50,18 @@ class LinearGaussianModel(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def features(self):
+    def features_after_last_obs(self) -> np.ndarray:
+        """
+        Returns array of shape (num features, feature dimension)
+        """
+        pass
+
+    @abc.abstractmethod
+    def features_by_obs(self) -> np.ndarray:
+        """
+        Returns array of shape (num obs, num features, feature dimension)
+        :return:
+        """
         pass
 
 
@@ -72,11 +83,15 @@ class DoshiVelezLinearGaussian(LinearGaussianModel):
         self.num_coordinate_ascent_steps = num_coordinate_ascent_steps
         self.max_num_features = max_num_features
         self.plot_dir = plot_dir
+        self.num_obs = None
+        self.obs_dim = None
 
     def fit(self,
             observations: np.ndarray):
 
         num_obs, obs_dim = observations.shape
+        self.num_obs = num_obs
+        self.obs_dim = obs_dim
         if self.max_num_features is None:
             self.max_num_features = compute_max_num_features(
                 alpha=self.model_params['alpha'],
@@ -174,7 +189,15 @@ class DoshiVelezLinearGaussian(LinearGaussianModel):
 
         return sampled_params
 
-    def features(self):
+    def features_by_obs(self) -> np.ndarray:
+        avg_feature = self.fit_results['variational_params']['A']['mean'][:]
+        repeated_avg_feature = np.repeat(
+            avg_feature[np.newaxis],
+            repeats=self.num_obs,
+            axis=0)
+        return repeated_avg_feature
+
+    def features_after_last_obs(self) -> np.ndarray:
         return self.fit_results['variational_params']['A']['mean'][:]
 
 
@@ -201,41 +224,28 @@ class HMCGibbsLinearGaussian(LinearGaussianModel):
         self.max_num_features = max_num_features
         self.num_warmup_samples = num_warmup_samples
         self.num_thinning_samples = num_thinning_samples
-
+        self.generative_model = None
         self.fit_results = None
+        self.num_obs = None
+        self.obs_dim = None
 
     def fit(self,
             observations: np.ndarray):
 
-        num_obs, obs_dim = observations.shape
+        self.num_obs, self.obs_dim = observations.shape
         if self.max_num_features is None:
             self.max_num_features = compute_max_num_features(
                 alpha=self.model_params['alpha'],
                 beta=self.model_params['beta'],
-                num_obs=num_obs)
+                num_obs=self.num_obs)
 
-        if self.model_str == 'factor_analysis':
-            model = utils.numpyro_models.create_factor_analysis_model(
-                model_params=self.model_params,
-                num_obs=num_obs,
-                max_num_features=self.max_num_features,
-                obs_dim=obs_dim)
-        elif self.model_str == 'linear_gaussian':
-            model = utils.numpyro_models.create_linear_gaussian_model(
-                model_params=self.model_params,
-                num_obs=num_obs,
-                max_num_features=self.max_num_features,
-                obs_dim=obs_dim)
-        elif self.model_str == 'linear_gaussian':
-            model = utils.numpyro_models.create_nonnegative_matrix_factorization_model(
-                model_params=self.model_params,
-                num_obs=num_obs,
-                max_num_features=self.max_num_features,
-                obs_dim=obs_dim)
-        else:
-            raise NotImplementedError(f'Model ({self.model_str}) not yet implemented.')
+        self.generative_model = utils.numpyro_models.create_factor_analysis_model(
+            model_params=self.model_params,
+            num_obs=self.num_obs,
+            max_num_features=self.max_num_features,
+            obs_dim=self.obs_dim)
 
-        hmc_kernel = numpyro.infer.NUTS(model)
+        hmc_kernel = numpyro.infer.NUTS(self.generative_model)
         kernel = numpyro.infer.DiscreteHMCGibbs(
             inner_kernel=hmc_kernel)
         mcmc = numpyro.infer.MCMC(
@@ -299,9 +309,21 @@ class HMCGibbsLinearGaussian(LinearGaussianModel):
 
         return sampled_params
 
-    def features(self):
-        return np.mean(self.fit_results['samples']['A']['value'], axis=0)
+    def features_after_last_obs(self) -> np.ndarray:
+        return np.mean(
+            self.fit_results['samples']['A']['value'],
+            axis=0)
 
+    def features_by_obs(self) -> np.ndarray:
+        avg_feature = np.mean(
+            self.fit_results['samples']['A']['value'],
+            axis=0)
+        repeated_avg_feature = np.repeat(
+            avg_feature[np.newaxis],
+            repeats=self.num_obs,
+            axis=0)
+        return repeated_avg_feature
+        
 
 class RecursiveIBPLinearGaussian(LinearGaussianModel):
 
@@ -784,8 +806,10 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
 
         return sampled_params
 
-    def features(self):
-        # Take the means after the last observation.
+    def features_after_last_obs(self) -> np.ndarray:
+        return self.fit_results['variational_params']['A']['mean'][-1, :, :]
+
+    def features_by_obs(self) -> np.ndarray:
         return self.fit_results['variational_params']['A']['mean'][:, :, :]
 
 
@@ -912,7 +936,10 @@ class WidjajaLinearGaussian(LinearGaussianModel):
 
         return sampled_params
 
-    def features(self):
+    def features_after_last_obs(self) -> np.ndarray:
+        return self.fit_results['variational_params']['A']['mean'][-1, :, :]
+
+    def features_by_obs(self) -> np.ndarray:
         return self.fit_results['variational_params']['A']['mean'][:, :, :]
 
 
@@ -1390,10 +1417,13 @@ def run_inference_alg(inference_alg_str: str,
         # TODO: investigate what these are
         model_params['t0'] = 1
         model_params['kappa'] = 0.5
+        num_coordinate_ascent_steps = 17
+        logging.info(f'Number of coordinate ascent steps: '
+                     f'{num_coordinate_ascent_steps}')
         inference_alg = DoshiVelezLinearGaussian(
             model_str=model_str,
             model_params=model_params,
-            num_coordinate_ascent_steps=119)
+            num_coordinate_ascent_steps=num_coordinate_ascent_steps)
     elif inference_alg_str == 'R-IBP':
         inference_alg = RecursiveIBPLinearGaussian(
             model_str=model_str,

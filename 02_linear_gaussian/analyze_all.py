@@ -1,6 +1,7 @@
 """
-Collect all subdirectories analytical and Monte Carlo estimates,
-then plot MSE as function of
+Iterate through all the generated synthetic data and the inference
+algorithms' results, and plot performance (e.g. log posterior predictive
+vs runtime).
 
 Example usage:
 
@@ -21,11 +22,11 @@ def analyze_all(args: argparse.Namespace):
     exp_dir_path = args.exp_dir_path
     results_dir_path = os.path.join(exp_dir_path, 'results')
 
-    results_df = load_all_datasets_all_alg_results(
+    inf_algorithms_results_df = load_all_datasets_all_alg_results(
         results_dir_path=results_dir_path)
 
-    plot_linear_gaussian.plot_analyze_all_results(
-        results_df=results_df,
+    plot_linear_gaussian.plot_analyze_all_algorithms_results(
+        inf_algorithms_results_df=inf_algorithms_results_df,
         plot_dir=results_dir_path)
 
 
@@ -51,7 +52,9 @@ def load_all_datasets_all_alg_results(results_dir_path) -> pd.DataFrame:
                     stored_data = joblib.load(
                         os.path.join(inference_alg_dir_path, 'inference_alg_results.joblib'))
                 except FileNotFoundError:
+                    logging.info(f'Could not find results for {inference_alg_dir_path}.')
                     continue
+                logging.info(f'Successfully loaded {inference_alg_dir_path} algorithm results.')
                 new_row = [sampling_dir, dataset_dir, stored_data['inference_alg_str'],
                            stored_data['inference_alg_params']['alpha'],
                            stored_data['inference_alg_params']['beta'],
@@ -60,13 +63,13 @@ def load_all_datasets_all_alg_results(results_dir_path) -> pd.DataFrame:
                 del stored_data
                 rows.append(new_row)
 
-    results_df = pd.DataFrame(
+    inf_algorithms_results_df = pd.DataFrame(
         rows,
         columns=['sampling', 'dataset', 'inference_alg', 'alpha',
                  'beta', 'runtime', 'log_posterior_predictive'])
 
-    results_df['negative_log_posterior_predictive'] = -results_df['log_posterior_predictive']
-    return results_df
+    inf_algorithms_results_df['negative_log_posterior_predictive'] = -inf_algorithms_results_df['log_posterior_predictive']
+    return inf_algorithms_results_df
 
 
 if __name__ == '__main__':

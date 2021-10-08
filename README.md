@@ -12,11 +12,11 @@ This code corresponds to our AISTATS 2021 submission.
 
 After cloning the repository, create a virtual environment for Python 3:
 
-`python3 -m venv ribp`
+`python3 -m venv ribp_venv`
 
 Then activate the virtual environment:
 
-`source ribp/bin/activate`
+`source ribp_venv/bin/activate`
 
 Ensure pip is up to date:
 

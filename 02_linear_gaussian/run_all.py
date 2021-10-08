@@ -40,10 +40,10 @@ def run_all():
     alphas = np.round(np.linspace(1.1, 5.91, 3), 2)
     betas = np.round(np.linspace(0.3, 6.7, 3), 2)
     inference_alg_strs = [
-        'R-IBP',
-        'HMC-Gibbs',
+        # 'R-IBP',
+        # 'HMC-Gibbs',
         'Doshi-Velez',
-        'Widjaja',
+        # 'Widjaja',
     ]
     hyperparams = [alphas, betas, inference_alg_strs]
 
