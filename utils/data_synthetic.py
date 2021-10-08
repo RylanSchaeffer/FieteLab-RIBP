@@ -155,9 +155,10 @@ def sample_from_linear_gaussian(num_obs: int = 100,
             num_obs=num_obs,
             gaussian_likelihood_params=gaussian_likelihood_params)
         sampled_data_result['indicator_sampling_str'] = indicator_sampling_str
-        indicator_sampling_descr_str = '{}_probs={}'.format(
+
+        indicator_sampling_descr_str = '{}_probs=[{}]'.format(
             indicator_sampling_str,
-            list(sampled_data_result['indicator_sampling_params']['probs']))
+            ','.join([str(i) for i in sampled_data_result['indicator_sampling_params']['probs']]))
         sampled_data_result['indicator_sampling_descr_str'] = indicator_sampling_descr_str
         return sampled_data_result
 
@@ -299,7 +300,7 @@ def sample_from_griffiths_ghahramani_2005(num_obs: int = 100,
         observations=observations,
         features=features,
         indicator_sampling_params=indicator_sampling_params,
-        gaussian_likelihood_params=gaussian_likelihood_params,
+        gaussian_params={'means': features},
         original_features_shape=(num_features, 6, 6),  # sqrt(36)
     )
 

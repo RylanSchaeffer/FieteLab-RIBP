@@ -56,12 +56,15 @@ def plot_run_one_gaussian_features_by_num_obs(observations: np.ndarray,
     """
     num_cols = 5
     num_rows = int(max_obs_idx / num_cols)
-    actual_num_features = gaussian_features.shape[1]
-    max_num_features = min(max_num_features, actual_num_features)
 
     # Gaussian features either have shape (num obs, max num features, ...) if the
     # inference algorithm is online, or shape (max num features, ...) if offline
     gaussian_features_have_obs_dim = True if len(gaussian_features.shape) == 3 else False
+    if gaussian_features_have_obs_dim:
+        actual_num_features = gaussian_features.shape[1]
+    else:
+        actual_num_features = gaussian_features.shape[0]
+    max_num_features = min(max_num_features, actual_num_features)
 
     fig, axes = plt.subplots(
         nrows=num_rows,
@@ -124,19 +127,20 @@ def plot_run_one_distance_btwn_true_features_and_inferred_feature_means(true_fea
     non_nan_columns = np.sum(np.isnan(distances), axis=0) == 0
     distances = distances[:, non_nan_columns]
 
-    ax = sns.heatmap(distances,
-                     mask=np.isnan(distances),
-                     # annot=True,
-                     )
-    ax.invert_yaxis()
-    plt.ylabel('True Feature Index')
-    plt.xlabel('Inferred Feature Index')
-    plt.title(f'Distance: {metric_str}')
-    plt.savefig(os.path.join(plot_dir, f'true_features_vs_inferred_feature_means_{metric_str}.png'),
-                bbox_inches='tight',
-                dpi=300)
-    # plt.show()
-    plt.close()
+    if distances.shape[1] > 0:
+        ax = sns.heatmap(distances,
+                         mask=np.isnan(distances),
+                         # annot=True,
+                         )
+        ax.invert_yaxis()
+        plt.ylabel('True Feature Index')
+        plt.xlabel('Inferred Feature Index')
+        plt.title(f'Distance: {metric_str}')
+        plt.savefig(os.path.join(plot_dir, f'true_features_vs_inferred_feature_means_{metric_str}.png'),
+                    bbox_inches='tight',
+                    dpi=300)
+        # plt.show()
+        plt.close()
 
 
 def plot_run_one_inference_results(sampled_linear_gaussian_data: dict,
