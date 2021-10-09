@@ -24,9 +24,11 @@ torch.set_default_tensor_type('torch.FloatTensor')
 
 inference_algs = [
     'HMC-Gibbs',
-    'Doshi-Velez',
+    'Doshi-Velez-Finite',
+    'Doshi-Velez-Infinite',
     'R-IBP',
-    'Widjaja',
+    'Widjaja-Finite',
+    'Widjaja-Infinite',
 ]
 
 
@@ -74,9 +76,11 @@ class DoshiVelezLinearGaussian(LinearGaussianModel):
                  model_str: str,
                  gen_model_params: Dict[str, float],
                  num_coordinate_ascent_steps: int,
+                 use_infinite: bool,
                  max_num_features: int = None,
                  plot_dir: str = None):
 
+        assert model_str == 'linear_gaussian'
         self.model_str = model_str
         self.gen_model_params = gen_model_params
         assert num_coordinate_ascent_steps > 0
@@ -85,6 +89,7 @@ class DoshiVelezLinearGaussian(LinearGaussianModel):
         self.plot_dir = plot_dir
         self.num_obs = None
         self.obs_dim = None
+        self.use_infinite = use_infinite
 
     def fit(self,
             observations: np.ndarray):
@@ -98,16 +103,28 @@ class DoshiVelezLinearGaussian(LinearGaussianModel):
                 beta=self.gen_model_params['IBP']['beta'],
                 num_obs=num_obs)
 
-        offline_model = utils.inference_widjaja.OfflineFinite(
-            obs_dim=obs_dim,
-            num_obs=num_obs,
-            max_num_features=self.max_num_features,
-            alpha=self.gen_model_params['IBP']['alpha'],
-            beta=self.gen_model_params['IBP']['beta'],
-            sigma_a=np.sqrt(self.gen_model_params['gaussian_prior_cov_scaling']),
-            sigma_x=np.sqrt(self.gen_model_params['gaussian_likelihood_cov_scaling']),
-            t0=self.gen_model_params['t0'],
-            kappa=self.gen_model_params['kappa'])
+        if self.use_infinite:
+            offline_model = utils.inference_widjaja.OfflineInfinite(
+                obs_dim=obs_dim,
+                num_obs=num_obs,
+                max_num_features=self.max_num_features,
+                alpha=self.gen_model_params['IBP']['alpha'],
+                beta=self.gen_model_params['IBP']['beta'],
+                sigma_a=np.sqrt(self.gen_model_params['feature_prior_params']['gaussian_mean_prior_cov_scaling']),
+                sigma_x=np.sqrt(self.gen_model_params['likelihood_params']['sigma_x']),
+                t0=self.gen_model_params['t0'],
+                kappa=self.gen_model_params['kappa'])
+        else:
+            offline_model = utils.inference_widjaja.OfflineFinite(
+                obs_dim=obs_dim,
+                num_obs=num_obs,
+                max_num_features=self.max_num_features,
+                alpha=self.gen_model_params['IBP']['alpha'],
+                beta=self.gen_model_params['IBP']['beta'],
+                sigma_a=np.sqrt(self.gen_model_params['feature_prior_params']['gaussian_mean_prior_cov_scaling']),
+                sigma_x=np.sqrt(self.gen_model_params['likelihood_params']['sigma_x']),
+                t0=self.gen_model_params['t0'],
+                kappa=self.gen_model_params['kappa'])
 
         torch_observations = torch.from_numpy(observations).float()
         offline_strategy = utils.inference_widjaja.Static(
@@ -142,19 +159,29 @@ class DoshiVelezLinearGaussian(LinearGaussianModel):
             axis=1,
             arr=A_covs,
         )
+
+        if self.use_infinite:
+            pi_dict = dict(param_1=np.cumprod(beta_param_1),
+                           param_2=np.cumprod(beta_param_2))
+
+        else:
+            pi_dict = dict(param_1=beta_param_1, param_2=beta_param_2)
+
         variational_params = dict(
             A=dict(mean=A_means, cov=A_covs),
-            pi=dict(param_1=beta_param_1, param_2=beta_param_2)
+            pi=pi_dict
         )
 
-        dish_eating_posteriors_running_sum = np.cumsum(dish_eating_posteriors, axis=0)
+        dish_eating_posteriors_running_sum = np.cumsum(
+            dish_eating_posteriors, axis=0)
 
         num_dishes_poisson_rate_posteriors = np.sum(
             dish_eating_posteriors_running_sum > 1e-10,
             axis=1).reshape(-1, 1)
 
-        num_dishes_poisson_rate_priors = np.full(fill_value=np.nan,
-                                                 shape=num_dishes_poisson_rate_posteriors.shape)
+        num_dishes_poisson_rate_priors = np.full(
+            fill_value=np.nan,
+            shape=num_dishes_poisson_rate_posteriors.shape)
 
         self.fit_results = dict(
             dish_eating_priors=dish_eating_priors,
@@ -414,7 +441,8 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
 
         # we use half covariance because we want to numerically optimize
         A_half_covs = torch.stack([
-            np.sqrt(self.gen_model_params['feature_prior_params']['gaussian_mean_prior_cov_scaling']) * torch.eye(obs_dim).float()
+            np.sqrt(self.gen_model_params['feature_prior_params']['gaussian_mean_prior_cov_scaling']) * torch.eye(
+                obs_dim).float()
             for _ in range((num_obs + 1) * max_num_features)])
         A_half_covs = A_half_covs.view(num_obs + 1, max_num_features, obs_dim, obs_dim)
 
@@ -452,12 +480,13 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
 
             # construct number of dishes Poisson rate prior
             num_dishes_poisson_rate_priors[obs_idx, :] = num_dishes_poisson_rate_posteriors[obs_idx - 1, :]
-            num_dishes_poisson_rate_priors[obs_idx, :] += self.gen_model_params['IBP']['alpha']\
+            num_dishes_poisson_rate_priors[obs_idx, :] += self.gen_model_params['IBP']['alpha'] \
                                                           * self.gen_model_params['IBP']['beta'] \
                                                           / (self.gen_model_params['IBP']['beta'] + obs_idx - 1)
             # Recursion: 1st term
             dish_eating_prior = torch.clone(
-                dish_eating_posteriors_running_sum[obs_idx - 1, :]) / (self.gen_model_params['IBP']['beta'] + obs_idx - 1)
+                dish_eating_posteriors_running_sum[obs_idx - 1, :]) / (
+                                            self.gen_model_params['IBP']['beta'] + obs_idx - 1)
             # Recursion: 2nd term; don't subtract 1 from latent indices b/c zero based indexing
             dish_eating_prior += poisson.cdf(k=latent_indices, mu=num_dishes_poisson_rate_posteriors[obs_idx - 1, :])
             # Recursion: 3rd term; don't subtract 1 from latent indices b/c zero based indexing
@@ -606,7 +635,7 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
                             dish_eating_prior=dish_eating_prior,
                             variational_params=self.variational_params,
                             simultaneous_or_sequential=self.coord_ascent_update_type,
-                            sigma_obs_squared=self.gen_model_params['likelihood_params']['sigma_x']**2)
+                            sigma_obs_squared=self.gen_model_params['likelihood_params']['sigma_x'] ** 2)
                         # stop_time = timer()
                         # current, peak = tracemalloc.get_traced_memory()
                         # logging.debug(f"memory:recursive_ibp_optimize_bernoulli_params:"
@@ -823,6 +852,7 @@ class WidjajaLinearGaussian(LinearGaussianModel):
     def __init__(self,
                  model_str: str,
                  gen_model_params: Dict[str, float],
+                 use_infinite: bool,
                  max_num_features: int = None,
                  plot_dir: str = None
                  ):
@@ -830,6 +860,7 @@ class WidjajaLinearGaussian(LinearGaussianModel):
         self.gen_model_params = gen_model_params
         self.max_num_features = max_num_features
         self.plot_dir = plot_dir
+        self.use_infinite = use_infinite
 
     def fit(self,
             observations: np.ndarray):
@@ -840,15 +871,26 @@ class WidjajaLinearGaussian(LinearGaussianModel):
                 beta=self.gen_model_params['IBP']['beta'],
                 num_obs=num_obs)
 
-        online_model = utils.inference_widjaja.OnlineFinite(
-            obs_dim=obs_dim,
-            max_num_features=self.max_num_features,
-            alpha=self.gen_model_params['IBP']['alpha'],
-            beta=self.gen_model_params['IBP']['beta'],
-            sigma_a=np.sqrt(self.gen_model_params['feature_prior_params']['gaussian_prior_cov_scaling']),
-            sigma_x=np.sqrt(self.gen_model_params['likelihood_params']['sigma_x']),
-            t0=1,
-            kappa=0.5)
+        if self.use_infinite:
+            online_model = utils.inference_widjaja.OnlineInfinite(
+                obs_dim=obs_dim,
+                max_num_features=self.max_num_features,
+                alpha=self.gen_model_params['IBP']['alpha'],
+                beta=self.gen_model_params['IBP']['beta'],
+                sigma_a=np.sqrt(self.gen_model_params['feature_prior_params']['gaussian_mean_prior_cov_scaling']),
+                sigma_x=np.sqrt(self.gen_model_params['likelihood_params']['sigma_x']),
+                t0=1,
+                kappa=0.5)
+        else:
+            online_model = utils.inference_widjaja.OnlineFinite(
+                obs_dim=obs_dim,
+                max_num_features=self.max_num_features,
+                alpha=self.gen_model_params['IBP']['alpha'],
+                beta=self.gen_model_params['IBP']['beta'],
+                sigma_a=np.sqrt(self.gen_model_params['feature_prior_params']['gaussian_mean_prior_cov_scaling']),
+                sigma_x=np.sqrt(self.gen_model_params['likelihood_params']['sigma_x']),
+                t0=1,
+                kappa=0.5)
 
         torch_observations = torch.from_numpy(observations).float()
         online_strategy = utils.inference_widjaja.Static(
@@ -883,10 +925,17 @@ class WidjajaLinearGaussian(LinearGaussianModel):
             axis=2,
             arr=A_covs,
         )
+
+        if self.use_infinite:
+            pi_dict = dict(param_1=np.cumprod(beta_param_1),
+                           param_2=np.cumprod(beta_param_2))
+
+        else:
+            pi_dict = dict(param_1=beta_param_1, param_2=beta_param_2)
+
         variational_params = dict(
             A=dict(mean=A_means, cov=A_covs),
-            pi=dict(param_1=beta_param_1, param_2=beta_param_2)
-        )
+            pi=pi_dict)
 
         dish_eating_posteriors_running_sum = np.cumsum(dish_eating_posteriors, axis=0)
 
@@ -1246,7 +1295,6 @@ def recursive_ibp_optimize_bernoulli_params(torch_observation: torch.Tensor,
     bernoulli_probs = variational_params['Z']['prob'][obs_idx].detach().clone()
     # either do 1 iteration of all indices (simultaneous) or do K iterations of each index (sequential)
     for slice_idx in slices_indices:
-
         log_bernoulli_prior_term = torch.log(
             torch.divide(dish_eating_prior[slice_idx],
                          1. - dish_eating_prior[slice_idx]))
@@ -1407,7 +1455,6 @@ def run_inference_alg(inference_alg_str: str,
                       model_str: str,
                       gen_model_params: dict,
                       plot_dir: str = None):
-
     if model_str == 'linear_gaussian':
         assert 'IBP' in gen_model_params
         assert 'feature_prior_params' in gen_model_params
@@ -1420,7 +1467,7 @@ def run_inference_alg(inference_alg_str: str,
         raise NotImplementedError
 
     # select inference alg and add kwargs as necessary
-    if inference_alg_str == 'Doshi-Velez':
+    if inference_alg_str.startswith('Doshi-Velez'):
         # TODO: investigate what these are
         gen_model_params['t0'] = 1
         gen_model_params['kappa'] = 0.5
@@ -1430,7 +1477,8 @@ def run_inference_alg(inference_alg_str: str,
         inference_alg = DoshiVelezLinearGaussian(
             model_str=model_str,
             gen_model_params=gen_model_params,
-            num_coordinate_ascent_steps=num_coordinate_ascent_steps)
+            num_coordinate_ascent_steps=num_coordinate_ascent_steps,
+            use_infinite=True if 'Infinite' in inference_alg_str else False)
     elif inference_alg_str == 'R-IBP':
         inference_alg = RecursiveIBPLinearGaussian(
             model_str=model_str,
@@ -1438,13 +1486,14 @@ def run_inference_alg(inference_alg_str: str,
             plot_dir=None,
             # plot_dir=plot_dir,
         )
-    elif inference_alg_str == 'Widjaja':
+    elif inference_alg_str.startswith('Widjaja'):
         # TODO: investigate what these are
         gen_model_params['t0'] = 1
         gen_model_params['kappa'] = 0.5
         inference_alg = WidjajaLinearGaussian(
             model_str=model_str,
-            gen_model_params=gen_model_params)
+            gen_model_params=gen_model_params,
+            use_infinite=True if 'Infinite' in inference_alg_str else False)
     # elif inference_alg_str == 'Online CRP':
     #     inference_alg = online_crp
     # elif inference_alg_str == 'SUSG':

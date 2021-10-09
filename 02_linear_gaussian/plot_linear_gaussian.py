@@ -13,7 +13,6 @@ import utils.plot
 
 def plot_analyze_all_algorithms_results(inf_algorithms_results_df: pd.DataFrame,
                                         plot_dir: str):
-
     plot_analyze_all_negative_posterior_predictive_vs_runtime(
         inf_algorithms_results_df=inf_algorithms_results_df,
         plot_dir=plot_dir)
@@ -149,7 +148,6 @@ def plot_run_one_inference_results(sampled_linear_gaussian_data: dict,
                                    inference_alg_params: Dict[str, float],
                                    log_posterior_predictive_dict: Dict[str, float],
                                    plot_dir):
-
     utils.plot.plot_run_one_num_features_by_num_obs(
         num_dishes_poisson_rate_priors=inference_alg_results['num_dishes_poisson_rate_priors'],
         num_dishes_poisson_rate_posteriors=inference_alg_results['num_dishes_poisson_rate_posteriors'],
@@ -174,10 +172,16 @@ def plot_run_one_inference_results(sampled_linear_gaussian_data: dict,
         metric_str='cosine',
         plot_dir=plot_dir)
 
+    plot_run_one_true_features_vs_inferred_feature_means(
+        observations=sampled_linear_gaussian_data['train_observations'],
+        true_features=sampled_linear_gaussian_data['gaussian_params']['means'],
+        inferred_feature_means=inference_alg_results['inference_alg'].features_after_last_obs(),
+        plot_dir=plot_dir)
 
-def plot_run_one_sample_from_linear_gaussian(features,
-                                             observations,
-                                             plot_dir):
+
+def plot_run_one_sample_from_linear_gaussian(features: np.ndarray,
+                                             observations: np.ndarray,
+                                             plot_dir: str):
     fig, ax = plt.subplots(nrows=1,
                            ncols=1,
                            figsize=(6, 6))
@@ -198,6 +202,47 @@ def plot_run_one_sample_from_linear_gaussian(features,
     ax.set_title('Ground Truth Data')
     ax.legend()
     plt.savefig(os.path.join(plot_dir, 'data.png'),
+                bbox_inches='tight',
+                dpi=300)
+    # plt.show()
+    plt.close()
+
+
+def plot_run_one_true_features_vs_inferred_feature_means(observations: np.ndarray,
+                                                         true_features: np.ndarray,
+                                                         inferred_feature_means: np.ndarray,
+                                                         plot_dir: str):
+    fig, axes = plt.subplots(nrows=1, ncols=2)
+
+    ax = axes[0]
+    sns.scatterplot(observations[:, 0],
+                    observations[:, 1],
+                    palette='Set1',
+                    ax=ax,
+                    color='k',
+                    legend=False)
+    for feature_idx, feature in enumerate(true_features):
+        ax.plot([0, feature[0]],
+                [0, feature[1]],
+                alpha=0.5,
+                label=f'Feature {feature_idx + 1}')
+    ax.set_title('True Features')
+
+    ax = axes[1]
+    sns.scatterplot(observations[:, 0],
+                    observations[:, 1],
+                    palette='Set1',
+                    ax=ax,
+                    color='k',
+                    legend=False)
+    for feature_idx, feature in enumerate(inferred_feature_means):
+        ax.plot([0, feature[0]],
+                [0, feature[1]],
+                alpha=0.5,
+                label=f'Feature {feature_idx + 1}')
+    ax.set_title('Inferred Features')
+
+    plt.savefig(os.path.join(plot_dir, 'true_features_vs_inferred_feature_means.png'),
                 bbox_inches='tight',
                 dpi=300)
     # plt.show()

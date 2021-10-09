@@ -27,7 +27,7 @@ def run_all():
         # ('GriffithsGhahramani', dict()),
         # ('categorical', dict(probs=np.ones(5) / 5.)),
         # ('categorical', dict(probs=np.array([0.4, 0.25, 0.2, 0.1, 0.05]))),
-        ('IBP', dict(alpha=1.17, beta=0.58)),
+        ('IBP', dict(alpha=1.17, beta=1)),
         # ('IBP', dict(alpha=2.4, beta=1.3)),
         # ('IBP', dict(alpha=5.98, beta=2.4)),
     ]
@@ -37,17 +37,15 @@ def run_all():
     gaussian_mean_prior_cov_scaling: float = 100.
     num_customers = 100
 
-    # alphas = np.round(np.linspace(1.1, 5.91, 3), 2)
-    # betas = np.round(np.linspace(0.3, 6.7, 3), 2)
-    alphas = [1.17]
-    betas = [0.58]
     inference_alg_strs = [
         'R-IBP',
         # 'HMC-Gibbs',
-        # 'Doshi-Velez',
-        # 'Widjaja',
+        'Doshi-Velez-Finite',
+        'Doshi-Velez-Infinite',
+        'Widjaja-Finite',
+        'Widjaja-Infinite',
     ]
-    hyperparams = [alphas, betas, inference_alg_strs]
+    hyperparams = [inference_alg_strs]
 
     # generate several datasets and independently launch inference
     for (indicator_sampling, indicator_sampling_params), dataset_idx in \
@@ -75,7 +73,7 @@ def run_all():
             observations=sampled_linear_gaussian_data['observations'],
             plot_dir=run_one_results_dir_path)
 
-        for alpha, beta, inference_alg_str in itertools.product(*hyperparams):
+        for inference_alg_str, in itertools.product(*hyperparams):
             alpha = indicator_sampling_params['alpha']
             beta = indicator_sampling_params['beta']
             launch_run_one(

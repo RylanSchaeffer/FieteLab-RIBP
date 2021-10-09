@@ -505,8 +505,8 @@ class OfflineInfinite:
 
         self.tau_1 = torch.full(size=(max_num_features,), fill_value=alpha / max_num_features)
         self.tau_2 = torch.ones(max_num_features)
-        self.mu = stats.norm.rvs(scale=0.01, size=(obs_dim, max_num_features))
-        self.tau = stats.norm.rvs(scale=0.1, size=(obs_dim, max_num_features))
+        self.mu = torch.from_numpy(stats.norm.rvs(scale=0.01, size=(obs_dim, max_num_features)))
+        self.tau = torch.from_numpy(stats.norm.rvs(scale=0.1, size=(obs_dim, max_num_features)))
         # self.phi = stats.norm.rvs(scale=0.01, size=(obs_dim, max_num_features))
         # self.Phi = stats.norm.rvs(scale=0.1, size=(obs_dim, max_num_features))
         self.phi = torch.zeros(size=(obs_dim, max_num_features))
@@ -526,11 +526,15 @@ class OfflineInfinite:
         # select our relevant set of tau's (up to k)
         digamma_tau_1 = sps.digamma(tau_1)
         digamma_tau_2 = sps.digamma(tau_2)
-        digamma_sum = sps.digamma(tau_1, tau_2)
+        # TODO: changed , to + in the function call; is this correct?
+        digamma_sum = sps.digamma(tau_1 + tau_2)
 
         # compute the unnormalized optimal log(q) distribution
-        digamma_tau1_cumsum = torch.append(0.0, torch.cumsum(digamma_tau_1[:-1]))
-        digamma_sum_cumsum = torch.cumsum(digamma_sum)
+        # TODO: check dimension
+        digamma_tau1_cumsum = torch.cat([torch.tensor([0.0]),
+                                         torch.cumsum(digamma_tau_1[:-1],
+                                                      dim=0)])
+        digamma_sum_cumsum = torch.cumsum(digamma_sum, dim=0)
         logq_unnormalized = digamma_tau_2 + digamma_tau1_cumsum - digamma_sum_cumsum
 
         return logq_unnormalized
@@ -624,15 +628,15 @@ class OfflineInfinite:
         self.iteration += 1
 
         posterior = torch.clone(nu)  # remove batch dimension
-        prior = torch.full_like(posterior, fill_value=torch.nan)
+        prior = torch.full_like(posterior, fill_value=np.nan)
 
         step_results = {
             'dish_eating_prior': prior,
             'dish_eating_posterior': posterior,
             'A_mean': self.phi.T,  # transpose because has shape (obs dim, max num features)
             'A_cov': self.Phi.T,  # transpose because has shape (obs dim, max num features)
-            'stick_param_1': torch.clone(self.tau_1),  # add batch dimension
-            'stick_param_2': torch.clone(self.tau_2),  # add batch dimension
+            'beta_param_1': torch.clone(self.tau_1),  # add batch dimension
+            'beta_param_2': torch.clone(self.tau_2),  # add batch dimension
         }
 
         return step_results
