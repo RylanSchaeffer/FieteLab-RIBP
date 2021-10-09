@@ -51,8 +51,8 @@ def run_all():
             num_obs=num_customers,
             indicator_sampling_str=indicator_sampling,
             indicator_sampling_params=indicator_sampling_params,
-            gaussian_prior_params=dict(gaussian_cov_scaling=gaussian_cov_scaling,
-                                       gaussian_mean_prior_cov_scaling=gaussian_mean_prior_cov_scaling))
+            feature_prior_params=dict(gaussian_cov_scaling=gaussian_cov_scaling,
+                                      gaussian_mean_prior_cov_scaling=gaussian_mean_prior_cov_scaling))
 
         # save dataset
         dataset_dir = os.path.join(

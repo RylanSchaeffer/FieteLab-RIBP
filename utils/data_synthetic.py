@@ -43,9 +43,9 @@ def convert_binary_latent_features_to_left_order_form(
 
 
 def generate_gaussian_params_from_gaussian_prior(num_gaussians: int = 3,
-                                                     gaussian_dim: int = 2,
-                                                     gaussian_mean_prior_cov_scaling: float = 3.,
-                                                     gaussian_cov_scaling: float = 0.3):
+                                                 gaussian_dim: int = 2,
+                                                 gaussian_mean_prior_cov_scaling: float = 3.,
+                                                 gaussian_cov_scaling: float = 0.3):
     # sample Gaussians' means from prior = N(0, rho * I)
     means = np.random.multivariate_normal(
         mean=np.zeros(gaussian_dim),
@@ -128,8 +128,8 @@ def sample_ibp(num_mc_sample: int,
 def sample_from_linear_gaussian(num_obs: int = 100,
                                 indicator_sampling_str: str = 'categorical',
                                 indicator_sampling_params: Dict[str, float] = None,
-                                gaussian_prior_params: Dict[str, float] = None,
-                                gaussian_likelihood_params: Dict[str, float] = None) -> Dict[str, np.ndarray]:
+                                feature_prior_params: Dict[str, float] = None,
+                                likelihood_params: Dict[str, float] = None) -> Dict[str, np.ndarray]:
     """
     Draw sample from Binary Linear-Gaussian model.
 
@@ -139,11 +139,11 @@ def sample_from_linear_gaussian(num_obs: int = 100,
                                 binary linear-Gaussian samples
     """
 
-    if gaussian_prior_params is None:
-        gaussian_prior_params = {}
+    if feature_prior_params is None:
+        feature_prior_params = {}
 
-    if gaussian_likelihood_params is None:
-        gaussian_likelihood_params = {'sigma_x': 1e-10}
+    if likelihood_params is None:
+        likelihood_params = {'sigma_x': 1e-1}
 
     # Otherwise, use categorical or IBP to sample number of features
     if indicator_sampling_str not in {'categorical', 'IBP', 'GriffithsGhahramani'}:
@@ -153,7 +153,7 @@ def sample_from_linear_gaussian(num_obs: int = 100,
     if indicator_sampling_str == 'GriffithsGhahramani':
         sampled_data_result = sample_from_griffiths_ghahramani_2005(
             num_obs=num_obs,
-            gaussian_likelihood_params=gaussian_likelihood_params)
+            gaussian_likelihood_params=likelihood_params)
         sampled_data_result['indicator_sampling_str'] = indicator_sampling_str
 
         indicator_sampling_descr_str = '{}_probs=[{}]'.format(
@@ -208,12 +208,12 @@ def sample_from_linear_gaussian(num_obs: int = 100,
 
     gaussian_params = generate_gaussian_params_from_gaussian_prior(
         num_gaussians=num_gaussians,
-        **gaussian_prior_params)
+        **feature_prior_params)
 
     features = gaussian_params['means']
     obs_dim = features.shape[1]
     obs_means = np.matmul(sampled_indicators, features)
-    obs_cov = np.square(gaussian_likelihood_params['sigma_x']) * np.eye(obs_dim)
+    obs_cov = np.square(likelihood_params['sigma_x']) * np.eye(obs_dim)
     observations = np.array([
         np.random.multivariate_normal(
             mean=obs_means[obs_idx],
@@ -228,8 +228,8 @@ def sample_from_linear_gaussian(num_obs: int = 100,
         indicator_sampling_str=indicator_sampling_str,
         indicator_sampling_params=indicator_sampling_params,
         indicator_sampling_descr_str=indicator_sampling_descr_str,
-        gaussian_prior_params=gaussian_prior_params,
-        gaussian_likelihood_params=gaussian_likelihood_params,
+        feature_prior_params=feature_prior_params,
+        likelihood_params=likelihood_params,
     )
 
     return sampled_data_result
@@ -293,7 +293,10 @@ def sample_from_griffiths_ghahramani_2005(num_obs: int = 100,
         p=indicator_sampling_params['probs'][np.newaxis, :],
         size=(num_obs, num_features))
     observations = np.matmul(sampled_indicators, features)
-    observations += scipy.stats.norm.rvs(loc=0.0, scale=gaussian_likelihood_params['sigma_x'], size=observations.shape)
+    observations += scipy.stats.norm.rvs(
+        loc=0.0,
+        scale=gaussian_likelihood_params['sigma_x'],
+        size=observations.shape)
 
     sampled_data_result = dict(
         sampled_indicators=sampled_indicators,

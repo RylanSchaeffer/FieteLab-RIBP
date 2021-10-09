@@ -76,12 +76,6 @@ def plot_run_one_gaussian_features_by_num_obs(observations: np.ndarray,
     for obs_idx in range(max_obs_idx):
         row_idx, col_idx = int(obs_idx / num_cols), obs_idx % num_cols
         ax = axes[row_idx, col_idx]
-        ax.scatter(observations[:obs_idx + 1, 0],
-                   observations[:obs_idx + 1, 1],
-                   s=1,
-                   color='k',
-                   label='Observations')
-        ax.set_title(f'Obs {obs_idx + 1}')
         for feature_idx in range(max_num_features):
             if gaussian_features_have_obs_dim:
                 ax.plot([0, gaussian_features[obs_idx, feature_idx, 0]],
@@ -95,6 +89,12 @@ def plot_run_one_gaussian_features_by_num_obs(observations: np.ndarray,
                         label=f'{feature_idx}',
                         # alpha=dish_eating_posteriors[obs_idx, feature_idx],
                         )
+        ax.scatter(observations[:obs_idx + 1, 0],
+                   observations[:obs_idx + 1, 1],
+                   s=3,
+                   color='k',
+                   label='Observations')
+        ax.set_title(f'Obs {obs_idx + 1}')
         if row_idx == (num_rows - 1):
             ax.set_xlabel(r'$o_{1}$')
         if col_idx == 0:
@@ -164,7 +164,7 @@ def plot_run_one_inference_results(sampled_linear_gaussian_data: dict,
 
     plot_run_one_gaussian_features_by_num_obs(
         observations=sampled_linear_gaussian_data['train_observations'],
-        gaussian_features=inference_alg_results['inference_alg'].features_after_last_obs(),
+        gaussian_features=inference_alg_results['inference_alg'].features_by_obs(),
         dish_eating_posteriors=inference_alg_results['dish_eating_posteriors'],
         plot_dir=plot_dir)
 

@@ -66,9 +66,9 @@ def compute_log_posterior_predictive_factor_analysis(test_observations: np.ndarr
         axis=1)
 
     log_posterior_predictive_per_sample = -log_posterior_predictive_per_sample / (
-            2.0 * inference_alg.model_params['gaussian_likelihood_cov_scaling'])
+            2.0 * inference_alg.gen_model_params['gaussian_likelihood_cov_scaling'])
     log_posterior_predictive_per_sample -= obs_dim * np.log(
-        2.0 * np.pi * inference_alg.model_params['gaussian_likelihood_cov_scaling']) / 2.
+        2.0 * np.pi * inference_alg.gen_model_params['gaussian_likelihood_cov_scaling']) / 2.
 
     log_posterior_predictive_results = dict(
         mean=np.mean(log_posterior_predictive_per_sample),
@@ -119,9 +119,9 @@ def compute_log_posterior_predictive_linear_gaussian(test_observations: np.ndarr
         axis=1)
 
     log_posterior_predictive_per_sample = -log_posterior_predictive_per_sample / (
-            2.0 * inference_alg.model_params['gaussian_likelihood_cov_scaling'])
+            2.0 * (inference_alg.gen_model_params['likelihood_params']['sigma_x'] ** 2))
     log_posterior_predictive_per_sample -= obs_dim * np.log(
-        2.0 * np.pi * inference_alg.model_params['gaussian_likelihood_cov_scaling']) / 2.
+        2.0 * np.pi * (inference_alg.gen_model_params['likelihood_params']['sigma_x'] ** 2)) / 2.
 
     log_posterior_predictive_results = dict(
         mean=np.mean(log_posterior_predictive_per_sample),

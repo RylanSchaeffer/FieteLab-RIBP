@@ -35,7 +35,7 @@ class LinearGaussianModel(abc.ABC):
     @abc.abstractmethod
     def __init__(self):
         self.model_str = None
-        self.model_params = None
+        self.gen_model_params = None
         self.plot_dir = None
         self.fit_results = None
 
@@ -72,13 +72,13 @@ class DoshiVelezLinearGaussian(LinearGaussianModel):
 
     def __init__(self,
                  model_str: str,
-                 model_params: Dict[str, float],
+                 gen_model_params: Dict[str, float],
                  num_coordinate_ascent_steps: int,
                  max_num_features: int = None,
                  plot_dir: str = None):
 
         self.model_str = model_str
-        self.model_params = model_params
+        self.gen_model_params = gen_model_params
         assert num_coordinate_ascent_steps > 0
         self.num_coordinate_ascent_steps = num_coordinate_ascent_steps
         self.max_num_features = max_num_features
@@ -94,20 +94,20 @@ class DoshiVelezLinearGaussian(LinearGaussianModel):
         self.obs_dim = obs_dim
         if self.max_num_features is None:
             self.max_num_features = compute_max_num_features(
-                alpha=self.model_params['alpha'],
-                beta=self.model_params['beta'],
+                alpha=self.gen_model_params['IBP']['alpha'],
+                beta=self.gen_model_params['IBP']['beta'],
                 num_obs=num_obs)
 
         offline_model = utils.inference_widjaja.OfflineFinite(
             obs_dim=obs_dim,
             num_obs=num_obs,
             max_num_features=self.max_num_features,
-            alpha=self.model_params['alpha'],
-            beta=self.model_params['beta'],
-            sigma_a=np.sqrt(self.model_params['gaussian_prior_cov_scaling']),
-            sigma_x=np.sqrt(self.model_params['gaussian_likelihood_cov_scaling']),
-            t0=self.model_params['t0'],
-            kappa=self.model_params['kappa'])
+            alpha=self.gen_model_params['IBP']['alpha'],
+            beta=self.gen_model_params['IBP']['beta'],
+            sigma_a=np.sqrt(self.gen_model_params['gaussian_prior_cov_scaling']),
+            sigma_x=np.sqrt(self.gen_model_params['gaussian_likelihood_cov_scaling']),
+            t0=self.gen_model_params['t0'],
+            kappa=self.gen_model_params['kappa'])
 
         torch_observations = torch.from_numpy(observations).float()
         offline_strategy = utils.inference_widjaja.Static(
@@ -163,7 +163,7 @@ class DoshiVelezLinearGaussian(LinearGaussianModel):
             num_dishes_poisson_rate_priors=num_dishes_poisson_rate_priors,
             num_dishes_poisson_rate_posteriors=num_dishes_poisson_rate_posteriors,
             variational_params=variational_params,
-            model_params=self.model_params,
+            model_params=self.gen_model_params,
         )
 
         return self.fit_results
@@ -240,7 +240,7 @@ class HMCGibbsLinearGaussian(LinearGaussianModel):
                 beta=self.model_params['beta'],
                 num_obs=self.num_obs)
 
-        self.generative_model = utils.numpyro_models.create_factor_analysis_model(
+        self.generative_model = utils.numpyro_models.create_linear_gaussian_model(
             model_params=self.model_params,
             num_obs=self.num_obs,
             max_num_features=self.max_num_features,
@@ -324,13 +324,13 @@ class HMCGibbsLinearGaussian(LinearGaussianModel):
             repeats=self.num_obs,
             axis=0)
         return repeated_avg_feature
-        
+
 
 class RecursiveIBPLinearGaussian(LinearGaussianModel):
 
     def __init__(self,
                  model_str: str,
-                 model_params: Dict[str, float],
+                 gen_model_params: Dict[str, Dict[str, float]],
                  ossify_features: bool = True,
                  numerically_optimize: bool = False,
                  learning_rate: float = 1e0,
@@ -339,12 +339,13 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
                  plot_dir: str = None):
 
         # Check validity of input params
-        assert model_str in {'linear_gaussian', 'factor_analysis',
-                             'nonnegative_matrix_factorization'}
-        assert 'alpha' in model_params
-        assert 'beta' in model_params
-        assert model_params['alpha'] > 0
-        assert model_params['beta'] > 0
+        assert model_str == 'linear_gaussian'
+        self.gen_model_params = gen_model_params
+        self.ibp_params = gen_model_params['IBP']
+        assert self.ibp_params['alpha'] > 0
+        assert self.ibp_params['beta'] > 0
+        self.feature_prior_params = gen_model_params['feature_prior_params']
+        self.likelihood_params = gen_model_params['likelihood_params']
         assert coord_ascent_update_type in {'simultaneous', 'sequential'}
         if numerically_optimize:
             assert learning_rate is not None
@@ -356,7 +357,6 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
             assert isinstance(learning_rate, float)
 
         self.model_str = model_str
-        self.model_params = model_params
         self.plot_dir = plot_dir
         self.ossify_features = ossify_features
         self.coord_ascent_update_type = coord_ascent_update_type
@@ -376,8 +376,8 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
         # Note: the expected number of latents grows logarithmically as a*b*log(1 + N/beta)
         # The 10 is a hopefully conservative heuristic to preallocate.
         max_num_features = compute_max_num_features(
-            alpha=self.model_params['alpha'],
-            beta=self.model_params['beta'],
+            alpha=self.gen_model_params['IBP']['alpha'],
+            beta=self.gen_model_params['IBP']['beta'],
             num_obs=num_obs)
 
         # The recursion does not require recording the full history of priors/posteriors
@@ -414,7 +414,7 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
 
         # we use half covariance because we want to numerically optimize
         A_half_covs = torch.stack([
-            np.sqrt(self.model_params['gaussian_prior_cov_scaling']) * torch.eye(obs_dim).float()
+            np.sqrt(self.gen_model_params['feature_prior_params']['gaussian_mean_prior_cov_scaling']) * torch.eye(obs_dim).float()
             for _ in range((num_obs + 1) * max_num_features)])
         A_half_covs = A_half_covs.view(num_obs + 1, max_num_features, obs_dim, obs_dim)
 
@@ -452,11 +452,12 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
 
             # construct number of dishes Poisson rate prior
             num_dishes_poisson_rate_priors[obs_idx, :] = num_dishes_poisson_rate_posteriors[obs_idx - 1, :]
-            num_dishes_poisson_rate_priors[obs_idx, :] += self.model_params['alpha'] * self.model_params['beta'] \
-                                                          / (self.model_params['beta'] + obs_idx - 1)
+            num_dishes_poisson_rate_priors[obs_idx, :] += self.gen_model_params['IBP']['alpha']\
+                                                          * self.gen_model_params['IBP']['beta'] \
+                                                          / (self.gen_model_params['IBP']['beta'] + obs_idx - 1)
             # Recursion: 1st term
             dish_eating_prior = torch.clone(
-                dish_eating_posteriors_running_sum[obs_idx - 1, :]) / (self.model_params['beta'] + obs_idx - 1)
+                dish_eating_posteriors_running_sum[obs_idx - 1, :]) / (self.gen_model_params['IBP']['beta'] + obs_idx - 1)
             # Recursion: 2nd term; don't subtract 1 from latent indices b/c zero based indexing
             dish_eating_prior += poisson.cdf(k=latent_indices, mu=num_dishes_poisson_rate_posteriors[obs_idx - 1, :])
             # Recursion: 3rd term; don't subtract 1 from latent indices b/c zero based indexing
@@ -558,7 +559,7 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
                             vi_idx=vi_idx,
                             variable_variational_params=self.variational_params,
                             simultaneous_or_sequential=self.coord_ascent_update_type,
-                            sigma_obs_squared=self.model_params['gaussian_likelihood_cov_scaling'])
+                            sigma_obs_squared=self.gen_model_params['likelihood_params']['sigma_x'] ** 2)
                         # stop_time = timer()
                         # current, peak = tracemalloc.get_traced_memory()
                         # logging.debug(f"memory:recursive_ibp_optimize_gaussian_params:"
@@ -605,7 +606,7 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
                             dish_eating_prior=dish_eating_prior,
                             variational_params=self.variational_params,
                             simultaneous_or_sequential=self.coord_ascent_update_type,
-                            sigma_obs_squared=self.model_params['gaussian_likelihood_cov_scaling'])
+                            sigma_obs_squared=self.gen_model_params['likelihood_params']['sigma_x']**2)
                         # stop_time = timer()
                         # current, peak = tracemalloc.get_traced_memory()
                         # logging.debug(f"memory:recursive_ibp_optimize_bernoulli_params:"
@@ -750,7 +751,7 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
             num_dishes_poisson_rate_priors=num_dishes_poisson_rate_priors.numpy()[1:],
             num_dishes_poisson_rate_posteriors=num_dishes_poisson_rate_posteriors.numpy()[1:],
             variational_params=numpy_variable_params,
-            model_params=self.model_params,
+            gen_model_params=self.gen_model_params,
         )
 
         return self.fit_results
@@ -766,11 +767,11 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
 
         # Construct prior over next time step
         num_dishes_poisson_rate_prior = self.fit_results['num_dishes_poisson_rate_posteriors'][obs_idx - 2, :]
-        num_dishes_poisson_rate_prior += self.model_params['alpha'] * self.model_params['beta'] \
-                                         / (self.model_params['beta'] + obs_idx - 1)
+        num_dishes_poisson_rate_prior += self.gen_model_params['IBP']['alpha'] * self.gen_model_params['IBP']['beta'] \
+                                         / (self.gen_model_params['IBP']['beta'] + obs_idx - 1)
 
         dish_eating_prior = self.fit_results['dish_eating_posteriors_running_sum'][obs_idx - 2, :] \
-                            / (self.model_params['beta'] + obs_idx - 1)
+                            / (self.gen_model_params['IBP']['beta'] + obs_idx - 1)
         # Recursion: 2nd term; don't subtract 1 from latent indices b/c zero based indexing
         dish_eating_prior += poisson.cdf(
             k=latent_indices,
@@ -821,12 +822,12 @@ class WidjajaLinearGaussian(LinearGaussianModel):
 
     def __init__(self,
                  model_str: str,
-                 model_params: Dict[str, float],
+                 gen_model_params: Dict[str, float],
                  max_num_features: int = None,
                  plot_dir: str = None
                  ):
         self.model_str = model_str
-        self.model_params = model_params
+        self.gen_model_params = gen_model_params
         self.max_num_features = max_num_features
         self.plot_dir = plot_dir
 
@@ -835,17 +836,17 @@ class WidjajaLinearGaussian(LinearGaussianModel):
         num_obs, obs_dim = observations.shape
         if self.max_num_features is None:
             self.max_num_features = compute_max_num_features(
-                alpha=self.model_params['alpha'],
-                beta=self.model_params['beta'],
+                alpha=self.gen_model_params['IBP']['alpha'],
+                beta=self.gen_model_params['IBP']['beta'],
                 num_obs=num_obs)
 
         online_model = utils.inference_widjaja.OnlineFinite(
             obs_dim=obs_dim,
             max_num_features=self.max_num_features,
-            alpha=self.model_params['alpha'],
-            beta=self.model_params['beta'],
-            sigma_a=np.sqrt(self.model_params['gaussian_prior_cov_scaling']),
-            sigma_x=np.sqrt(self.model_params['gaussian_likelihood_cov_scaling']),
+            alpha=self.gen_model_params['IBP']['alpha'],
+            beta=self.gen_model_params['IBP']['beta'],
+            sigma_a=np.sqrt(self.gen_model_params['feature_prior_params']['gaussian_prior_cov_scaling']),
+            sigma_x=np.sqrt(self.gen_model_params['likelihood_params']['sigma_x']),
             t0=1,
             kappa=0.5)
 
@@ -903,7 +904,7 @@ class WidjajaLinearGaussian(LinearGaussianModel):
             num_dishes_poisson_rate_priors=num_dishes_poisson_rate_priors,
             num_dishes_poisson_rate_posteriors=num_dishes_poisson_rate_posteriors,
             variational_params=variational_params,
-            model_params=self.model_params,
+            model_params=self.gen_model_params,
         )
 
         return self.fit_results
@@ -1237,24 +1238,30 @@ def recursive_ibp_optimize_bernoulli_params(torch_observation: torch.Tensor,
     else:
         raise ValueError(f'Impermissible value for simultaneous_or_sequential: {simultaneous_or_sequential}')
 
+    # establish that first feature has closest distance
+    A_means = variational_params['A']['mean'][obs_idx].detach().numpy()
+    from scipy.spatial.distance import cdist
+    distances_to_obs = cdist(A_means, torch_observation.unsqueeze(0))
+
     bernoulli_probs = variational_params['Z']['prob'][obs_idx].detach().clone()
     # either do 1 iteration of all indices (simultaneous) or do K iterations of each index (sequential)
     for slice_idx in slices_indices:
+
         log_bernoulli_prior_term = torch.log(
             torch.divide(dish_eating_prior[slice_idx],
                          1. - dish_eating_prior[slice_idx]))
 
         # -2 mu_{nk}^T o_n
         term_one = -2. * torch.einsum(
-            'bk,k->b',
+            'kd,d->k',
             variational_params['A']['mean'][obs_idx, slice_idx],
             torch_observation)
 
         # Tr[\Sigma_{nk} + \mu_{nk} \mu_{nk}^T]
         term_two = torch.einsum(
-            'bii->b',
+            'kii->k',
             torch.add(A_cov[slice_idx],
-                      torch.einsum('bi,bj->bij',
+                      torch.einsum('ki,kj->kij',
                                    variational_params['A']['mean'][obs_idx, slice_idx],
                                    variational_params['A']['mean'][obs_idx, slice_idx])))
 
@@ -1264,7 +1271,7 @@ def recursive_ibp_optimize_bernoulli_params(torch_observation: torch.Tensor,
             'bi, i->b',
             variational_params['A']['mean'][obs_idx, slice_idx],
             torch.einsum(
-                'b, bi->i',
+                'b, bi->i',  # TODO: replace b with k, move k to something else
                 bernoulli_probs,
                 variational_params['A']['mean'][obs_idx, :]))
         term_three_self_pairs = torch.einsum(
@@ -1273,22 +1280,22 @@ def recursive_ibp_optimize_bernoulli_params(torch_observation: torch.Tensor,
             variational_params['A']['mean'][obs_idx, slice_idx],
             variational_params['A']['mean'][obs_idx, slice_idx])
         # TODO: I think this 2 belongs here
-        term_three = 2. * term_three_all_pairs - term_three_self_pairs
+        term_three = 2. * (term_three_all_pairs - term_three_self_pairs)
 
         # num_features = dish_eating_prior.shape[0]
-        # mu = variable_variational_params['A']['mean'][obs_idx, slice_idx]
-        # b = variable_variational_params['Z']['prob'][obs_idx, slice_idx]
-        # term_three_check = torch.stack([
-        #     torch.inner(mu[k],
-        #                 torch.sum(torch.stack([b[kprime] * mu[kprime]
-        #                                        for kprime in range(num_features)
-        #                                        if kprime != k]),
-        #                           dim=0))
-        #     for k in range(num_features)
-        # ])
+        # mu = variational_params['A']['mean'][obs_idx, :]
+        # b = variational_params['Z']['prob'][obs_idx, :]
+        # TODO: Change 0 index to slice index
+        # term_three_check = 2. * torch.inner(
+        #     mu[0],
+        #     torch.sum(torch.stack([b[kprime] * mu[kprime]
+        #                            for kprime in range(num_features)
+        #                            if kprime != 0]),
+        #               dim=0))
         # assert torch.allclose(term_three, term_three_check)
 
-        term_to_exponentiate = log_bernoulli_prior_term - 0.5 * (term_one + term_two + term_three) / sigma_obs_squared
+        term_to_exponentiate = log_bernoulli_prior_term - 0.5 * (
+                term_one + term_two + term_three) / sigma_obs_squared
         bernoulli_probs[slice_idx] = 1. / (1. + torch.exp(-term_to_exponentiate))
 
     # check that Bernoulli probs are all valid
@@ -1398,15 +1405,13 @@ def recursive_ibp_optimize_gaussian_params(torch_observation: torch.Tensor,
 def run_inference_alg(inference_alg_str: str,
                       observations: np.ndarray,
                       model_str: str,
-                      model_params: dict = None,
+                      gen_model_params: dict,
                       plot_dir: str = None):
-    # create dict to store algorithm-specific arguments to inference alg function
-    if model_params is None:
-        model_params = {}
 
     if model_str == 'linear_gaussian':
-        model_params['gaussian_likelihood_cov_scaling'] = 1.
-        model_params['gaussian_prior_cov_scaling'] = 100.
+        assert 'IBP' in gen_model_params
+        assert 'feature_prior_params' in gen_model_params
+        assert 'likelihood_params' in gen_model_params
     elif model_str == 'factor_analysis':
         raise NotImplementedError
     elif model_str == 'nonnegative_matrix_factorization':
@@ -1417,29 +1422,29 @@ def run_inference_alg(inference_alg_str: str,
     # select inference alg and add kwargs as necessary
     if inference_alg_str == 'Doshi-Velez':
         # TODO: investigate what these are
-        model_params['t0'] = 1
-        model_params['kappa'] = 0.5
+        gen_model_params['t0'] = 1
+        gen_model_params['kappa'] = 0.5
         num_coordinate_ascent_steps = 17
         logging.info(f'Number of coordinate ascent steps: '
                      f'{num_coordinate_ascent_steps}')
         inference_alg = DoshiVelezLinearGaussian(
             model_str=model_str,
-            model_params=model_params,
+            gen_model_params=gen_model_params,
             num_coordinate_ascent_steps=num_coordinate_ascent_steps)
     elif inference_alg_str == 'R-IBP':
         inference_alg = RecursiveIBPLinearGaussian(
             model_str=model_str,
-            model_params=model_params,
+            gen_model_params=gen_model_params,
             plot_dir=None,
             # plot_dir=plot_dir,
         )
     elif inference_alg_str == 'Widjaja':
         # TODO: investigate what these are
-        model_params['t0'] = 1
-        model_params['kappa'] = 0.5
+        gen_model_params['t0'] = 1
+        gen_model_params['kappa'] = 0.5
         inference_alg = WidjajaLinearGaussian(
             model_str=model_str,
-            model_params=model_params)
+            gen_model_params=gen_model_params)
     # elif inference_alg_str == 'Online CRP':
     #     inference_alg = online_crp
     # elif inference_alg_str == 'SUSG':
@@ -1457,7 +1462,7 @@ def run_inference_alg(inference_alg_str: str,
     elif inference_alg_str.startswith('HMC-Gibbs'):
         inference_alg = HMCGibbsLinearGaussian(
             model_str=model_str,
-            model_params=model_params,
+            model_params=gen_model_params,
             num_samples=100000,
             num_warmup_samples=50000,
             num_thinning_samples=1000)

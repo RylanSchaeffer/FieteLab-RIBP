@@ -27,32 +27,28 @@ import utils.run_helpers
 
 
 def run_one(args: argparse.Namespace):
-
     setup_results = setup(args=args)
 
-    logging.info('Running and plotting {} with params {} on dataset {}'.format(
+    logging.info('Running and plotting {} on dataset {}'.format(
         setup_results['inference_alg_str'],
-        setup_results['model_params'],
         args.run_one_results_dir))
 
     run_and_plot_inference_alg(
         sampled_linear_gaussian_data=setup_results['sampled_linear_gaussian_data'],
         inference_alg_str=setup_results['inference_alg_str'],
-        model_params=setup_results['model_params'],
+        gen_model_params=setup_results['gen_model_params'],
         inference_results_dir=setup_results['inference_results_dir'])
 
-    logging.info('Successfully ran and plotted {} with params {} on dataset {}'.format(
+    logging.info('Successfully ran and plotted {} on dataset {}'.format(
         setup_results['inference_alg_str'],
-        setup_results['model_params'],
         args.run_one_results_dir))
 
 
 def run_and_plot_inference_alg(sampled_linear_gaussian_data,
                                inference_alg_str,
-                               model_params,
+                               gen_model_params,
                                inference_results_dir,
                                train_fraction: int = .80):
-
     assert 0. <= train_fraction <= 1.
     # Determine the index for train-test split
     num_obs = sampled_linear_gaussian_data['observations'].shape[0]
@@ -60,18 +56,17 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
     sampled_linear_gaussian_data['train_sampled_indicators'] = sampled_linear_gaussian_data[
                                                                    'sampled_indicators'][:train_end_idx]
     sampled_linear_gaussian_data['test_sampled_indicators'] = sampled_linear_gaussian_data[
-                                                                   'sampled_indicators'][train_end_idx:]
+                                                                  'sampled_indicators'][train_end_idx:]
     sampled_linear_gaussian_data['train_observations'] = sampled_linear_gaussian_data[
-                                                                   'observations'][:train_end_idx]
+                                                             'observations'][:train_end_idx]
     sampled_linear_gaussian_data['test_observations'] = sampled_linear_gaussian_data[
-                                                                   'observations'][train_end_idx:]
+                                                            'observations'][train_end_idx:]
 
     inference_results_path = os.path.join(
         inference_results_dir,
         'inference_alg_results.joblib')
 
     if not os.path.isfile(inference_results_path):
-
         logging.info(f'Inference results not found at: {inference_results_path}')
         logging.info('Generating inference results...')
 
@@ -82,7 +77,7 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
             inference_alg_str=inference_alg_str,
             observations=sampled_linear_gaussian_data['train_observations'],
             model_str='linear_gaussian',
-            model_params=model_params,
+            gen_model_params=gen_model_params,
             plot_dir=inference_results_dir)
 
         # record elapsed time
@@ -102,7 +97,7 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
 
         data_to_store = dict(
             inference_alg_str=inference_alg_str,
-            inference_alg_params=model_params,
+            inference_alg_params=gen_model_params,
             inference_alg_results=inference_alg_results,
             num_indicators=num_indicators,
             log_posterior_predictive=dict(mean=log_posterior_predictive_results['mean'],
@@ -135,9 +130,6 @@ def setup(args: argparse.Namespace):
     """ Create necessary directories, set seeds and load linear-Gaussian data."""
 
     inference_results_dir = f'{args.inference_alg_str}_a={args.alpha}_b={args.beta}'
-    model_params = dict(
-        alpha=args.alpha,
-        beta=args.beta)
 
     inference_results_dir = os.path.join(
         args.run_one_results_dir,
@@ -152,13 +144,23 @@ def setup(args: argparse.Namespace):
     sampled_linear_gaussian_data = joblib.load(
         os.path.join(args.run_one_results_dir, 'data.joblib'))
 
+    gen_model_params = dict(
+        IBP=dict(
+            alpha=args.alpha,
+            beta=args.beta))
+
+    gen_model_params['feature_prior_params'] = sampled_linear_gaussian_data[
+        'feature_prior_params']
+    gen_model_params['likelihood_params'] = sampled_linear_gaussian_data[
+        'likelihood_params']
+
     # set seeds
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
 
     setup_results = dict(
         inference_alg_str=args.inference_alg_str,
-        model_params=model_params,
+        gen_model_params=gen_model_params,
         sampled_linear_gaussian_data=sampled_linear_gaussian_data,
         inference_results_dir=inference_results_dir,
     )

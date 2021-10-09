@@ -24,12 +24,12 @@ def run_all():
     os.makedirs(results_dir_path, exist_ok=True)
 
     feature_samplings = [
-        ('GriffithsGhahramani', dict()),
-        ('categorical', dict(probs=np.ones(5) / 5.)),
-        ('categorical', dict(probs=np.array([0.4, 0.25, 0.2, 0.1, 0.05]))),
+        # ('GriffithsGhahramani', dict()),
+        # ('categorical', dict(probs=np.ones(5) / 5.)),
+        # ('categorical', dict(probs=np.array([0.4, 0.25, 0.2, 0.1, 0.05]))),
         ('IBP', dict(alpha=1.17, beta=0.58)),
-        ('IBP', dict(alpha=1.17, beta=2.4)),
-        ('IBP', dict(alpha=5.98, beta=2.4)),
+        # ('IBP', dict(alpha=2.4, beta=1.3)),
+        # ('IBP', dict(alpha=5.98, beta=2.4)),
     ]
 
     num_datasets = 5
@@ -37,8 +37,10 @@ def run_all():
     gaussian_mean_prior_cov_scaling: float = 100.
     num_customers = 100
 
-    alphas = np.round(np.linspace(1.1, 5.91, 3), 2)
-    betas = np.round(np.linspace(0.3, 6.7, 3), 2)
+    # alphas = np.round(np.linspace(1.1, 5.91, 3), 2)
+    # betas = np.round(np.linspace(0.3, 6.7, 3), 2)
+    alphas = [1.17]
+    betas = [0.58]
     inference_alg_strs = [
         'R-IBP',
         # 'HMC-Gibbs',
@@ -56,8 +58,8 @@ def run_all():
             num_obs=num_customers,
             indicator_sampling_str=indicator_sampling,
             indicator_sampling_params=indicator_sampling_params,
-            gaussian_prior_params=dict(gaussian_cov_scaling=gaussian_cov_scaling,
-                                       gaussian_mean_prior_cov_scaling=gaussian_mean_prior_cov_scaling))
+            feature_prior_params=dict(gaussian_cov_scaling=gaussian_cov_scaling,
+                                      gaussian_mean_prior_cov_scaling=gaussian_mean_prior_cov_scaling))
 
         # save dataset
         run_one_results_dir_path = os.path.join(
@@ -74,6 +76,8 @@ def run_all():
             plot_dir=run_one_results_dir_path)
 
         for alpha, beta, inference_alg_str in itertools.product(*hyperparams):
+            alpha = indicator_sampling_params['alpha']
+            beta = indicator_sampling_params['beta']
             launch_run_one(
                 exp_dir_path=exp_dir_path,
                 run_one_results_dir_path=run_one_results_dir_path,
