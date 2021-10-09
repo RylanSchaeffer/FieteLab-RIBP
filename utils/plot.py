@@ -16,99 +16,27 @@ from utils.numpy_helpers import compute_largest_dish_idx
 # }
 
 
-def plot_run_one_indicators_by_num_obs(indicators: np.ndarray,
-                                       dish_eating_priors,
-                                       dish_eating_posteriors,
-                                       plot_dir,
-                                       cutoff: float = 1e-2):
-    """
-    Plot three heatmaps together. The left is the ground truth indicators (y)
-    vs observation index (x). The middle is the prior over indicators and the
-    right is posterior over indicators.
+def plot_analyze_all_negative_posterior_predictive_vs_runtime(inf_algorithms_results_df: pd.DataFrame,
+                                                              plot_dir: str):
+    # In alpha (X) vs beta (Y) space, plot runtime (grouping by algorithm,
+    for sampling_scheme, results_by_sampling_df in inf_algorithms_results_df.groupby('sampling'):
+        sampling_results_dir_path = os.path.join(plot_dir, sampling_scheme)
 
-    The first three 3 inputs are expected to have shape
-    (number of obs, number indicators)
-    """
+        sns.relplot(x='runtime',
+                    y='negative_log_posterior_predictive',
+                    hue='inference_alg',
+                    data=results_by_sampling_df)
+        plt.xlabel('Runtime')
+        plt.ylabel('Negative Log Posterior Predictive')
+        plt.xscale('log')
+        plt.yscale('log')
+        plt.savefig(os.path.join(sampling_results_dir_path,
+                                 'negative_posterior_predictive_vs_runtime.png'),
+                    bbox_inches='tight',
+                    dpi=300)
+        # plt.show()
+        plt.close()
 
-    num_obs = indicators.shape[0]
-    yticklabels = 1 + np.arange(num_obs)
-    fig, axes = plt.subplots(nrows=1,
-                             ncols=5,
-                             figsize=(12, 5),
-                             gridspec_kw={'width_ratios': [1, 0.25, 1, 0.25, 1]})
-
-    # first figure out the largest dish index with a value greater
-    largest_indicator_idx = compute_largest_dish_idx(
-        observations=indicators,
-        cutoff=cutoff)
-    largest_dish_prior_idx = compute_largest_dish_idx(
-        observations=dish_eating_priors,
-        cutoff=cutoff)
-    largest_dish_posterior_idx = compute_largest_dish_idx(
-        observations=dish_eating_posteriors,
-        cutoff=cutoff)
-    # take mean of the three
-    max_feature_idx_to_display = int(np.mean([
-        largest_indicator_idx, largest_dish_prior_idx, largest_dish_posterior_idx]))
-    xticklabels = 1 + np.arange(max_feature_idx_to_display)
-
-    indicators = indicators.astype(float)
-    possibly_bigger_indicators = np.zeros(
-        shape=(num_obs, max(max_feature_idx_to_display,
-                            indicators.shape[1])))
-    possibly_bigger_indicators[:, :indicators.shape[1]] = indicators[:, :]
-    possibly_bigger_indicators[possibly_bigger_indicators < cutoff] = np.nan
-    axes[0].set_title(r'$z_{nk}$')
-    sns.heatmap(possibly_bigger_indicators,
-                ax=axes[0],
-                mask=np.isnan(possibly_bigger_indicators),
-                cmap='jet',
-                vmin=cutoff,
-                vmax=1.,
-                norm=LogNorm(),
-                # xticklabels=xticklabels,
-                # yticklabels=yticklabels,
-                )
-    axes[0].set_ylabel('Observation Index')
-    axes[0].set_xlabel('Feature Index')
-
-    axes[1].axis('off')
-
-    dish_eating_priors[dish_eating_priors < cutoff] = np.nan
-    axes[2].set_title(r'$p(z_{nk}=1|o_{<n})$')
-    sns.heatmap(dish_eating_priors[:, :max_feature_idx_to_display],
-                ax=axes[2],
-                mask=np.isnan(dish_eating_priors[:, :max_feature_idx_to_display]),
-                cmap='jet',
-                vmin=cutoff,
-                vmax=1.,
-                norm=LogNorm(),
-                # xticklabels=xticklabels,
-                # yticklabels=yticklabels,
-                )
-    axes[2].set_ylabel('Observation Index')
-    axes[2].set_xlabel('Feature Index')
-    axes[3].axis('off')
-
-    dish_eating_posteriors[dish_eating_posteriors < cutoff] = np.nan
-    axes[4].set_title(r'$p(z_{nk}=1|o_{\leq n})$')
-    sns.heatmap(dish_eating_posteriors[:, :max_feature_idx_to_display],
-                ax=axes[4],
-                mask=np.isnan(dish_eating_posteriors[:, :max_feature_idx_to_display]),
-                cmap='jet',
-                vmin=cutoff,
-                vmax=1.,
-                norm=LogNorm(),
-                # xticklabels=xticklabels,
-                # yticklabels=yticklabels,
-                )
-    axes[4].set_ylabel('Observation Index')
-    axes[4].set_xlabel('Feature Index')
-    plt.savefig(os.path.join(plot_dir, 'indicators_by_num_obs.png'),
-                bbox_inches='tight',
-                dpi=500)
-    # plt.show()
-    plt.close()
 
 
 def plot_indicators_by_index_over_many_observations(indicators, ):
@@ -311,6 +239,102 @@ def plot_run_one_num_features_by_num_obs(indicators,
                 dpi=300)
     # plt.show()
     plt.close()
+
+
+def plot_run_one_indicators_by_num_obs(indicators: np.ndarray,
+                                       dish_eating_priors,
+                                       dish_eating_posteriors,
+                                       plot_dir,
+                                       cutoff: float = 1e-2):
+    """
+    Plot three heatmaps together. The left is the ground truth indicators (y)
+    vs observation index (x). The middle is the prior over indicators and the
+    right is posterior over indicators.
+
+    The first three 3 inputs are expected to have shape
+    (number of obs, number indicators)
+    """
+
+    num_obs = indicators.shape[0]
+    yticklabels = 1 + np.arange(num_obs)
+    fig, axes = plt.subplots(nrows=1,
+                             ncols=5,
+                             figsize=(12, 5),
+                             gridspec_kw={'width_ratios': [1, 0.25, 1, 0.25, 1]})
+
+    # first figure out the largest dish index with a value greater
+    largest_indicator_idx = compute_largest_dish_idx(
+        observations=indicators,
+        cutoff=cutoff)
+    largest_dish_prior_idx = compute_largest_dish_idx(
+        observations=dish_eating_priors,
+        cutoff=cutoff)
+    largest_dish_posterior_idx = compute_largest_dish_idx(
+        observations=dish_eating_posteriors,
+        cutoff=cutoff)
+    # take mean of the three
+    max_feature_idx_to_display = int(np.mean([
+        largest_indicator_idx, largest_dish_prior_idx, largest_dish_posterior_idx]))
+    xticklabels = 1 + np.arange(max_feature_idx_to_display)
+
+    indicators = indicators.astype(float)
+    possibly_bigger_indicators = np.zeros(
+        shape=(num_obs, max(max_feature_idx_to_display,
+                            indicators.shape[1])))
+    possibly_bigger_indicators[:, :indicators.shape[1]] = indicators[:, :]
+    possibly_bigger_indicators[possibly_bigger_indicators < cutoff] = np.nan
+    axes[0].set_title(r'$z_{nk}$')
+    sns.heatmap(possibly_bigger_indicators,
+                ax=axes[0],
+                mask=np.isnan(possibly_bigger_indicators),
+                cmap='jet',
+                vmin=cutoff,
+                vmax=1.,
+                norm=LogNorm(),
+                # xticklabels=xticklabels,
+                # yticklabels=yticklabels,
+                )
+    axes[0].set_ylabel('Observation Index')
+    axes[0].set_xlabel('Feature Index')
+
+    axes[1].axis('off')
+
+    dish_eating_priors[dish_eating_priors < cutoff] = np.nan
+    axes[2].set_title(r'$p(z_{nk}=1|o_{<n})$')
+    sns.heatmap(dish_eating_priors[:, :max_feature_idx_to_display],
+                ax=axes[2],
+                mask=np.isnan(dish_eating_priors[:, :max_feature_idx_to_display]),
+                cmap='jet',
+                vmin=cutoff,
+                vmax=1.,
+                norm=LogNorm(),
+                # xticklabels=xticklabels,
+                # yticklabels=yticklabels,
+                )
+    axes[2].set_ylabel('Observation Index')
+    axes[2].set_xlabel('Feature Index')
+    axes[3].axis('off')
+
+    dish_eating_posteriors[dish_eating_posteriors < cutoff] = np.nan
+    axes[4].set_title(r'$p(z_{nk}=1|o_{\leq n})$')
+    sns.heatmap(dish_eating_posteriors[:, :max_feature_idx_to_display],
+                ax=axes[4],
+                mask=np.isnan(dish_eating_posteriors[:, :max_feature_idx_to_display]),
+                cmap='jet',
+                vmin=cutoff,
+                vmax=1.,
+                norm=LogNorm(),
+                # xticklabels=xticklabels,
+                # yticklabels=yticklabels,
+                )
+    axes[4].set_ylabel('Observation Index')
+    axes[4].set_xlabel('Feature Index')
+    plt.savefig(os.path.join(plot_dir, 'indicators_by_num_obs.png'),
+                bbox_inches='tight',
+                dpi=500)
+    # plt.show()
+    plt.close()
+
 
 # def plot_posterior_num_dishes_by_num_obs(dish_eating_array: np.ndarray,
 #                                          plot_dir: str,

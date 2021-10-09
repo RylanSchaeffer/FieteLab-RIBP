@@ -13,32 +13,9 @@ import utils.plot
 
 def plot_analyze_all_algorithms_results(inf_algorithms_results_df: pd.DataFrame,
                                         plot_dir: str):
-    plot_analyze_all_negative_posterior_predictive_vs_runtime(
+    utils.plot.plot_analyze_all_negative_posterior_predictive_vs_runtime(
         inf_algorithms_results_df=inf_algorithms_results_df,
         plot_dir=plot_dir)
-
-
-def plot_analyze_all_negative_posterior_predictive_vs_runtime(inf_algorithms_results_df: pd.DataFrame,
-                                                              plot_dir: str):
-    # In alpha (X) vs beta (Y) space, plot runtime (grouping by algorithm,
-    for sampling_scheme, results_by_sampling_df in inf_algorithms_results_df.groupby('sampling'):
-        sampling_results_dir_path = os.path.join(plot_dir, sampling_scheme)
-
-        sns.relplot(x='runtime',
-                    y='negative_log_posterior_predictive',
-                    hue='inference_alg',
-                    data=results_by_sampling_df)
-        plt.xlabel('Runtime')
-        plt.ylabel('Negative Log Posterior Predictive')
-        plt.xscale('log')
-        plt.yscale('log')
-        plt.savefig(os.path.join(sampling_results_dir_path,
-                                 'negative_posterior_predictive_vs_runtime.png'),
-                    bbox_inches='tight',
-                    dpi=300)
-        # plt.show()
-        plt.close()
-    print(10)
 
 
 def plot_run_one_gaussian_features_by_num_obs(observations: np.ndarray,

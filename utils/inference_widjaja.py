@@ -90,7 +90,8 @@ class OnlineFinite:
                 non_k_indices = k_indices[k_indices != k]
 
                 var = 1.0 / (1.0 / self.var_a + nu_sum[k] / self.var_x)
-                self.phi[:, k] = (nu_data_sum[k, :] - torch.sum(nu_cross_sum[k, non_k_indices] * self.phi[:, non_k_indices], dim=1)) / self.var_x * var
+                self.phi[:, k] = (nu_data_sum[k, :] - torch.sum(
+                    nu_cross_sum[k, non_k_indices] * self.phi[:, non_k_indices], dim=1)) / self.var_x * var
                 self.Phi[:, k] = var
 
             # Update nu's
@@ -99,7 +100,7 @@ class OnlineFinite:
 
                 phi_k = self.phi[:, k]
                 theta_k = sps.digamma(self.tau_1[k]) - sps.digamma(self.tau_2[k]) \
-                        - (torch.sum(self.Phi[:, k]) + torch.dot(phi_k, phi_k)) / (2.0 * self.var_x)
+                          - (torch.sum(self.Phi[:, k]) + torch.dot(phi_k, phi_k)) / (2.0 * self.var_x)
 
                 for i in range(size):
                     theta = theta_k + torch.dot(
@@ -109,7 +110,8 @@ class OnlineFinite:
 
                     nu[i, k] = sps.expit(theta)
 
-        self.nu_sum, self.nu_comp_sum, self.nu_cross_sum, self.nu_data_sum = self.compute_sufficient_stats(rho, nu, data)
+        self.nu_sum, self.nu_comp_sum, self.nu_cross_sum, self.nu_data_sum = self.compute_sufficient_stats(rho, nu,
+                                                                                                           data)
 
         self.iteration += 1
 
@@ -141,9 +143,13 @@ class OnlineFinite:
                 theta_k = sps.digamma(self.tau_1[k]) - sps.digamma(self.tau_2[k])
 
                 for i in range(size):
-                    theta = theta_k  \
-                            - (torch.dot(train_mask[i, :], self.Phi[:, k]) + torch.dot(train_mask[i, :], self.phi[:, k] ** 2)) / (2.0 * self.var_x) \
-                            + torch.dot(train_mask[i, :] * self.phi[:, k], data[i, :] - torch.sum(nu[i, non_k_indices] * self.phi[:, non_k_indices], dim=1)) / self.var_x
+                    theta = theta_k \
+                            - (torch.dot(train_mask[i, :], self.Phi[:, k]) + torch.dot(train_mask[i, :],
+                                                                                       self.phi[:, k] ** 2)) / (
+                                        2.0 * self.var_x) \
+                            + torch.dot(train_mask[i, :] * self.phi[:, k],
+                                        data[i, :] - torch.sum(nu[i, non_k_indices] * self.phi[:, non_k_indices],
+                                                               dim=1)) / self.var_x
 
                     nu[i, k] = sps.expit(theta)
 
@@ -195,11 +201,13 @@ class OnlineInfinite:
         # select our relevant set of tau's (up to k)
         digamma_tau_1 = sps.digamma(tau_1)
         digamma_tau_2 = sps.digamma(tau_2)
-        digamma_sum = sps.digamma(tau_1, tau_2)
+        digamma_sum = sps.digamma(tau_1 + tau_2)
 
         # compute the unnormalized optimal log(q) distribution
-        digamma_tau1_cumsum = torch.append(0.0, torch.cumsum(digamma_tau_1[:-1]))
-        digamma_sum_cumsum = torch.cumsum(digamma_sum)
+        digamma_tau1_cumsum = torch.cat([torch.tensor([0.0]),
+                                         torch.cumsum(digamma_tau_1[:-1],
+                                                      dim=0)])
+        digamma_sum_cumsum = torch.cumsum(digamma_sum, dim=0)
         logq_unnormalized = digamma_tau_2 + digamma_tau1_cumsum - digamma_sum_cumsum
 
         return logq_unnormalized
@@ -241,7 +249,7 @@ class OnlineInfinite:
         nu = torch.from_numpy(
             stats.uniform.rvs(size=(minibatch_size, self.max_num_features))).float()
 
-        prior = torch.cumprod(self.tau_1 / (self.tau_1 + self.tau_2))
+        prior = torch.cumprod(self.tau_1 / (self.tau_1 + self.tau_2), dim=0)
         prior = prior.reshape(1, -1)  # add a batch dimension
 
         for t in range(convergence_iters):
@@ -265,7 +273,8 @@ class OnlineInfinite:
                 non_k_indices = k_indices[k_indices != k]
 
                 var = 1.0 / (1.0 / self.var_a + nu_sum[k] / self.var_x)
-                self.phi[:, k] = (nu_data_sum[k, :] - torch.sum(nu_cross_sum[k, non_k_indices] * self.phi[:, non_k_indices], dim=1)) / self.var_x * var
+                self.phi[:, k] = (nu_data_sum[k, :] - torch.sum(
+                    nu_cross_sum[k, non_k_indices] * self.phi[:, non_k_indices], dim=1)) / self.var_x * var
                 self.Phi[:, k] = var
 
             # Update nu's
@@ -273,16 +282,19 @@ class OnlineInfinite:
                 non_k_indices = k_indices[k_indices != k]
 
                 phi_k = self.phi[:, k]
-                theta_k = torch.sum(sps.digamma(self.tau_1[:(k + 1)]) - sps.digamma(self.tau_1[:(k + 1)] + self.tau_2[:(k + 1)])) \
+                theta_k = torch.sum(
+                    sps.digamma(self.tau_1[:(k + 1)]) - sps.digamma(self.tau_1[:(k + 1)] + self.tau_2[:(k + 1)])) \
                           - self.compute_Elogstick(k) \
                           - (torch.sum(self.Phi[:, k]) + torch.dot(phi_k, phi_k)) / (2.0 * self.var_x)
 
                 for i in range(minibatch_size):
-                    theta = theta_k + torch.dot(self.phi[:, k], data[i, :] - torch.sum(nu[i, non_k_indices] * self.phi[:, non_k_indices], dim=1)) / self.var_x
+                    theta = theta_k + torch.dot(self.phi[:, k], data[i, :] - torch.sum(
+                        nu[i, non_k_indices] * self.phi[:, non_k_indices], dim=1)) / self.var_x
 
                     nu[i, k] = sps.expit(theta)
 
-        self.nu_sum, self.nu_comp_sum, self.nu_cross_sum, self.nu_data_sum = self.compute_sufficient_stats(rho, nu, data)
+        self.nu_sum, self.nu_comp_sum, self.nu_cross_sum, self.nu_data_sum = self.compute_sufficient_stats(rho, nu,
+                                                                                                           data)
 
         self.iteration += 1
 
@@ -291,8 +303,8 @@ class OnlineInfinite:
             'dish_eating_posterior': torch.clone(nu),
             'A_mean': self.phi.T,  # transpose because has shape (obs dim, max num features)
             'A_cov': self.Phi.T,  # transpose because has shape (obs dim, max num features)
-            'stick_param_1': torch.clone(self.tau_1),  # add batch dimension
-            'stick_param_2': torch.clone(self.tau_2),  # add batch dimension
+            'beta_param_1': torch.clone(self.tau_1),  # add batch dimension
+            'beta_param_2': torch.clone(self.tau_2),  # add batch dimension
         }
 
         return step_results
@@ -311,13 +323,18 @@ class OnlineInfinite:
             for k in range(self.max_num_features):
                 non_k_indices = k_indices[k_indices != k]
 
-                theta_k = torch.sum(sps.digamma(self.tau_1[:(k + 1)]) - sps.digamma(self.tau_1[:(k + 1)] + self.tau_2[:(k + 1)])) \
+                theta_k = torch.sum(
+                    sps.digamma(self.tau_1[:(k + 1)]) - sps.digamma(self.tau_1[:(k + 1)] + self.tau_2[:(k + 1)])) \
                           - self.compute_Elogstick(k)
 
                 for i in range(size):
-                    theta = theta_k  \
-                            - (torch.dot(train_mask[i, :], self.Phi[:, k]) + torch.dot(train_mask[i, :], self.phi[:, k] ** 2)) / (2.0 * self.var_x) \
-                            + torch.dot(train_mask[i, :] * self.phi[:, k], data[i, :] - torch.sum(nu[i, non_k_indices] * self.phi[:, non_k_indices], dim=1)) / self.var_x
+                    theta = theta_k \
+                            - (torch.dot(train_mask[i, :], self.Phi[:, k]) + torch.dot(train_mask[i, :],
+                                                                                       self.phi[:, k] ** 2)) / (
+                                        2.0 * self.var_x) \
+                            + torch.dot(train_mask[i, :] * self.phi[:, k],
+                                        data[i, :] - torch.sum(nu[i, non_k_indices] * self.phi[:, non_k_indices],
+                                                               dim=1)) / self.var_x
 
                     nu[i, k] = sps.expit(theta)
 
@@ -422,7 +439,8 @@ class OfflineFinite:
                                   - (torch.sum(Phi[:, k]) + torch.dot(phi_k, phi_k)) / (2.0 * self.var_x)
 
                         for i in range(size):
-                            theta = theta_k + torch.dot(phi[:, k], data[i, :] - torch.sum(nu[i, non_k] * phi[:, non_k], dim=1)) / self.var_x
+                            theta = theta_k + torch.dot(phi[:, k], data[i, :] - torch.sum(nu[i, non_k] * phi[:, non_k],
+                                                                                          dim=1)) / self.var_x
 
                             nu[i, k] = sps.expit(theta)
 
@@ -468,9 +486,13 @@ class OfflineFinite:
                 theta_k = sps.digamma(self.tau_1[k]) - sps.digamma(self.tau_2[k])
 
                 for i in range(size):
-                    theta = theta_k  \
-                            - (torch.dot(train_mask[i, :], self.Phi[:, k]) + torch.dot(train_mask[i, :], self.phi[:, k] ** 2)) / (2.0 * self.var_x) \
-                            + torch.dot(train_mask[i, :] * self.phi[:, k], data[i, :] - torch.sum(nu[i, non_k_indices] * self.phi[:, non_k_indices], dim=1)) / self.var_x
+                    theta = theta_k \
+                            - (torch.dot(train_mask[i, :], self.Phi[:, k]) + torch.dot(train_mask[i, :],
+                                                                                       self.phi[:, k] ** 2)) / (
+                                        2.0 * self.var_x) \
+                            + torch.dot(train_mask[i, :] * self.phi[:, k],
+                                        data[i, :] - torch.sum(nu[i, non_k_indices] * self.phi[:, non_k_indices],
+                                                               dim=1)) / self.var_x
 
                     nu[i, k] = sps.expit(theta)
 
@@ -579,7 +601,8 @@ class OfflineInfinite:
                             qs[m, :(m + 1)] = torch.exp(tmp - sps.logsumexp(tmp))
 
                         tau_1[k] = self.alpha + torch.sum(sum_nu[k:]) + torch.dot(self.num_obs - sum_nu[(k + 1):],
-                                                                            torch.sum(qs[(k + 1):, (k + 1):], dim=1))
+                                                                                  torch.sum(qs[(k + 1):, (k + 1):],
+                                                                                            dim=1))
                         tau_2[k] = 1.0 + torch.dot(self.num_obs - sum_nu[k:], qs[k:, k])
                 elif p == 1:
                     sum_nu = self.num_obs / num_obs * torch.sum(nu, dim=0)
@@ -607,12 +630,14 @@ class OfflineInfinite:
                         non_k = k_indices[k_indices != k]
 
                         phi_k = phi[:, k]
-                        theta_k = torch.sum(sps.digamma(tau_1[:(k + 1)]) - sps.digamma(tau_1[:(k + 1)] + tau_2[:(k + 1)])) \
+                        theta_k = torch.sum(
+                            sps.digamma(tau_1[:(k + 1)]) - sps.digamma(tau_1[:(k + 1)] + tau_2[:(k + 1)])) \
                                   - self.compute_Elogstick(tau_1, tau_2, k) \
                                   - (torch.sum(Phi[:, k]) + torch.dot(phi_k, phi_k)) / (2.0 * self.var_x)
 
                         for i in range(num_obs):
-                            theta = theta_k + torch.dot(phi[:, k], data[i, :] - torch.sum(nu[i, non_k] * phi[:, non_k], dim=1)) / self.var_x
+                            theta = theta_k + torch.dot(phi[:, k], data[i, :] - torch.sum(nu[i, non_k] * phi[:, non_k],
+                                                                                          dim=1)) / self.var_x
 
                             nu[i, k] = sps.expit(theta)
 
@@ -655,13 +680,18 @@ class OfflineInfinite:
             for k in range(self.max_num_features):
                 non_k_indices = k_indices[k_indices != k]
 
-                theta_k = torch.sum(sps.digamma(self.tau_1[:(k + 1)]) - sps.digamma(self.tau_1[:(k + 1)] + self.tau_2[:(k + 1)])) \
+                theta_k = torch.sum(
+                    sps.digamma(self.tau_1[:(k + 1)]) - sps.digamma(self.tau_1[:(k + 1)] + self.tau_2[:(k + 1)])) \
                           - self.compute_Elogstick(self.tau_1, self.tau_2, k)
 
                 for i in range(size):
-                    theta = theta_k  \
-                            - (torch.dot(train_mask[i, :], self.Phi[:, k]) + torch.dot(train_mask[i, :], self.phi[:, k] ** 2)) / (2.0 * self.var_x) \
-                            + torch.dot(train_mask[i, :] * self.phi[:, k], data[i, :] - torch.sum(nu[i, non_k_indices] * self.phi[:, non_k_indices], dim=1)) / self.var_x
+                    theta = theta_k \
+                            - (torch.dot(train_mask[i, :], self.Phi[:, k]) + torch.dot(train_mask[i, :],
+                                                                                       self.phi[:, k] ** 2)) / (
+                                        2.0 * self.var_x) \
+                            + torch.dot(train_mask[i, :] * self.phi[:, k],
+                                        data[i, :] - torch.sum(nu[i, non_k_indices] * self.phi[:, non_k_indices],
+                                                               dim=1)) / self.var_x
 
                     nu[i, k] = sps.expit(theta)
 
@@ -690,7 +720,6 @@ class Static:
         return self.model.phi.T
 
     def step(self, obs_indices):
-
         # add a batch dimension
         minibatch = self.data_source[obs_indices]
 
@@ -707,4 +736,3 @@ class Static:
         #     self.ll_std_set.append(ll_std)
 
         return step_results
-

@@ -927,8 +927,8 @@ class WidjajaLinearGaussian(LinearGaussianModel):
         )
 
         if self.use_infinite:
-            pi_dict = dict(param_1=np.cumprod(beta_param_1),
-                           param_2=np.cumprod(beta_param_2))
+            pi_dict = dict(param_1=np.cumprod(beta_param_1, axis=1),
+                           param_2=np.cumprod(beta_param_2, axis=1))
 
         else:
             pi_dict = dict(param_1=beta_param_1, param_2=beta_param_2)
