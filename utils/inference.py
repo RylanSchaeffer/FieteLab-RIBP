@@ -245,10 +245,10 @@ class HMCGibbsLinearGaussian(LinearGaussianModel):
 
         assert model_str in {'linear_gaussian', 'factor_analysis',
                              'nonnegative_matrix_factorization'}
-        assert 'alpha' in model_params
-        assert 'beta' in model_params
-        assert model_params['alpha'] > 0
-        assert model_params['beta'] > 0
+        assert 'alpha' in model_params['IBP']
+        assert 'beta' in model_params['IBP']
+        assert model_params['IBP']['alpha'] > 0
+        assert model_params['IBP']['beta'] > 0
 
         self.model_str = model_str
         self.model_params = model_params
@@ -267,8 +267,8 @@ class HMCGibbsLinearGaussian(LinearGaussianModel):
         self.num_obs, self.obs_dim = observations.shape
         if self.max_num_features is None:
             self.max_num_features = compute_max_num_features(
-                alpha=self.model_params['alpha'],
-                beta=self.model_params['beta'],
+                alpha=self.model_params['IBP']['alpha'],
+                beta=self.model_params['IBP']['beta'],
                 num_obs=self.num_obs)
 
         self.generative_model = utils.numpyro_models.create_linear_gaussian_model(

@@ -25,8 +25,8 @@ def create_linear_gaussian_model(model_params: Dict[str, float],
             sticks = numpyro.sample(
                 'sticks',
                 numpyro.distributions.Beta(
-                    model_params['alpha'] * model_params['beta'] / max_num_features,
-                    model_params['beta']))
+                    model_params['IBP']['alpha'] * model_params['IBP']['beta'] / max_num_features,
+                    model_params['IBP']['beta']))
 
         # For each feature, sample its value
         with numpyro.plate('features_plate', max_num_features):
@@ -34,7 +34,8 @@ def create_linear_gaussian_model(model_params: Dict[str, float],
                 'A',
                 numpyro.distributions.MultivariateNormal(
                     loc=jnp.zeros(obs_dim),
-                    covariance_matrix=model_params['gaussian_prior_cov_scaling'] * jnp.eye(obs_dim)))
+                    covariance_matrix=model_params['feature_prior_params'][
+                                          'gaussian_mean_prior_cov_scaling'] * jnp.eye(obs_dim)))
 
         with numpyro.plate('data', num_obs):
             # For some reason, this broadcasting is easier with numpyro. Don't fight it.
@@ -46,7 +47,7 @@ def create_linear_gaussian_model(model_params: Dict[str, float],
                 'obs',
                 numpyro.distributions.MultivariateNormal(
                     loc=jnp.matmul(indicators_transposed.T, features),
-                    covariance_matrix=model_params['gaussian_likelihood_cov_scaling'] * jnp.eye(obs_dim)),
+                    covariance_matrix=model_params['likelihood_params']['sigma_x'] * jnp.eye(obs_dim)),
                 obs=obs)
 
     return linear_gaussian_model
