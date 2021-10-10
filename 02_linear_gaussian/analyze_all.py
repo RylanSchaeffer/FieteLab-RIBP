@@ -56,8 +56,8 @@ def load_all_datasets_all_alg_results(results_dir_path) -> pd.DataFrame:
                     continue
                 logging.info(f'Successfully loaded {inference_alg_dir_path} algorithm results.')
                 new_row = [sampling_dir, dataset_dir, stored_data['inference_alg_str'],
-                           stored_data['inference_alg_params']['alpha'],
-                           stored_data['inference_alg_params']['beta'],
+                           stored_data['inference_alg_params']['IBP']['alpha'],
+                           stored_data['inference_alg_params']['IBP']['beta'],
                            stored_data['runtime'],
                            stored_data['log_posterior_predictive']['mean']]
                 del stored_data

@@ -27,12 +27,12 @@ def run_all():
         # ('GriffithsGhahramani', dict()),
         # ('categorical', dict(probs=np.ones(5) / 5.)),
         # ('categorical', dict(probs=np.array([0.4, 0.25, 0.2, 0.1, 0.05]))),
-        ('IBP', dict(alpha=1.17, beta=1)),
-        # ('IBP', dict(alpha=2.4, beta=1.3)),
-        # ('IBP', dict(alpha=5.98, beta=2.4)),
+        ('IBP', dict(alpha=1.17, beta=1.)),
+        ('IBP', dict(alpha=2.4, beta=1.)),
+        ('IBP', dict(alpha=5.98, beta=1.)),
     ]
 
-    num_datasets = 5
+    num_datasets = 10
     gaussian_cov_scaling: float = 0.3
     gaussian_mean_prior_cov_scaling: float = 100.
     num_customers = 100

@@ -8,6 +8,7 @@ import seaborn as sns
 
 from utils.numpy_helpers import compute_largest_dish_idx
 
+
 # inference_alg_color_map = {
 #     'HMC-Gibbs': 'Green',
 #     'Doshi-Velez': 'Purple',
@@ -22,12 +23,21 @@ def plot_analyze_all_negative_posterior_predictive_vs_runtime(inf_algorithms_res
     for sampling_scheme, results_by_sampling_df in inf_algorithms_results_df.groupby('sampling'):
         sampling_results_dir_path = os.path.join(plot_dir, sampling_scheme)
 
-        sns.relplot(x='runtime',
-                    y='negative_log_posterior_predictive',
-                    hue='inference_alg',
-                    data=results_by_sampling_df)
-        plt.xlabel('Runtime')
-        plt.ylabel('Negative Log Posterior Predictive')
+        for inf_alg_str, inf_alg_results_df in results_by_sampling_df.groupby(['inference_alg']):
+            algs_runstimes_and_neg_log_pp = inf_alg_results_df.agg({
+                'runtime': ['mean', 'sem'],
+                'negative_log_posterior_predictive': ['mean', 'sem']
+            })
+
+            plt.errorbar(
+                x=algs_runstimes_and_neg_log_pp['runtime']['mean'],
+                xerr=algs_runstimes_and_neg_log_pp['runtime']['sem'],
+                y=algs_runstimes_and_neg_log_pp['negative_log_posterior_predictive']['mean'],
+                yerr=algs_runstimes_and_neg_log_pp['negative_log_posterior_predictive']['sem'],
+                fmt='o',
+                label=inf_alg_str)
+
+        plt.legend()
         plt.xscale('log')
         plt.yscale('log')
         plt.savefig(os.path.join(sampling_results_dir_path,
@@ -36,7 +46,6 @@ def plot_analyze_all_negative_posterior_predictive_vs_runtime(inf_algorithms_res
                     dpi=300)
         # plt.show()
         plt.close()
-
 
 
 def plot_indicators_by_index_over_many_observations(indicators, ):
@@ -334,7 +343,6 @@ def plot_run_one_indicators_by_num_obs(indicators: np.ndarray,
                 dpi=500)
     # plt.show()
     plt.close()
-
 
 # def plot_posterior_num_dishes_by_num_obs(dish_eating_array: np.ndarray,
 #                                          plot_dir: str,

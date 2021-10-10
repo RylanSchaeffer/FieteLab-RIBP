@@ -160,16 +160,9 @@ class DoshiVelezLinearGaussian(LinearGaussianModel):
             arr=A_covs,
         )
 
-        if self.use_infinite:
-            pi_dict = dict(param_1=np.cumprod(beta_param_1),
-                           param_2=np.cumprod(beta_param_2))
-
-        else:
-            pi_dict = dict(param_1=beta_param_1, param_2=beta_param_2)
-
         variational_params = dict(
             A=dict(mean=A_means, cov=A_covs),
-            pi=pi_dict
+            beta=dict(param_1=beta_param_1, param_2=beta_param_2),
         )
 
         dish_eating_posteriors_running_sum = np.cumsum(
@@ -199,11 +192,22 @@ class DoshiVelezLinearGaussian(LinearGaussianModel):
                                                num_samples: int) -> Dict[str, np.ndarray]:
 
         var_params = self.fit_results['variational_params']
-        max_num_features = var_params['pi']['param_1'].shape[0]
-        indicators_probs = np.random.beta(
-            a=var_params['pi']['param_1'][:],
-            b=var_params['pi']['param_1'][:],
-            size=(num_samples, max_num_features))
+        param_1 = np.copy(var_params['beta']['param_1'])
+        param_1[param_1 < 1e-10] = 1e-10
+        param_2 = np.copy(var_params['beta']['param_2'])
+        param_2[param_2 < 1e-10] = 1e-10
+        max_num_features = var_params['beta']['param_1'].shape[0]
+        if self.use_infinite:
+            v = np.random.beta(
+                a=param_1[np.newaxis, :],
+                b=param_2[np.newaxis, :],
+                size=(num_samples, max_num_features))
+            indicators_probs = np.cumprod(v, axis=1)
+        else:
+            indicators_probs = np.random.beta(
+                a=param_1[:],
+                b=param_2[:],
+                size=(num_samples, max_num_features))
         features = np.array([np.random.multivariate_normal(mean=var_params['A']['mean'][k, :],
                                                            cov=var_params['A']['cov'][k, :],
                                                            size=num_samples)
@@ -926,16 +930,9 @@ class WidjajaLinearGaussian(LinearGaussianModel):
             arr=A_covs,
         )
 
-        if self.use_infinite:
-            pi_dict = dict(param_1=np.cumprod(beta_param_1, axis=1),
-                           param_2=np.cumprod(beta_param_2, axis=1))
-
-        else:
-            pi_dict = dict(param_1=beta_param_1, param_2=beta_param_2)
-
         variational_params = dict(
             A=dict(mean=A_means, cov=A_covs),
-            pi=pi_dict)
+            beta=dict(param_1=beta_param_1, param_2=beta_param_2))
 
         dish_eating_posteriors_running_sum = np.cumsum(dish_eating_posteriors, axis=0)
 
@@ -964,17 +961,24 @@ class WidjajaLinearGaussian(LinearGaussianModel):
         var_params = self.fit_results['variational_params']
         # TODO: investigate why some param_2 are negative and how to stop it.
         # Something in the original Widjaja code is screwing up.
-        param_1 = var_params['pi']['param_1']
+        param_1 = var_params['beta']['param_1']
         param_1[param_1 < 1e-10] = 1e-10
-        param_2 = var_params['pi']['param_2']
+        param_2 = var_params['beta']['param_2']
         param_2[param_2 < 1e-10] = 1e-10
 
         max_num_features = param_1.shape[1]
         # shape (num samples, num features)
-        indicators_probs = np.random.beta(
-            a=param_1[np.newaxis, -1, :],
-            b=param_2[np.newaxis, -1, :],
-            size=(num_samples, max_num_features))
+        if self.use_infinite:
+            v = np.random.beta(
+                a=param_1[np.newaxis, -1, :],
+                b=param_2[np.newaxis, -1, :],
+                size=(num_samples, max_num_features))
+            indicators_probs = np.cumprod(v, axis=1)
+        else:
+            indicators_probs = np.random.beta(
+                a=param_1[np.newaxis, -1, :],
+                b=param_2[np.newaxis, -1, :],
+                size=(num_samples, max_num_features))
         features = np.stack([np.random.multivariate_normal(mean=var_params['A']['mean'][-1, k, :],
                                                            cov=var_params['A']['cov'][-1, k, :],
                                                            size=num_samples)
