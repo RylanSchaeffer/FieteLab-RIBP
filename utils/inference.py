@@ -883,8 +883,8 @@ class WidjajaLinearGaussian(LinearGaussianModel):
                 beta=self.gen_model_params['IBP']['beta'],
                 sigma_a=np.sqrt(self.gen_model_params['feature_prior_params']['gaussian_mean_prior_cov_scaling']),
                 sigma_x=np.sqrt(self.gen_model_params['likelihood_params']['sigma_x']),
-                t0=1,
-                kappa=0.5)
+                t0=0.,
+                kappa=0.)
         else:
             online_model = utils.inference_widjaja.OnlineFinite(
                 obs_dim=obs_dim,
@@ -893,8 +893,8 @@ class WidjajaLinearGaussian(LinearGaussianModel):
                 beta=self.gen_model_params['IBP']['beta'],
                 sigma_a=np.sqrt(self.gen_model_params['feature_prior_params']['gaussian_mean_prior_cov_scaling']),
                 sigma_x=np.sqrt(self.gen_model_params['likelihood_params']['sigma_x']),
-                t0=1,
-                kappa=0.5)
+                t0=0,
+                kappa=0.)
 
         torch_observations = torch.from_numpy(observations).float()
         online_strategy = utils.inference_widjaja.Static(
@@ -1472,9 +1472,8 @@ def run_inference_alg(inference_alg_str: str,
 
     # select inference alg and add kwargs as necessary
     if inference_alg_str.startswith('Doshi-Velez'):
-        # TODO: investigate what these are
-        gen_model_params['t0'] = 1
-        gen_model_params['kappa'] = 0.5
+        gen_model_params['t0'] = 0.
+        gen_model_params['kappa'] = 0.
         num_coordinate_ascent_steps = 17
         logging.info(f'Number of coordinate ascent steps: '
                      f'{num_coordinate_ascent_steps}')
@@ -1491,9 +1490,8 @@ def run_inference_alg(inference_alg_str: str,
             # plot_dir=plot_dir,
         )
     elif inference_alg_str.startswith('Widjaja'):
-        # TODO: investigate what these are
-        gen_model_params['t0'] = 1
-        gen_model_params['kappa'] = 0.5
+        gen_model_params['t0'] = 0
+        gen_model_params['kappa'] = 0.
         inference_alg = WidjajaLinearGaussian(
             model_str=model_str,
             gen_model_params=gen_model_params,
