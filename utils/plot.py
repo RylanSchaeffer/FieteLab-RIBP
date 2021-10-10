@@ -38,6 +38,8 @@ def plot_analyze_all_negative_posterior_predictive_vs_runtime(inf_algorithms_res
                 label=inf_alg_str)
 
         plt.legend()
+        plt.xlabel('Runtime (s)')
+        plt.ylabel('Negative Log Posterior Predictive')
         plt.xscale('log')
         plt.yscale('log')
         plt.savefig(os.path.join(sampling_results_dir_path,
