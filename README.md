@@ -38,18 +38,13 @@ subdirectory (e.g. `exp_00_ibp_prior/plots`) and then reproduces the plots in th
 `python3 exp_00_ibp_prior/main.py`
 
 ## TODO
-- Convert Widjaja into torch
-- Results on synthetic linear-gaussian data
-  - Plot comparison of ground-truth features and inferred features
-  - Plot comparison of ground-truth indicators and inferred indicators
+
 - MNIST or Omniglot
   - Implement MNIST comparison of classes based on inferred features
   - PCA MNIST
   - Implement Omniglot
 - Landmark Dataset
   - linear gaussian -> NMF
-- Maybe more interesting: show different features under different model
-  assumptions (e.g. FA vs NMF)
 - Derive
   - Factor Analysis
   - Non-negative Matrix Factorization
