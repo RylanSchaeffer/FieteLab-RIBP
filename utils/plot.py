@@ -38,12 +38,20 @@ def plot_analyze_all_negative_posterior_predictive_vs_runtime(inf_algorithms_res
                 label=inf_alg_str)
 
         plt.legend()
+        if sampling_scheme.startswith('IBP'):
+            split_sampling_scheme = sampling_scheme.split('=')
+            alpha_str = float(split_sampling_scheme[1][:-2])
+            beta_str = float(split_sampling_scheme[2])
+            nice_title = rf'IBP($\alpha={alpha_str}, \beta={beta_str}$)'
+        else:
+            raise NotImplementedError
+        plt.title(nice_title)
         plt.xlabel('Runtime (s)')
         plt.ylabel('Negative Log Posterior Predictive')
         plt.xscale('log')
         plt.yscale('log')
         plt.savefig(os.path.join(sampling_results_dir_path,
-                                 'negative_posterior_predictive_vs_runtime.png'),
+                                 f'negative_posterior_predictive_vs_runtime_{sampling_scheme}.png'),
                     bbox_inches='tight',
                     dpi=300)
         # plt.show()
