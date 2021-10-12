@@ -14,7 +14,7 @@ import os
 import subprocess
 
 import plot_omniglot
-import utils.data_real
+import utils.real
 
 
 def run_all():
@@ -31,7 +31,7 @@ def run_all():
     ]
     hyperparams = [alphas, betas, inference_alg_strs]
 
-    for alpha, beta, inference_alg_str, in itertools.product(*hyperparams):
+    for alpha, beta, inference_alg_str,  in itertools.product(*hyperparams):
 
         run_one_results_dir_path = os.path.join(
             results_dir_path,
@@ -58,7 +58,8 @@ def launch_run_one(exp_dir_path: str,
         run_one_results_dir_path,
         inference_alg_str,
         str(alpha),
-        str(beta)]
+        str(beta),
+        ]
 
     # TODO: Figure out where the logger is logging to
     logging.info(f'Launching ' + ' '.join(command_and_args))

@@ -1,7 +1,7 @@
 import numpy as np
-from typing import Dict, Tuple
+from typing import Tuple
 
-from utils.inference import LinearGaussianModel
+from utils.prob_models.linear_gaussian import LinearGaussianModel
 
 
 def compute_log_posterior_predictive(test_observations: np.ndarray,

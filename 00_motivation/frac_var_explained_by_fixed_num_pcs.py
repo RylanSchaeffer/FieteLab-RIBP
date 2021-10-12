@@ -14,7 +14,7 @@ import pandas as pd
 import seaborn as sns
 from sklearn.decomposition import PCA
 
-import utils.data_real
+import utils.real
 
 plot_dir = '00_motivation/results'
 os.makedirs(plot_dir, exist_ok=True)
@@ -25,12 +25,12 @@ num_pcs = [100, 250, 500, 1000]
 dataset_sizes = np.arange(100, 3501, 100)
 for dataset in datasets:
     if dataset == 'MNIST':
-        mnist_results = utils.data_real.load_mnist_dataset(
+        mnist_results = utils.real.load_mnist_dataset(
             feature_extractor_method=None)
         features = mnist_results['image_features']
         possible_indices = np.arange(features.shape[0])
     elif dataset == 'Omniglot':
-        omniglot_results = utils.data_real.load_omniglot_dataset(
+        omniglot_results = utils.real.load_omniglot_dataset(
             feature_extractor_method=None,
             center_crop=False)
         features = omniglot_results['image_features']

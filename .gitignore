@@ -1,7 +1,7 @@
 .idea/
 data/
-**/data
 **/results
+02_linear_gaussian/nice_results/
 ribp
 *.npy
 *.npz

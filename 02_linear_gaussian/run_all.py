@@ -14,7 +14,7 @@ import os
 import subprocess
 
 import plot_linear_gaussian
-import utils.data_synthetic
+import utils.data.synthetic
 
 
 def run_all():
@@ -38,12 +38,12 @@ def run_all():
     num_customers = 100
 
     inference_alg_strs = [
-        'R-IBP',
-        # 'HMC-Gibbs',
-        'Doshi-Velez-Finite',
-        'Doshi-Velez-Infinite',
-        'Widjaja-Finite',
-        'Widjaja-Infinite',
+        # 'R-IBP',
+        'HMC-Gibbs',
+        # 'Doshi-Velez-Finite',
+        # 'Doshi-Velez-Infinite',
+        # 'Widjaja-Finite',
+        # 'Widjaja-Infinite',
     ]
     hyperparams = [inference_alg_strs]
 
@@ -52,7 +52,7 @@ def run_all():
             itertools.product(feature_samplings, range(num_datasets)):
 
         logging.info(f'Sampling: {indicator_sampling}, Dataset Index: {dataset_idx}')
-        sampled_linear_gaussian_data = utils.data_synthetic.sample_from_linear_gaussian(
+        sampled_linear_gaussian_data = utils.data.synthetic.sample_from_linear_gaussian(
             num_obs=num_customers,
             indicator_sampling_str=indicator_sampling,
             indicator_sampling_params=indicator_sampling_params,
