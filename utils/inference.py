@@ -57,10 +57,11 @@ def run_inference_alg(inference_alg_str: str,
         elif inference_alg_str.startswith('HMC-Gibbs'):
             inference_alg = utils.prob_models.linear_gaussian.HMCGibbsLinearGaussian(
                 model_str=model_str,
-                model_params=gen_model_params,
-                num_samples=100000,
-                num_warmup_samples=10000,
-                num_thinning_samples=1000)
+                gen_model_params=gen_model_params,
+                num_samples=100000,  # 100000
+                num_warmup_samples=10000,  # 10000
+                num_thinning_samples=1000,  # 1000
+            )
         else:
             raise ValueError(f'Unknown inference algorithm: {inference_alg_str}')
 

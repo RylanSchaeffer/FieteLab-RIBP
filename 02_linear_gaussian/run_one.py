@@ -106,6 +106,13 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
 
         logging.info(f'Writing inference results to disk at:'
                      f' {inference_results_path}')
+
+        # TODO: Investigate why HMC throws a
+        # _pickle.PicklingError: Can't pickle <function create_linear_gaussian_model.<locals>.linear_gaussian_model at 0x2b2a3d9e7170>: it's not found as utils.numpyro_models.create_linear_gaussian_model.<locals>.linear_gaussian_model
+        # Then remove this del
+        # This will break regardless inside plot_linear_gaussian.plot_run_one_inference_results
+        if inference_alg_str == 'HMC-Gibbs':
+            del data_to_store['inference_alg_results']['inference_alg']
         joblib.dump(data_to_store,
                     filename=inference_results_path)
 

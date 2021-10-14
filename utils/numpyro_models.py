@@ -17,6 +17,8 @@ def create_linear_gaussian_model(model_params: Dict[str, float],
                                  max_num_features: int,
                                  num_obs: int,
                                  obs_dim: int):
+
+    # TODO: figure out why this prevents HMC from pickling
     def linear_gaussian_model(obs):
         with numpyro.plate('stick_plate', max_num_features):
             # Based on Ghahramani 2007 Bayesian Nonparametric Latent Feature

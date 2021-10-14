@@ -9,9 +9,7 @@ import numpyro
 import os
 import scipy.linalg
 from scipy.stats import poisson
-from timeit import default_timer as timer
 import torch
-import tracemalloc
 from typing import Dict, Tuple, Union
 
 import utils.numpy_helpers
@@ -958,7 +956,7 @@ class HMCGibbsLinearGaussian(LinearGaussianModel):
 
     def __init__(self,
                  model_str: str,
-                 model_params: Dict[str, float],
+                 gen_model_params: Dict[str, Dict[str, float]],
                  num_samples: int,
                  num_warmup_samples: int,
                  num_thinning_samples: int,
@@ -966,13 +964,13 @@ class HMCGibbsLinearGaussian(LinearGaussianModel):
 
         assert model_str in {'linear_gaussian', 'factor_analysis',
                              'nonnegative_matrix_factorization'}
-        assert 'alpha' in model_params['IBP']
-        assert 'beta' in model_params['IBP']
-        assert model_params['IBP']['alpha'] > 0
-        assert model_params['IBP']['beta'] > 0
+        assert 'alpha' in gen_model_params['IBP']
+        assert 'beta' in gen_model_params['IBP']
+        assert gen_model_params['IBP']['alpha'] > 0
+        assert gen_model_params['IBP']['beta'] > 0
 
         self.model_str = model_str
-        self.model_params = model_params
+        self.gen_model_params = gen_model_params
         self.num_samples = num_samples
         self.max_num_features = max_num_features
         self.num_warmup_samples = num_warmup_samples
@@ -988,12 +986,12 @@ class HMCGibbsLinearGaussian(LinearGaussianModel):
         self.num_obs, self.obs_dim = observations.shape
         if self.max_num_features is None:
             self.max_num_features = compute_max_num_features(
-                alpha=self.model_params['IBP']['alpha'],
-                beta=self.model_params['IBP']['beta'],
+                alpha=self.gen_model_params['IBP']['alpha'],
+                beta=self.gen_model_params['IBP']['beta'],
                 num_obs=self.num_obs)
 
         self.generative_model = utils.numpyro_models.create_linear_gaussian_model(
-            model_params=self.model_params,
+            model_params=self.gen_model_params,
             num_obs=self.num_obs,
             max_num_features=self.max_num_features,
             obs_dim=self.obs_dim)
@@ -1035,7 +1033,7 @@ class HMCGibbsLinearGaussian(LinearGaussianModel):
             num_dishes_poisson_rate_priors=num_dishes_poisson_rate_priors,
             num_dishes_poisson_rate_posteriors=num_dishes_poisson_rate_posteriors,
             samples=samples,
-            model_params=self.model_params,
+            model_params=self.gen_model_params,
         )
 
         return self.fit_results

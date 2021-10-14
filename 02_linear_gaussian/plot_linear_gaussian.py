@@ -13,6 +13,7 @@ import utils.plot
 
 def plot_analyze_all_algorithms_results(inf_algorithms_results_df: pd.DataFrame,
                                         plot_dir: str):
+
     utils.plot.plot_analyze_all_negative_posterior_predictive_vs_runtime(
         inf_algorithms_results_df=inf_algorithms_results_df,
         plot_dir=plot_dir)
