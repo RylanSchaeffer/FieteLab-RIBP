@@ -8,7 +8,10 @@ Example usage:
  --run_one_results_dir=03_omniglot/results/ \
  --inference_alg_str=R-IBP \
  --alpha=5.91 \
- --beta=4.3
+ --beta=4.3 \
+ --sigma_x=2. \
+ --feature_prior_cov_scaling=10. \
+ --scale_prior_cov_scaling=1. \
 """
 
 import argparse
@@ -129,7 +132,8 @@ def setup(args: argparse.Namespace):
     """ Create necessary directories, set seeds and load linear-Gaussian data."""
 
     inference_results_dir = f'{args.inference_alg_str}_a={args.alpha}_b={args.beta}_' \
-                            f'sigmax={args.sigma_x}_'
+                            f'sigmax={args.sigma_x}_featurecov={args.feature_prior_cov_scaling}_' \
+                            f'scalecov={args.scale_prior_cov_scaling}'
 
     inference_results_dir = os.path.join(
         args.run_one_results_dir,
@@ -154,8 +158,12 @@ def setup(args: argparse.Namespace):
         IBP=dict(
             alpha=args.alpha,
             beta=args.beta),
-        feature_prior_params=dict(),
-        scale_prior_params=dict(),
+        feature_prior_params=dict(
+            feature_prior_cov_scaling=args.feature_prior_cov_scaling,
+        ),
+        scale_prior_params=dict(
+            scale_prior_cov_scaling=args.scale_prior_cov_scaling,
+        ),
         likelihood_params=dict(
             sigma_x=args.sigma_x),
         )
@@ -185,10 +193,10 @@ if __name__ == '__main__':
                         help='IBP beta parameter.')
     parser.add_argument('--sigma_x', type=float,
                         help='Likelihood (noise) covariance parameter.')
-    # parser.add_argument('--alpha', type=float,
-    #                     help='IBP alpha parameter.')
-    # parser.add_argument('--alpha', type=float,
-    #                     help='IBP alpha parameter.')
+    parser.add_argument('--feature_prior_cov_scaling', type=float,
+                        help='Scale on feature A_k prior covariance.')
+    parser.add_argument('--scale_prior_cov_scaling', type=float,
+                        help='Scale on scale w_n prior covariance.')
     args = parser.parse_args()
     run_one(args)
     logging.info('Finished.')

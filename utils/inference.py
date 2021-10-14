@@ -2,6 +2,7 @@ import logging
 import numpy as np
 import torch
 
+import utils.prob_models.factor_analysis
 import utils.prob_models.linear_gaussian
 
 
