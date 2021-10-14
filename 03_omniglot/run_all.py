@@ -23,15 +23,20 @@ def run_all():
     results_dir_path = os.path.join(exp_dir_path, 'results')
     os.makedirs(results_dir_path, exist_ok=True)
 
-    num_datasets = 10
     alphas = np.round(np.arange(1., 5.01, 1.))
     betas = np.round(np.arange(1., 5.01, 1.))
+    sigma_xs = np.round(np.logspace(-2, 2, 5))
     inference_alg_strs = [
         'R-IBP',
     ]
-    hyperparams = [alphas, betas, inference_alg_strs]
+    hyperparams = [
+        alphas,
+        betas,
+        sigma_xs,
+        inference_alg_strs,
+    ]
 
-    for alpha, beta, inference_alg_str,  in itertools.product(*hyperparams):
+    for alpha, beta, sigma_x, inference_alg_str in itertools.product(*hyperparams):
 
         run_one_results_dir_path = os.path.join(
             results_dir_path,
@@ -42,14 +47,18 @@ def run_all():
             run_one_results_dir_path=run_one_results_dir_path,
             inference_alg_str=inference_alg_str,
             alpha=alpha,
-            beta=beta)
+            beta=beta,
+            sigma_x=sigma_x)
+
+        continue
 
 
 def launch_run_one(exp_dir_path: str,
                    run_one_results_dir_path: str,
                    inference_alg_str: str,
                    alpha: float,
-                   beta: float):
+                   beta: float,
+                   sigma_x: float):
 
     run_one_script_path = os.path.join(exp_dir_path, 'run_one.sh')
     command_and_args = [
@@ -59,6 +68,7 @@ def launch_run_one(exp_dir_path: str,
         inference_alg_str,
         str(alpha),
         str(beta),
+        str(sigma_x),
         ]
 
     # TODO: Figure out where the logger is logging to

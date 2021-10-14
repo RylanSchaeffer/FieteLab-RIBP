@@ -66,7 +66,21 @@ def run_inference_alg(inference_alg_str: str,
             raise ValueError(f'Unknown inference algorithm: {inference_alg_str}')
 
     elif model_str == 'factor_analysis':
-        raise NotImplementedError
+        assert 'IBP' in gen_model_params
+        assert 'feature_prior_params' in gen_model_params
+        assert 'scale_prior_params' in gen_model_params
+        assert 'likelihood_params' in gen_model_params
+
+        if inference_alg_str == 'R-IBP':
+            inference_alg = utils.prob_models.factor_analysis.RecursiveIBPFactorAnalysis(
+                model_str=model_str,
+                gen_model_params=gen_model_params,
+                plot_dir=None,
+                # plot_dir=plot_dir,
+            )
+        else:
+            raise NotImplementedError
+
     elif model_str == 'nonnegative_matrix_factorization':
         raise NotImplementedError
     else:

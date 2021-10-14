@@ -183,7 +183,8 @@ def load_omniglot_dataset(data_dir: str = 'data',
                           num_data: int = None,
                           center_crop: bool = True,
                           avg_pool: bool = False,
-                          feature_extractor_method: str = 'pca'):
+                          feature_extractor_method: str = 'pca',
+                          shuffle=True):
     """
 
     """
@@ -204,8 +205,7 @@ def load_omniglot_dataset(data_dir: str = 'data',
         transform=torchvision.transforms.Compose(transforms))
 
     # truncate dataset for now
-    # character_classes = [images_and_classes[1] for images_and_classes in
-    #                      omniglot_dataset._flat_character_images]
+
     if num_data is None:
         num_data = len(omniglot_dataset._flat_character_images)
     omniglot_dataset._flat_character_images = omniglot_dataset._flat_character_images[:num_data]
@@ -266,16 +266,19 @@ def load_omniglot_dataset(data_dir: str = 'data',
 
         raise NotImplementedError
     elif feature_extractor_method == 'vae':
-        vae_data = np.load('data/omniglot_vae/omniglot_data.npz')
+        vae_data = np.load(os.path.join(os.getcwd(),
+                                        'data/omniglot_vae/omniglot_data.npz'))
         labels = vae_data['targets']
         indices_to_sort_labels = np.argsort(labels)
-        # sort and truncate
+        # make sure labels are sorted so we get multiple instances of the same class
         labels = labels[indices_to_sort_labels][:num_data]
         images = vae_data['images'][indices_to_sort_labels][:num_data, :, :]
         image_features = vae_data['latents'][indices_to_sort_labels][:num_data, :]
         feature_extractor = None
     elif feature_extractor_method is None:
-        image_features = np.reshape(images, newshape=(dataset_size, image_height * image_width))
+        image_features = np.reshape(
+            images,
+            newshape=(dataset_size, image_height * image_width))
         feature_extractor = None
     else:
         raise ValueError(f'Impermissible feature method: {feature_extractor_method}')
@@ -286,9 +289,18 @@ def load_omniglot_dataset(data_dir: str = 'data',
     #     plt.imshow(image_features[idx], cmap='gray')
     #     plt.show()
 
+    if shuffle:
+        random_indices = np.random.choice(
+            np.arange(num_data),
+            size=num_data,
+            replace=False)
+        images = images[random_indices]
+        labels = labels[random_indices]
+        image_features = image_features[random_indices]
+
     omniglot_dataset_results = dict(
         images=images,
-        assigned_table_seq=labels,
+        labels=labels,
         feature_extractor_method=feature_extractor_method,
         feature_extractor=feature_extractor,
         image_features=image_features,
