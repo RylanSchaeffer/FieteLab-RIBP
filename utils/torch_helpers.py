@@ -4,9 +4,10 @@ import numpy as np
 import torch
 
 
-def assert_no_nan_no_inf(x):
+def assert_no_nan_no_inf_is_real(x):
     assert torch.all(~torch.isnan(x))
     assert torch.all(~torch.isinf(x))
+    assert torch.all(torch.isreal(x))
 
 
 def convert_half_cov_to_cov(half_cov: torch.Tensor) -> torch.Tensor:
@@ -36,7 +37,7 @@ def convert_half_cov_to_cov(half_cov: torch.Tensor) -> torch.Tensor:
     if not has_batch_dim:
         cov = torch.squeeze(cov, dim=0)
 
-    assert_no_nan_no_inf(cov)
+    assert_no_nan_no_inf_is_real(cov)
     return cov
 
 
@@ -59,7 +60,7 @@ def expected_log_bernoulli_under_bernoulli(p_prob: torch.Tensor,
     term_two[q_prob == 1.] = 0.
 
     total = torch.sum(torch.add(term_one, term_two))
-    assert_no_nan_no_inf(total)
+    assert_no_nan_no_inf_is_real(total)
     return total
 
 
@@ -132,7 +133,7 @@ def expected_log_gaussian_under_gaussian(p_mean: torch.Tensor,
              for k in range(batch_dim)]))
         assert torch.isclose(term_four, term_four_check)
     total = term_one + term_two + term_three + term_four
-    assert_no_nan_no_inf(total)
+    assert_no_nan_no_inf_is_real(total)
     return total
 
 
@@ -208,7 +209,7 @@ def expected_log_gaussian_under_linear_gaussian(observation: torch.Tensor,
             raise AssertionError
 
     total = term_one - 0.5 * (term_two + term_three + term_four + term_five) / sigma_obs_squared
-    assert_no_nan_no_inf(total)
+    assert_no_nan_no_inf_is_real(total)
     return total
 
 
@@ -230,7 +231,7 @@ def entropy_bernoulli(probs: torch.Tensor) -> torch.Tensor:
     term_two[one_minus_probs == 0.] = 0.
 
     entropy = -torch.sum(torch.add(term_one, term_two))
-    assert_no_nan_no_inf(entropy)
+    assert_no_nan_no_inf_is_real(entropy)
     assert entropy >= 0.
     return entropy
 
@@ -248,14 +249,14 @@ def entropy_gaussian(mean: torch.Tensor,
     entropy = 0.5 * torch.sum(
         dim + dim * torch.log(torch.full(fill_value=2., size=()) * np.pi)
         + torch.log(torch.linalg.det(cov)))
-    assert_no_nan_no_inf(entropy)
+    assert_no_nan_no_inf_is_real(entropy)
     assert entropy >= 0.
     return entropy
 
 
 def logits_to_probs(logits):
     probs = 1. / (1. + torch.exp(-logits))
-    assert_no_nan_no_inf(probs)
+    assert_no_nan_no_inf_is_real(probs)
     assert torch.all(probs >= 0.)
     return probs
 
@@ -263,5 +264,5 @@ def logits_to_probs(logits):
 def probs_to_logits(probs):
     assert torch.all(probs >= 0.)
     logits = - torch.log(1. / probs - 1.)
-    assert_no_nan_no_inf(logits)
+    assert_no_nan_no_inf_is_real(logits)
     return logits

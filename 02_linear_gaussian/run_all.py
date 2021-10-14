@@ -34,7 +34,7 @@ def run_all():
 
     num_datasets = 10
     gaussian_cov_scaling: float = 0.3
-    gaussian_mean_prior_cov_scaling: float = 100.
+    feature_prior_cov_scaling: float = 100.
     num_customers = 100
 
     inference_alg_strs = [
@@ -57,7 +57,7 @@ def run_all():
             indicator_sampling_str=indicator_sampling,
             indicator_sampling_params=indicator_sampling_params,
             feature_prior_params=dict(gaussian_cov_scaling=gaussian_cov_scaling,
-                                      gaussian_mean_prior_cov_scaling=gaussian_mean_prior_cov_scaling))
+                                      feature_prior_cov_scaling=feature_prior_cov_scaling))
 
         # save dataset
         run_one_results_dir_path = os.path.join(

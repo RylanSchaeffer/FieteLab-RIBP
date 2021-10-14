@@ -829,7 +829,7 @@ class DoshiVelezLinearGaussian(LinearGaussianModel):
                 max_num_features=self.max_num_features,
                 alpha=self.gen_model_params['IBP']['alpha'],
                 beta=self.gen_model_params['IBP']['beta'],
-                sigma_a=np.sqrt(self.gen_model_params['feature_prior_params']['gaussian_mean_prior_cov_scaling']),
+                sigma_a=np.sqrt(self.gen_model_params['feature_prior_params']['feature_prior_cov_scaling']),
                 sigma_x=np.sqrt(self.gen_model_params['likelihood_params']['sigma_x']),
                 t0=self.gen_model_params['t0'],
                 kappa=self.gen_model_params['kappa'])
@@ -840,7 +840,7 @@ class DoshiVelezLinearGaussian(LinearGaussianModel):
                 max_num_features=self.max_num_features,
                 alpha=self.gen_model_params['IBP']['alpha'],
                 beta=self.gen_model_params['IBP']['beta'],
-                sigma_a=np.sqrt(self.gen_model_params['feature_prior_params']['gaussian_mean_prior_cov_scaling']),
+                sigma_a=np.sqrt(self.gen_model_params['feature_prior_params']['feature_prior_cov_scaling']),
                 sigma_x=np.sqrt(self.gen_model_params['likelihood_params']['sigma_x']),
                 t0=self.gen_model_params['t0'],
                 kappa=self.gen_model_params['kappa'])
@@ -1164,7 +1164,7 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
 
         # we use half covariance because we want to numerically optimize
         A_half_covs = torch.stack([
-            np.sqrt(self.gen_model_params['feature_prior_params']['gaussian_mean_prior_cov_scaling']) * torch.eye(
+            np.sqrt(self.gen_model_params['feature_prior_params']['feature_prior_cov_scaling']) * torch.eye(
                 obs_dim).float()
             for _ in range((num_obs + 1) * max_num_features)])
         A_half_covs = A_half_covs.view(num_obs + 1, max_num_features, obs_dim, obs_dim)
@@ -1277,7 +1277,7 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
                                         reshaped_scaled_learning_rate,
                                         param_tensor.grad[obs_idx, :])
                                     param_tensor.data[obs_idx, :] += scaled_param_tensor_grad
-                                    utils.torch_helpers.assert_no_nan_no_inf(param_tensor.data[:obs_idx + 1])
+                                    utils.torch_helpers.assert_no_nan_no_inf_is_real(param_tensor.data[:obs_idx + 1])
 
                                     # zero gradient manually
                                     param_tensor.grad = None
@@ -1342,8 +1342,8 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
                             A_half_covs[normalizing_const == 0.] = \
                                 self.variational_params['A']['half_cov'][obs_idx - 1][normalizing_const == 0.]
 
-                            utils.torch_helpers.assert_no_nan_no_inf(A_means)
-                            utils.torch_helpers.assert_no_nan_no_inf(A_half_covs)
+                            utils.torch_helpers.assert_no_nan_no_inf_is_real(A_means)
+                            utils.torch_helpers.assert_no_nan_no_inf_is_real(A_half_covs)
 
                         self.variational_params['A']['mean'].data[obs_idx, :] = A_means
                         self.variational_params['A']['half_cov'].data[obs_idx, :] = A_half_covs
@@ -1600,7 +1600,7 @@ class WidjajaLinearGaussian(LinearGaussianModel):
                 max_num_features=self.max_num_features,
                 alpha=self.gen_model_params['IBP']['alpha'],
                 beta=self.gen_model_params['IBP']['beta'],
-                sigma_a=np.sqrt(self.gen_model_params['feature_prior_params']['gaussian_mean_prior_cov_scaling']),
+                sigma_a=np.sqrt(self.gen_model_params['feature_prior_params']['feature_prior_cov_scaling']),
                 sigma_x=np.sqrt(self.gen_model_params['likelihood_params']['sigma_x']),
                 t0=0.,
                 kappa=0.)
@@ -1610,7 +1610,7 @@ class WidjajaLinearGaussian(LinearGaussianModel):
                 max_num_features=self.max_num_features,
                 alpha=self.gen_model_params['IBP']['alpha'],
                 beta=self.gen_model_params['IBP']['beta'],
-                sigma_a=np.sqrt(self.gen_model_params['feature_prior_params']['gaussian_mean_prior_cov_scaling']),
+                sigma_a=np.sqrt(self.gen_model_params['feature_prior_params']['feature_prior_cov_scaling']),
                 sigma_x=np.sqrt(self.gen_model_params['likelihood_params']['sigma_x']),
                 t0=0,
                 kappa=0.)
@@ -1734,7 +1734,7 @@ def create_new_feature_params_multivariate_normal(torch_observation: torch.Tenso
                                                   sigma_obs_squared: int = 1.):
     # data is necessary to not break backprop
     # see https://stackoverflow.com/questions/53819383/how-to-assign-a-new-value-to-a-pytorch-variable-without-breaking-backpropagation
-    utils.torch_helpers.assert_no_nan_no_inf(torch_observation)
+    utils.torch_helpers.assert_no_nan_no_inf_is_real(torch_observation)
     max_num_features = likelihood_params['means'].shape[0]
     obs_dim = torch_observation.shape[0]
 
@@ -1981,7 +1981,7 @@ def recursive_ibp_compute_approx_lower_bound(torch_observation: torch.Tensor,
 
     lower_bound = indicators_term + gaussian_term + likelihood_term + bernoulli_entropy + gaussian_entropy
 
-    utils.torch_helpers.assert_no_nan_no_inf(lower_bound)
+    utils.torch_helpers.assert_no_nan_no_inf_is_real(lower_bound)
     logging.debug('exiting:recursive_ibp_compute_approx_lower_bound')
     return lower_bound
 
@@ -2070,7 +2070,7 @@ def recursive_ibp_optimize_bernoulli_params(torch_observation: torch.Tensor,
         bernoulli_probs[slice_idx] = 1. / (1. + torch.exp(-term_to_exponentiate))
 
     # check that Bernoulli probs are all valid
-    utils.torch_helpers.assert_no_nan_no_inf(bernoulli_probs)
+    utils.torch_helpers.assert_no_nan_no_inf_is_real(bernoulli_probs)
     assert torch.all(0. <= bernoulli_probs)
     assert torch.all(bernoulli_probs <= 1.)
 
@@ -2168,7 +2168,7 @@ def recursive_ibp_optimize_gaussian_params(torch_observation: torch.Tensor,
         assert gaussian_means[slice_idx].shape == (indices_per_slice, obs_dim)
 
     # gaussian_update_norm = torch.linalg.norm(gaussian_means - prev_gaussian_means)
-    utils.torch_helpers.assert_no_nan_no_inf(gaussian_means)
-    utils.torch_helpers.assert_no_nan_no_inf(gaussian_half_covs)
+    utils.torch_helpers.assert_no_nan_no_inf_is_real(gaussian_means)
+    utils.torch_helpers.assert_no_nan_no_inf_is_real(gaussian_half_covs)
     return gaussian_means, gaussian_half_covs
 

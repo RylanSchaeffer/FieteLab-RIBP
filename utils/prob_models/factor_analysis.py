@@ -1,8 +1,13 @@
 import abc
 import jax
 import jax.random
+import logging
+import matplotlib.pyplot as plt
 import numpy as np
 import numpyro
+import os
+import scipy
+from scipy.stats import poisson
 import torch
 from typing import Dict, Tuple, Union
 
@@ -16,7 +21,7 @@ torch.set_default_tensor_type('torch.FloatTensor')
 def compute_max_num_features(alpha: float,
                              beta: float,
                              num_obs: int,
-                             prefactor: int = 10):
+                             prefactor: int = 2):
     # Note: the expected number of latents grows logarithmically as a*b*log(1 + N/sticks)
     # The 10 is a hopefully conservative heuristic to preallocate.
     return prefactor * int(alpha * beta * np.log(1 + num_obs / beta))
@@ -200,6 +205,7 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
         assert self.ibp_params['alpha'] > 0
         assert self.ibp_params['beta'] > 0
         self.feature_prior_params = gen_model_params['feature_prior_params']
+        self.scale_prior_params = gen_model_params['scale_prior_params']
         self.likelihood_params = gen_model_params['likelihood_params']
         assert coord_ascent_update_type in {'simultaneous', 'sequential'}
         if numerically_optimize:
@@ -268,16 +274,22 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
             dtype=torch.float32,
             requires_grad=self.numerically_optimize)
 
-        # we use half covariance in case we want to numerically optimize
-        w_half_covs = torch.stack([
+        Sigma_w_inv = torch.eye(max_num_features) \
+                      / self.gen_model_params['scale_prior_params']['scale_prior_cov_scaling']
 
-        ])
+        # we use half covariance in case we want to numerically optimize
+        w_half_cov = np.sqrt(self.gen_model_params['scale_prior_params']['scale_prior_cov_scaling']) * \
+                      torch.stack([torch.eye(max_num_features).float()
+                                   for _ in range((num_obs + 1))])
+        w_half_cov = w_half_cov.view(
+            num_obs + 1, max_num_features, max_num_features)
 
         A_half_covs = torch.stack([
-            np.sqrt(self.gen_model_params['feature_prior_params']['gaussian_mean_prior_cov_scaling']) * torch.eye(
+            np.sqrt(self.gen_model_params['feature_prior_params']['feature_prior_cov_scaling']) * torch.eye(
                 obs_dim).float()
             for _ in range((num_obs + 1) * max_num_features)])
-        A_half_covs = A_half_covs.view(num_obs + 1, max_num_features, obs_dim, obs_dim)
+        A_half_covs = A_half_covs.view(
+            num_obs + 1, max_num_features, obs_dim, obs_dim)
 
         # dict mapping variables to variational params
         self.variational_params = dict(
@@ -288,12 +300,11 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
                     dtype=torch.float32),
             ),
             w=dict(
-                mean=torch.full(
-                    size=(num_obs + 1, max_num_features),
-                    fill_value=0.,
-                    dtype=torch.float32,
-                ),
-                half_cov=w_half_covs,
+                mean=torch.from_numpy(np.random.normal(
+                    loc=0,
+                    scale=1.5,
+                    size=(num_obs + 1, max_num_features)).astype(dtype=np.float32)),
+                half_cov=w_half_cov,
             ),
             A=dict(  # variational params for Gaussian features
                 mean=torch.full(
@@ -327,7 +338,7 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
             # Recursion: 1st term
             dish_eating_prior = torch.clone(
                 dish_eating_posteriors_running_sum[obs_idx - 1, :]) / (
-                                            self.gen_model_params['IBP']['beta'] + obs_idx - 1)
+                                        self.gen_model_params['IBP']['beta'] + obs_idx - 1)
             # Recursion: 2nd term; don't subtract 1 from latent indices b/c zero based indexing
             dish_eating_prior += poisson.cdf(k=latent_indices, mu=num_dishes_poisson_rate_posteriors[obs_idx - 1, :])
             # Recursion: 3rd term; don't subtract 1 from latent indices b/c zero based indexing
@@ -358,84 +369,61 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
             for vi_idx in range(self.num_coord_ascent_steps_per_obs):
                 if self.numerically_optimize:
                     # TODO: untested!
-                    # maximize approximate lower bound with respect to A's params
-                    approx_lower_bound = recursive_ibp_compute_approx_lower_bound(
-                        torch_observation=torch_observation,
-                        obs_idx=obs_idx,
-                        dish_eating_prior=dish_eating_prior,
-                        variational_params=self.variational_params)
-                    approx_lower_bounds.append(approx_lower_bound.item())
-                    approx_lower_bound.backward()
+                    # # maximize approximate lower bound with respect to A's params
+                    # approx_lower_bound = recursive_ibp_compute_approx_lower_bound(
+                    #     torch_observation=torch_observation,
+                    #     obs_idx=obs_idx,
+                    #     dish_eating_prior=dish_eating_prior,
+                    #     variational_params=self.variational_params)
+                    # approx_lower_bounds.append(approx_lower_bound.item())
+                    # approx_lower_bound.backward()
+                    #
+                    # # scale learning rate by posterior(A_k) / sum_n prev_posteriors(A_k)
+                    # # scale by 1/num_vi_steps so that after num_vi_steps, we've moved O(1)
+                    # scaled_learning_rate = self.learning_rate * torch.divide(
+                    #     dish_eating_posteriors[obs_idx, :],
+                    #     dish_eating_posteriors[obs_idx, :] + dish_eating_posteriors_running_sum[obs_idx - 1, :])
+                    # scaled_learning_rate /= self.num_coord_ascent_steps_per_obs
+                    # scaled_learning_rate[torch.isnan(scaled_learning_rate)] = 0.
+                    # scaled_learning_rate[torch.isinf(scaled_learning_rate)] = 0.
+                    #
+                    # # make sure no gradient when applying gradient updates
+                    # with torch.no_grad():
+                    #     for var_name, var_dict in self.variational_params.items():
+                    #         for param_name, param_tensor in var_dict.items():
+                    #             # the scaled learning rate has shape (num latents,) aka (num obs,)
+                    #             # we need to create extra dimensions of size 1 for broadcasting to work
+                    #             # because param_tensor can have variable number of dimensions e.g. (num obs, obs dim) for mean
+                    #             # or (num obs, obs dim, obs dim) for covariance, we need to dynamically
+                    #             # add the correct number of dimensions
+                    #             # Also, exclude dimension 0 because that's for the observation index
+                    #             reshaped_scaled_learning_rate = scaled_learning_rate.view(
+                    #                 [param_tensor.shape[1]] + [1 for _ in range(len(param_tensor.shape[2:]))])
+                    #             if param_tensor.grad is None:
+                    #                 continue
+                    #             else:
+                    #                 scaled_param_tensor_grad = torch.multiply(
+                    #                     reshaped_scaled_learning_rate,
+                    #                     param_tensor.grad[obs_idx, :])
+                    #                 param_tensor.data[obs_idx, :] += scaled_param_tensor_grad
+                    #                 utils.torch_helpers.assert_no_nan_no_inf(param_tensor.data[:obs_idx + 1])
+                    #
+                    #                 # zero gradient manually
+                    #                 param_tensor.grad = None
 
-                    # scale learning rate by posterior(A_k) / sum_n prev_posteriors(A_k)
-                    # scale by 1/num_vi_steps so that after num_vi_steps, we've moved O(1)
-                    scaled_learning_rate = self.learning_rate * torch.divide(
-                        dish_eating_posteriors[obs_idx, :],
-                        dish_eating_posteriors[obs_idx, :] + dish_eating_posteriors_running_sum[obs_idx - 1, :])
-                    scaled_learning_rate /= self.num_coord_ascent_steps_per_obs
-                    scaled_learning_rate[torch.isnan(scaled_learning_rate)] = 0.
-                    scaled_learning_rate[torch.isinf(scaled_learning_rate)] = 0.
-
-                    # make sure no gradient when applying gradient updates
-                    with torch.no_grad():
-                        for var_name, var_dict in self.variational_params.items():
-                            for param_name, param_tensor in var_dict.items():
-                                # the scaled learning rate has shape (num latents,) aka (num obs,)
-                                # we need to create extra dimensions of size 1 for broadcasting to work
-                                # because param_tensor can have variable number of dimensions e.g. (num obs, obs dim) for mean
-                                # or (num obs, obs dim, obs dim) for covariance, we need to dynamically
-                                # add the correct number of dimensions
-                                # Also, exclude dimension 0 because that's for the observation index
-                                reshaped_scaled_learning_rate = scaled_learning_rate.view(
-                                    [param_tensor.shape[1]] + [1 for _ in range(len(param_tensor.shape[2:]))])
-                                if param_tensor.grad is None:
-                                    continue
-                                else:
-                                    scaled_param_tensor_grad = torch.multiply(
-                                        reshaped_scaled_learning_rate,
-                                        param_tensor.grad[obs_idx, :])
-                                    param_tensor.data[obs_idx, :] += scaled_param_tensor_grad
-                                    utils.torch_helpers.assert_no_nan_no_inf(param_tensor.data[:obs_idx + 1])
-
-                                    # zero gradient manually
-                                    param_tensor.grad = None
+                    raise NotImplementedError
 
                 elif not self.numerically_optimize:
                     with torch.no_grad():
                         logging.info(f'Obs Idx: {obs_idx}, VI idx: {vi_idx}')
 
-                        # tracemalloc.start()
-                        # start_time = timer()
-                        # approx_lower_bound = recursive_ibp_compute_approx_lower_bound(
-                        #     torch_observation=torch_observation,
-                        #     obs_idx=obs_idx,
-                        #     dish_eating_prior=dish_eating_prior,
-                        #     variational_params=self.variational_params,
-                        #     sigma_obs_squared=self.model_params['gaussian_likelihood_cov_scaling'])
-                        # approx_lower_bounds.append(approx_lower_bound.item())
-                        # stop_time = timer()
-                        # current, peak = tracemalloc.get_traced_memory()
-                        # logging.debug(f"memory:recursive_ibp_compute_approx_lower_bound:"
-                        #               f"current={current / 10 ** 6}MB; peak={peak / 10 ** 6}MB")
-                        # logging.debug(f'runtime:recursive_ibp_compute_approx_lower_bound: {stop_time - start_time}')
-                        # tracemalloc.stop()
-                        # logging.info(prof.key_averages().table(sort_by="self_cpu_memory_usage"))
-
-                        # tracemalloc.start()
-                        # start_time = timer()
-                        A_means, A_half_covs = recursive_ibp_optimize_gaussian_params(
+                        A_means, A_half_covs = recursive_ibp_optimize_feature_params(
                             torch_observation=torch_observation,
                             obs_idx=obs_idx,
                             vi_idx=vi_idx,
                             variable_variational_params=self.variational_params,
                             simultaneous_or_sequential=self.coord_ascent_update_type,
                             sigma_obs_squared=self.gen_model_params['likelihood_params']['sigma_x'] ** 2)
-                        # stop_time = timer()
-                        # current, peak = tracemalloc.get_traced_memory()
-                        # logging.debug(f"memory:recursive_ibp_optimize_gaussian_params:"
-                        #               f"current={current / 10 ** 6}MB; peak={peak / 10 ** 6}MB")
-                        # logging.debug(f'runtime:recursive_ibp_optimize_gaussian_params: {stop_time - start_time}')
-                        # tracemalloc.stop()
 
                         if self.ossify_features:
                             # TODO: refactor into own function
@@ -453,36 +441,44 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
                                 torch.multiply(dish_eating_posteriors_running_sum[obs_idx - 1, :, None, None],
                                                self.variational_params['A']['half_cov'].data[obs_idx - 1, :]))
                             A_means = torch.divide(history_weighted_A_means, normalizing_const[:, None])
-                            A_half_covs = torch.divide(history_weighted_A_half_covs, normalizing_const[:, None, None])
+                            A_half_covs = torch.divide(
+                                history_weighted_A_half_covs,
+                                normalizing_const[:, None, None])
                             # if cumulative probability mass is 0, we compute 0/0 and get NaN. Need to mask
                             A_means[normalizing_const == 0.] = \
                                 self.variational_params['A']['mean'][obs_idx - 1][normalizing_const == 0.]
                             A_half_covs[normalizing_const == 0.] = \
                                 self.variational_params['A']['half_cov'][obs_idx - 1][normalizing_const == 0.]
 
-                            utils.torch_helpers.assert_no_nan_no_inf(A_means)
-                            utils.torch_helpers.assert_no_nan_no_inf(A_half_covs)
+                            utils.torch_helpers.assert_no_nan_no_inf_is_real(A_means)
+                            utils.torch_helpers.assert_no_nan_no_inf_is_real(A_half_covs)
 
                         self.variational_params['A']['mean'].data[obs_idx, :] = A_means
                         self.variational_params['A']['half_cov'].data[obs_idx, :] = A_half_covs
 
+                        w_mean, w_half_cov = recursive_ibp_optimize_scale_params(
+                            torch_observation=torch_observation,
+                            obs_idx=obs_idx,
+                            vi_idx=vi_idx,
+                            variable_variational_params=self.variational_params,
+                            simultaneous_or_sequential=self.coord_ascent_update_type,
+                            Sigma_w_inv=Sigma_w_inv,
+                            sigma_obs_squared=self.gen_model_params['likelihood_params']['sigma_x'] ** 2)
+
+                        # TODO: check why this produces
+                        # UserWarning: Casting complex values to real discards the imaginary part
+                        self.variational_params['w']['mean'].data[obs_idx, :] = w_mean
+                        self.variational_params['w']['half_cov'].data[obs_idx, :, :] = w_half_cov
+
                         # maximize approximate lower bound with respect to Z's params
-                        # tracemalloc.start()
-                        # start_time = timer()
                         Z_probs = recursive_ibp_optimize_bernoulli_params(
                             torch_observation=torch_observation,
                             obs_idx=obs_idx,
                             vi_idx=vi_idx,
                             dish_eating_prior=dish_eating_prior,
-                            variational_params=self.variational_params,
+                            variable_variational_params=self.variational_params,
                             simultaneous_or_sequential=self.coord_ascent_update_type,
                             sigma_obs_squared=self.gen_model_params['likelihood_params']['sigma_x'] ** 2)
-                        # stop_time = timer()
-                        # current, peak = tracemalloc.get_traced_memory()
-                        # logging.debug(f"memory:recursive_ibp_optimize_bernoulli_params:"
-                        #               f"current={current / 10 ** 6}MB; peak={peak / 10 ** 6}MB")
-                        # logging.debug(f'runtime:recursive_ibp_optimize_bernoulli_params: {stop_time - start_time}')
-                        # tracemalloc.stop()
 
                         self.variational_params['Z']['prob'].data[obs_idx, :] = Z_probs
 
@@ -684,3 +680,286 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
     def features_by_obs(self) -> np.ndarray:
         return self.fit_results['variational_params']['A']['mean'][:, :, :]
 
+
+def recursive_ibp_optimize_bernoulli_params(torch_observation: torch.Tensor,
+                                            obs_idx: int,
+                                            vi_idx: int,
+                                            dish_eating_prior: torch.Tensor,
+                                            variable_variational_params: Dict[str, dict],
+                                            sigma_obs_squared: int = 1e-0,
+                                            simultaneous_or_sequential: str = 'sequential') -> torch.Tensor:
+    assert simultaneous_or_sequential in {'sequential', 'simultaneous'}
+
+    # Add, then remove, batch dimension
+    # shape (1, max num features, max num features)
+    w_cov = utils.torch_helpers.convert_half_cov_to_cov(
+        variable_variational_params['w']['half_cov'][obs_idx:obs_idx + 1, :, :])[0, :, :]
+
+    A_cov = utils.torch_helpers.convert_half_cov_to_cov(
+        variable_variational_params['A']['half_cov'][obs_idx, :])
+
+    num_features = A_cov.shape[0]
+
+    if simultaneous_or_sequential == 'simultaneous':
+        slices_indices = [slice(0, num_features, 1)]
+    elif simultaneous_or_sequential == 'sequential':
+        slices_indices = [slice(k_idx, k_idx + 1, 1) for k_idx in range(num_features)]
+        # switch up the order every now and again
+        if vi_idx % 2 == 1:
+            slices_indices = list(reversed(slices_indices))
+    else:
+        raise ValueError(f'Impermissible value for simultaneous_or_sequential: {simultaneous_or_sequential}')
+
+    # establish that first feature has closest distance
+    A_means = variable_variational_params['A']['mean'][obs_idx].detach().numpy()
+
+    bernoulli_probs = variable_variational_params['Z']['prob'][obs_idx].detach().clone()
+    # either do 1 iteration of all indices (simultaneous) or do K iterations of each index (sequential)
+    for slice_idx in slices_indices:
+        # q(z_{nl}|o_{<n}) / (1 - q(z_{nl}|o_{<n}) )
+        log_bernoulli_prior_term = torch.log(
+            torch.divide(dish_eating_prior[slice_idx],
+                         1. - dish_eating_prior[slice_idx]))
+
+        # -2 o_n^T mu_{nl} phi_{nl}
+        # shape (slice length,)
+        term_one = -2. * variable_variational_params['w']['mean'][obs_idx, slice_idx] * torch.einsum(
+            'kd,d->',
+            variable_variational_params['A']['mean'][obs_idx, slice_idx],  # shape (1, obs dim)
+            torch_observation,  # not sure if transpose needed
+        )
+
+        # [phi_nl^2 + Phi_nll] Tr[\Sigma_{nl} + \mu_{nl} \mu_{nl}^T]
+        term_two_prefactor = torch.add(
+            torch.diagonal(w_cov[slice_idx, slice_idx]),  # shape (slice length,)
+            variable_variational_params['w']['mean'][obs_idx, slice_idx] ** 2.,
+        )
+        # shape (1,)
+        term_two = term_two_prefactor * torch.einsum(
+            'kii->k',
+            torch.add(A_cov[slice_idx],
+                      torch.einsum('ki,kj->kij',
+                                   variable_variational_params['A']['mean'][obs_idx, slice_idx],
+                                   variable_variational_params['A']['mean'][obs_idx, slice_idx])))
+
+        # (\mu_{nl}^T \sum_{k: k \neq l} b_{nk} \phi_{nk} \mu_{nk} )
+        # = (\mu_{nl}^T \sum_{k} b_{nk} \phi_{nk} \mu_{nk}) - (b_{nl} \phi_{nl} \mu_{nl}^T \mu_{nl})
+        # shape (slice length, 1)
+        term_three_all_pairs = torch.einsum(
+            'bi,i->b',
+            variable_variational_params['A']['mean'][obs_idx, slice_idx],  # shape (slice, obs dim)
+            torch.einsum(
+                'b,bi->i',
+                torch.mul(bernoulli_probs, variable_variational_params['w']['mean'][obs_idx]),  # shape (max num features)
+                variable_variational_params['A']['mean'][obs_idx, :]))
+        # shape (slice length, 1)
+        term_three_self_pairs = torch.einsum(
+            'b,bk,bk->b',
+            torch.mul(bernoulli_probs[slice_idx],
+                      variable_variational_params['w']['mean'][obs_idx][slice_idx]),
+            variable_variational_params['A']['mean'][obs_idx, slice_idx],
+            variable_variational_params['A']['mean'][obs_idx, slice_idx])
+
+        term_three = 2. * variable_variational_params['w']['mean'][obs_idx, slice_idx] * (
+                term_three_all_pairs - term_three_self_pairs)
+
+        # num_features = dish_eating_prior.shape[0]
+        # mu = variational_params['A']['mean'][obs_idx, :]
+        # b = variational_params['Z']['prob'][obs_idx, :]
+        # TODO: Change 0 index to slice index
+        # term_three_check = 2. * torch.inner(
+        #     mu[0],
+        #     torch.sum(torch.stack([b[kprime] * mu[kprime]
+        #                            for kprime in range(num_features)
+        #                            if kprime != 0]),
+        #               dim=0))
+        # assert torch.allclose(term_three, term_three_check)
+
+        term_to_exponentiate = log_bernoulli_prior_term - 0.5 * (
+                term_one + term_two + term_three) / sigma_obs_squared
+        bernoulli_probs[slice_idx] = 1. / (1. + torch.exp(-term_to_exponentiate))
+
+    # check that Bernoulli probs are all valid
+    utils.torch_helpers.assert_no_nan_no_inf_is_real(bernoulli_probs)
+    assert torch.all(0. <= bernoulli_probs)
+    assert torch.all(bernoulli_probs <= 1.)
+
+    return bernoulli_probs
+
+
+def recursive_ibp_optimize_feature_params(torch_observation: torch.Tensor,
+                                          obs_idx: int,
+                                          vi_idx: int,
+                                          variable_variational_params: Dict[str, dict],
+                                          sigma_obs_squared: int = 1e-0,
+                                          simultaneous_or_sequential: str = 'sequential',
+                                          ) -> Tuple[torch.Tensor, torch.Tensor]:
+    assert sigma_obs_squared > 0
+    assert simultaneous_or_sequential in {'sequential', 'simultaneous'}
+
+    prev_means = variable_variational_params['A']['mean'][obs_idx - 1, :]
+    prev_covs = utils.torch_helpers.convert_half_cov_to_cov(
+        variable_variational_params['A']['half_cov'][obs_idx - 1, :])
+    prev_precisions = torch.linalg.inv(prev_covs)
+
+    # shape: (max num features, max number features)
+    w_covs = utils.torch_helpers.convert_half_cov_to_cov(
+        variable_variational_params['w']['half_cov'][obs_idx:obs_idx + 1, :, :])[0, :, :]
+
+    obs_dim = torch_observation.shape[0]
+    num_features = prev_means.shape[0]
+
+    # Step 1: Compute updated covariances
+    # Take I_{D \times D} and repeat to add a batch dimension
+    # Resulting object has shape (num_features, obs_dim, obs_dim)
+    repeated_eyes = torch.eye(obs_dim).reshape(1, obs_dim, obs_dim).repeat(num_features, 1, 1)
+
+    # Matrix form of \Phi_{nll} + \phi_{nl}^2
+    # For the covariance diagonal, I remove batch dimension then add it back in
+    # I can't find a batch version of torch.diagonal
+    # shape = (max num features, )
+    phi_term = torch.add(
+        torch.diagonal(w_covs),
+        torch.multiply(variable_variational_params['w']['mean'][obs_idx, :],
+                       variable_variational_params['w']['mean'][obs_idx, :]))
+
+    weighted_eyes = torch.multiply(
+        torch.multiply(variable_variational_params['Z']['prob'][obs_idx, :],
+                       phi_term)[:, None, None, ],  # shape (1, num features, 1, 1)
+        repeated_eyes) / sigma_obs_squared  # unsure about dimensions
+    gaussian_precisions = torch.add(prev_precisions, weighted_eyes)
+    gaussian_covs = torch.linalg.inv(gaussian_precisions)
+
+    # no update on pytorch matrix square root
+    # https://github.com/pytorch/pytorch/issues/9983#issuecomment-907530049
+    # https://github.com/pytorch/pytorch/issues/25481
+    feature_half_covs = torch.stack([
+        torch.from_numpy(scipy.linalg.sqrtm(gaussian_cov.detach().numpy()))
+        for gaussian_cov in gaussian_covs])
+
+    # Step 2: Use updated covariances to compute updated means
+    # Sigma_{n-1,l}^{-1} \mu_{n-1, l}
+    # shape (max num features, obs dim)
+    term_one = torch.einsum(
+        'aij,aj->ai',
+        prev_precisions,
+        prev_means)
+    # b_{nl} (o_n - \sum_{k: k\neq l} b_{nk} \mu_{nk})
+
+    feature_means = variable_variational_params['A']['mean'][obs_idx, :].detach().clone()
+    # prev_gaussian_means = gaussian_means.detach().clone()
+
+    # The covariance updates only depends on the previous covariance and Z_n, so we can always
+    # update them independently of one another. The mean updates are trickier since they
+    # depend on one another. We have two choices: update simultaneously or sequentially.
+    # Simultaneous appears to be correct, based on math. However, simultaneous updates can lead
+    # to a pathology: the inferred means will oscillate and never converge. What happens is if 2
+    # features summed are too big, then both shrink, and then their sum is too small, so they both
+    # grow. This can repeat forever.
+    if simultaneous_or_sequential == 'simultaneous':
+        slices_indices = [slice(0, num_features, 1)]
+    elif simultaneous_or_sequential == 'sequential':
+        slices_indices = [slice(k_idx, k_idx + 1, 1) for k_idx in range(num_features)]
+        # switch up the order every now and again
+        if vi_idx % 2 == 1:
+            slices_indices = list(reversed(slices_indices))
+    else:
+        raise ValueError(f'Impermissible value for simultaneous_or_sequential: {simultaneous_or_sequential}')
+
+    indices_per_slice = int(num_features / len(slices_indices))
+    # either do 1 iteration of all indices (simultaneous) or do K iterations of each index (sequential)
+
+    for slice_idx in slices_indices:
+        weighted_all_curr_means = torch.multiply(
+            feature_means,
+            torch.multiply(variable_variational_params['Z']['prob'][obs_idx, :, None],
+                           variable_variational_params['w']['mean'][obs_idx, :, None]),  # shape (max num features, 1)
+        )
+        assert weighted_all_curr_means.shape == (num_features, obs_dim)
+        weighted_non_l_curr_means = torch.subtract(
+            torch.sum(weighted_all_curr_means, dim=0)[None, :],
+            weighted_all_curr_means[slice_idx])
+
+        obs_minus_weighted_non_l_means = torch.subtract(
+            torch_observation,
+            weighted_non_l_curr_means)
+        assert obs_minus_weighted_non_l_means.shape == (indices_per_slice, obs_dim)
+
+        term_two_l = torch.multiply(
+            obs_minus_weighted_non_l_means,  # shape (obs dim, 1)
+            torch.multiply(variable_variational_params['Z']['prob'][obs_idx, slice_idx, None],
+                           variable_variational_params['w']['mean'][obs_idx, slice_idx, None])) / sigma_obs_squared
+        assert term_two_l.shape == (indices_per_slice, obs_dim)
+
+        feature_means[slice_idx] = torch.einsum(
+            'aij,aj->ai',
+            gaussian_covs[slice_idx, :, :],
+            torch.add(term_one[slice_idx], term_two_l))
+        assert feature_means[slice_idx].shape == (indices_per_slice, obs_dim)
+
+    # gaussian_update_norm = torch.linalg.norm(gaussian_means - prev_gaussian_means)
+    utils.torch_helpers.assert_no_nan_no_inf_is_real(feature_means)
+    utils.torch_helpers.assert_no_nan_no_inf_is_real(feature_half_covs)
+    return feature_means, feature_half_covs
+
+
+def recursive_ibp_optimize_scale_params(torch_observation: torch.Tensor,
+                                        obs_idx: int,
+                                        vi_idx: int,
+                                        variable_variational_params: Dict[str, dict],
+                                        Sigma_w_inv: torch.Tensor,
+                                        sigma_obs_squared: int = 1e-0,
+                                        simultaneous_or_sequential: str = 'sequential',
+                                        ) -> Tuple[torch.Tensor, torch.Tensor]:
+    assert sigma_obs_squared > 0
+    assert simultaneous_or_sequential in {'sequential', 'simultaneous'}
+
+    obs_dim = torch_observation.shape[0]
+    num_features = variable_variational_params['Z']['prob'].shape[1]
+
+    # shape (num features, obs dim)
+    A_means = variable_variational_params['A']['mean'][obs_idx, :]
+    # shape (num features, obs dim, obs dim)
+    A_covs = utils.torch_helpers.convert_half_cov_to_cov(
+        variable_variational_params['A']['half_cov'][obs_idx, :, :])  # DxD
+    bernoulli_probs = variable_variational_params['Z']['prob'][obs_idx].detach().clone()
+
+    # Step 1: Compute updated covariances
+    M = torch.zeros(size=(num_features, num_features))
+    for i in range(num_features):
+        for j in range(num_features):
+            M[i, j] = torch.inner(A_means[i], A_means[j])
+            if i == j:
+                M[i, j] += torch.trace(A_covs[i])
+
+    S = torch.zeros(size=(num_features, num_features))
+    for i in range(num_features):
+        for j in range(num_features):
+            S[i, j] = M[i, j] * bernoulli_probs[i]
+            if i != j:
+                S[i, j] *= bernoulli_probs[j]
+
+    # shape (num features, num features)
+    scale_precisions = torch.add(
+        Sigma_w_inv,
+        S / sigma_obs_squared)
+
+    # shape (max features, max features)
+    scale_cov = torch.linalg.inv(scale_precisions)
+    scale_half_cov = torch.from_numpy(
+        scipy.linalg.sqrtm(scale_cov.detach().numpy()))
+
+    # shape (max features, )
+    scale_mean = torch.einsum(
+        'ab,bc,cd,d->a',
+        scale_cov,
+        torch.diag(bernoulli_probs),
+        A_means,  # shape (max features, obs dim)
+        torch_observation,  # shape (obs dim,)
+    ) / sigma_obs_squared
+
+    utils.torch_helpers.assert_no_nan_no_inf_is_real(scale_mean)
+    utils.torch_helpers.assert_no_nan_no_inf_is_real(scale_half_cov)
+
+    # shape (num features) and (num features, num features)
+    return scale_mean, scale_half_cov

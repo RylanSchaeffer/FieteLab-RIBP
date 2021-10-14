@@ -37,7 +37,7 @@ def create_linear_gaussian_model(model_params: Dict[str, float],
                 numpyro.distributions.MultivariateNormal(
                     loc=jnp.zeros(obs_dim),
                     covariance_matrix=model_params['feature_prior_params'][
-                                          'gaussian_mean_prior_cov_scaling'] * jnp.eye(obs_dim)))
+                                          'feature_prior_cov_scaling'] * jnp.eye(obs_dim)))
 
         with numpyro.plate('data', num_obs):
             # For some reason, this broadcasting is easier with numpyro. Don't fight it.

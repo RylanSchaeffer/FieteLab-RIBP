@@ -44,12 +44,12 @@ def convert_binary_latent_features_to_left_order_form(
 
 def generate_gaussian_params_from_gaussian_prior(num_gaussians: int = 3,
                                                  gaussian_dim: int = 2,
-                                                 gaussian_mean_prior_cov_scaling: float = 3.,
+                                                 feature_prior_cov_scaling: float = 3.,
                                                  gaussian_cov_scaling: float = 0.3):
     # sample Gaussians' means from prior = N(0, rho * I)
     means = np.random.multivariate_normal(
         mean=np.zeros(gaussian_dim),
-        cov=gaussian_mean_prior_cov_scaling * np.eye(gaussian_dim),
+        cov=feature_prior_cov_scaling * np.eye(gaussian_dim),
         size=num_gaussians)
 
     # all Gaussians have same covariance

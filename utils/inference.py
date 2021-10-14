@@ -77,6 +77,7 @@ def run_inference_alg(inference_alg_str: str,
                 model_str=model_str,
                 gen_model_params=gen_model_params,
                 plot_dir=None,
+                num_coord_ascent_steps_per_obs=5,
                 # plot_dir=plot_dir,
             )
         else:
