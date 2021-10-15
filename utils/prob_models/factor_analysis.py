@@ -971,6 +971,12 @@ def recursive_ibp_optimize_scale_params(torch_observation: torch.Tensor,
         torch_observation,  # shape (obs dim,)
     ) / sigma_obs_squared
 
+    # TODO: for some reason, scale_half_cov ends up with very small imaginary values
+    # e.g. -2.8021e-17+1.8830e-21j,
+    # Let's just remove this for now, figure out why later.
+    if torch.is_complex(scale_half_cov):
+        scale_half_cov = torch.real(scale_half_cov)
+
     utils.torch_helpers.assert_no_nan_no_inf_is_real(scale_mean)
     utils.torch_helpers.assert_no_nan_no_inf_is_real(scale_half_cov)
 

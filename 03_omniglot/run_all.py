@@ -36,7 +36,6 @@ def run_all() -> None:
         inference_alg_strs,
     ]
 
-
     counter = 0
     for alpha, beta, sigma_x, feature_prior_cov_scaling, scale_prior_cov_scaling,\
         inference_alg_str in itertools.product(*hyperparams):
@@ -60,7 +59,7 @@ def run_all() -> None:
             scale_prior_cov_scaling=scale_prior_cov_scaling)
 
         counter += 1
-        if counter == 30:
+        if counter == 120:
             break
 
 

@@ -23,6 +23,15 @@ def analyze_all(args: argparse.Namespace):
     inf_algorithms_results_df = load_all_datasets_all_alg_results(
         results_dir_path=results_dir_path)
 
+    inf_algorithms_results_df.sort_values(
+        by=['log_posterior_predictive'],
+        inplace=True,
+        ascending=False)
+
+    inf_algorithms_results_df.to_csv(
+        os.path.join(exp_dir_path, 'inf_algorithms_results_df.csv'),
+        index=False)
+
     # plot_linear_gaussian.plot_analyze_all_algorithms_results(
     #     inf_algorithms_results_df=inf_algorithms_results_df,
     #     plot_dir=results_dir_path)
@@ -59,7 +68,8 @@ def load_all_datasets_all_alg_results(results_dir_path) -> pd.DataFrame:
                  'scale_cov_scaling', 'likelihood_cov_scaling', 'runtime',
                  'log_posterior_predictive'])
 
-    inf_algorithms_results_df['negative_log_posterior_predictive'] = -inf_algorithms_results_df['log_posterior_predictive']
+    inf_algorithms_results_df['negative_log_posterior_predictive'] = \
+        -inf_algorithms_results_df['log_posterior_predictive']
     return inf_algorithms_results_df
 
 
