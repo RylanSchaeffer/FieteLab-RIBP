@@ -279,8 +279,8 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
 
         # we use half covariance in case we want to numerically optimize
         w_half_cov = np.sqrt(self.gen_model_params['scale_prior_params']['scale_prior_cov_scaling']) * \
-                      torch.stack([torch.eye(max_num_features).float()
-                                   for _ in range((num_obs + 1))])
+                     torch.stack([torch.eye(max_num_features).float()
+                                  for _ in range((num_obs + 1))])
         w_half_cov = w_half_cov.view(
             num_obs + 1, max_num_features, max_num_features)
 
@@ -659,18 +659,30 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
 
         var_params = self.fit_results['variational_params']
 
-        covs = utils.numpy_helpers.convert_half_cov_to_cov(
+        feature_covs = utils.numpy_helpers.convert_half_cov_to_cov(
             half_cov=var_params['A']['half_cov'][-1, :, :, :])
         features = np.stack([np.random.multivariate_normal(mean=var_params['A']['mean'][-1, k, :],
-                                                           cov=covs[k],
+                                                           cov=feature_covs[k],
                                                            size=num_samples)
                              for k in range(max_num_features)])
+
+        # Use the prior for w
+        # Previous w_n don't matter
+        scales = np.random.multivariate_normal(
+            mean=np.zeros(max_num_features),
+            cov=self.gen_model_params['scale_prior_params']['scale_prior_cov_scaling'] * np.eye(max_num_features),
+            size=num_samples,)
+
         # shape = (num samples, max num features, obs dim)
         features = features.transpose(1, 0, 2)
 
+        # shape = (num samples, max num features)
+        scales = scales.transpose(1, 0)
+
         sampled_params = dict(
             indicators_probs=indicators_probs,
-            features=features)
+            features=features,
+            scales=scales)
 
         return sampled_params
 
@@ -750,7 +762,8 @@ def recursive_ibp_optimize_bernoulli_params(torch_observation: torch.Tensor,
             variable_variational_params['A']['mean'][obs_idx, slice_idx],  # shape (slice, obs dim)
             torch.einsum(
                 'b,bi->i',
-                torch.mul(bernoulli_probs, variable_variational_params['w']['mean'][obs_idx]),  # shape (max num features)
+                torch.mul(bernoulli_probs, variable_variational_params['w']['mean'][obs_idx]),
+                # shape (max num features)
                 variable_variational_params['A']['mean'][obs_idx, :]))
         # shape (slice length, 1)
         term_three_self_pairs = torch.einsum(

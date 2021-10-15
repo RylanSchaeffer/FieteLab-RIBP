@@ -16,7 +16,10 @@ def compute_log_posterior_predictive(test_observations: np.ndarray,
             inference_alg=inference_alg,
             num_samples=num_samples)
     elif inference_alg.model_str == 'factor_analysis':
-        raise NotImplementedError
+        log_posterior_predictive_results = compute_log_posterior_predictive_factor_analysis(
+            test_observations=test_observations,
+            inference_alg=inference_alg,
+            num_samples=num_samples)
     elif inference_alg.model_str == 'nonnegative_matrix_factorization':
         raise NotImplementedError
     else:
@@ -42,22 +45,33 @@ def compute_log_posterior_predictive_factor_analysis(test_observations: np.ndarr
 
     sampled_param_posterior = inference_alg.sample_params_for_predictive_posterior(
         num_samples=num_samples)
+
     # shape: (num samples, max num features)
     indicators_probs = sampled_param_posterior['indicators_probs']
+
+    # shape: (num samples, max num features)
+    scales = sampled_param_posterior['scales']
+
     # shape: (num samples, max num features, obs dim)
     features = sampled_param_posterior['features']
 
     # Treat each test observation as the "next" observation
-    # shape: (num data, max num features)
     max_num_features = indicators_probs.shape[1]
+    # shape: (num data, num obs, max num features)
     Z = np.random.binomial(
         n=1,
         p=indicators_probs.reshape(num_samples, 1, max_num_features),
-        size=(num_samples, num_obs, max_num_features))  # shape (num samples, num obs, max num features)
+        size=(num_samples, num_obs, max_num_features))
+
+    # shape: (num data, num obs, max num features)
+    scales_repeated = np.repeat(
+        scales.reshape(num_samples, 1, max_num_features),
+        repeats=num_obs,
+        axis=1)
     # shape = (num samples, num obs, obs dim)
     pred_means = np.einsum(
         'sok,skd->sod',  # s=samples, o=observations, k=features, d=observations dimension
-        Z,
+        np.multiply(Z, scales_repeated),
         features)
     # shape (num samples,)
     log_posterior_predictive_per_sample = np.sum(
@@ -66,9 +80,9 @@ def compute_log_posterior_predictive_factor_analysis(test_observations: np.ndarr
         axis=1)
 
     log_posterior_predictive_per_sample = -log_posterior_predictive_per_sample / (
-            2.0 * inference_alg.gen_model_params['gaussian_likelihood_cov_scaling'])
+            2.0 * inference_alg.gen_model_params['likelihood_params']['sigma_x'] ** 2)
     log_posterior_predictive_per_sample -= obs_dim * np.log(
-        2.0 * np.pi * inference_alg.gen_model_params['gaussian_likelihood_cov_scaling']) / 2.
+        2.0 * np.pi * inference_alg.gen_model_params['likelihood_params']['sigma_x'] ** 2) / 2.
 
     log_posterior_predictive_results = dict(
         mean=np.mean(log_posterior_predictive_per_sample),
