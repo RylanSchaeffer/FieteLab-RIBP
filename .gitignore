@@ -2,6 +2,7 @@
 data/
 **/results
 02_linear_gaussian/nice_results/
+03_omniglot/results100
 ribp
 *.npy
 *.npz

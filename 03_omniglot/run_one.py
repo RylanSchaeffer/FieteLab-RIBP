@@ -144,7 +144,7 @@ def setup(args: argparse.Namespace):
 
     # load Mixture of Gaussian data
     sampled_omniglot_data = utils.data.real.load_omniglot_dataset(
-        num_data=100,
+        num_data=300,
         feature_extractor_method='vae',
     )
 

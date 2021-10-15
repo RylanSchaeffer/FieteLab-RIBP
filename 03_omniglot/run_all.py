@@ -20,11 +20,10 @@ def run_all() -> None:
     os.makedirs(results_dir_path, exist_ok=True)
 
     alphas = np.round(np.arange(1., 5.01, 1.), 4)
-    betas = np.round(np.arange(1., 11.01, 1.), 4)[::-1]
-    # betas = np.round(np.arange(1., 11.01, 2.), 4)
+    betas = np.round(np.arange(1., 11.01, 1.), 4)
     sigma_xs = np.round(np.logspace(-2, 2, 5), 4)
     feature_prior_cov_scalings = np.round(np.logspace(0., 2., 3), 4)[::-1]
-    scale_prior_cov_scalings = np.round(np.logspace(0., 1., 3), 4)[::-1]
+    scale_prior_cov_scalings = np.round(np.logspace(0., 2., 4), 4)[::-1]
     inference_alg_strs = [
         'R-IBP',
     ]

@@ -1,8 +1,9 @@
+from itertools import product
 import matplotlib.pyplot as plt
 import numpy as np
 import os
 import seaborn as sns
-from typing import Dict
+from typing import Dict, List
 
 import pandas as pd
 
@@ -10,11 +11,46 @@ import utils.plot
 
 
 def plot_analyze_all_algorithms_results(inf_algorithms_results_df: pd.DataFrame,
+                                        inf_algs_num_features_by_num_obs: List[np.ndarray],
                                         plot_dir: str):
 
-    utils.plot.plot_neg_log_posterior_predictive_by_alpha_beta(
-        inf_algorithms_results_df=inf_algorithms_results_df,
-        plot_dir=plot_dir)
+    alphas = inf_algorithms_results_df['alpha'].unique()
+    betas = inf_algorithms_results_df['beta'].unique()
+
+    for alpha, beta in product(alphas, betas):
+        indices = inf_algorithms_results_df[
+            (inf_algorithms_results_df['alpha'] == alpha) & (inf_algorithms_results_df['beta'] == beta)
+        ].index.values
+        alpha_beta_num_features_by_num_obs = np.stack([
+            inf_algs_num_features_by_num_obs[idx] for idx in indices])
+        avg_alpha_beta_num_features_by_num_obs = np.mean(
+            alpha_beta_num_features_by_num_obs,
+            axis=0)
+        plt.plot(1 + np.arange(len(avg_alpha_beta_num_features_by_num_obs)),
+                 avg_alpha_beta_num_features_by_num_obs,
+                 label=rf'$\alpha={alpha}, \beta={beta}$',)
+    # plt.legend()
+    plt.xlabel('Number of Observations')
+    plt.ylabel('Number of Features')
+    plt.savefig(os.path.join(plot_dir,
+                             'num_features_by_num_obs_groupedby_alpha_beta.png'),
+                bbox_inches='tight',
+                dpi=300)
+    # plt.show()
+    plt.close()
+
+    # for num_features_by_num_obs in inf_algs_num_features_by_num_obs:
+    #     plt.plot(1 + np.arange(len(num_features_by_num_obs)),
+    #              num_features_by_num_obs,
+    #              color='k',
+    #              alpha=0.1,
+    #              markeredgewidth=2)
+    # plt.show()
+    # print(10)
+
+    # utils.plot.plot_neg_log_posterior_predictive_by_alpha_beta(
+    #     inf_algorithms_results_df=inf_algorithms_results_df,
+    #     plot_dir=plot_dir)
 
 
 def plot_run_one_inference_results(sampled_omniglot_data: Dict,
@@ -83,7 +119,7 @@ def plot_images_belonging_to_top_k_features(inference_alg_str: str,
                              sharex=True,
                              sharey=True)
     # axes[0, 0].set_title(f'Cluster Means')
-    axes[0, int(max_num_images_per_row / 2)].set_title('Observations')
+    # axes[0, int(max_num_images_per_row / 2)].set_title('Observations')
 
     for feature_idx in range(num_features):
 
@@ -104,7 +140,7 @@ def plot_images_belonging_to_top_k_features(inference_alg_str: str,
             customer_mass = posteriors_at_table[customer_idx]
             # only plot high confidence
             try:
-                if customer_mass < 0.7:
+                if customer_mass < 0.4:
                     axes[feature_idx, image_num].axis('off')
                 else:
                     axes[feature_idx, image_num].imshow(images[customer_idx], cmap='gray')
