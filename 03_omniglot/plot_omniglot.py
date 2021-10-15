@@ -52,7 +52,7 @@ def plot_images_belonging_to_top_k_features(inference_alg_str: str,
                                             dish_eating_posteriors_running_sum: np.ndarray,
                                             plot_dir):
     # as a heuristic for plotting
-    confident_dish_eating_posteriors = dish_eating_posteriors > 0.95
+    confident_dish_eating_posteriors = dish_eating_posteriors > 0.4
     summed_confident_dish_eating_posteriors = np.sum(
         confident_dish_eating_posteriors,
         axis=0)

@@ -269,7 +269,11 @@ def load_omniglot_dataset(data_dir: str = 'data',
         vae_data = np.load(os.path.join(os.getcwd(),
                                         'data/omniglot_vae/omniglot_data.npz'))
         labels = vae_data['targets']
-        indices_to_sort_labels = np.argsort(labels)
+        # indices_to_sort_labels = np.argsort(labels)
+        indices_to_sort_labels = np.random.choice(
+            np.arange(len(labels)),
+            size=num_data,
+            replace=False)
         # make sure labels are sorted so we get multiple instances of the same class
         labels = labels[indices_to_sort_labels][:num_data]
         images = vae_data['images'][indices_to_sort_labels][:num_data, :, :]
