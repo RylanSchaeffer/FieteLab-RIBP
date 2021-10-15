@@ -66,12 +66,13 @@ def load_all_inf_alg_results(results_dir_path) -> Tuple[pd.DataFrame,
             stored_data['runtime'],
             stored_data['log_posterior_predictive']['mean']]
 
-        # del stored_data
         inf_algorithms_results_rows.append(inf_algorithms_results_row)
 
         num_features_by_num_obs = stored_data['inference_alg_results'][
             'num_dishes_poisson_rate_posteriors'][:, 0]  # remove extra dimension
         inf_algorithms_num_features_by_num_obs.append(num_features_by_num_obs)
+
+        del stored_data
 
     inf_algorithms_results_df = pd.DataFrame(
         inf_algorithms_results_rows,
