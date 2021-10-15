@@ -116,15 +116,15 @@ def run_and_plot_inference_alg(sampled_omniglot_data,
     # read results from disk
     stored_data = joblib.load(inference_results_path)
 
-    # logging.info('Plotting inference algorithm results...')
-    # plot_omniglot.plot_run_one_inference_results(
-    #     sampled_linear_gaussian_data=sampled_omniglot_data,
-    #     inference_alg_results=stored_data['inference_alg_results'],
-    #     inference_alg_str=stored_data['inference_alg_str'],
-    #     inference_alg_params=stored_data['inference_alg_params'],
-    #     log_posterior_predictive_dict=stored_data['log_posterior_predictive'],
-    #     plot_dir=inference_results_dir)
-    # logging.info('Plotted inference algorithm results.')
+    logging.info('Plotting inference algorithm results...')
+    plot_omniglot.plot_run_one_inference_results(
+        sampled_omniglot_data=sampled_omniglot_data,
+        inference_alg_results=stored_data['inference_alg_results'],
+        inference_alg_str=stored_data['inference_alg_str'],
+        inference_alg_params=stored_data['inference_alg_params'],
+        log_posterior_predictive_dict=stored_data['log_posterior_predictive'],
+        plot_dir=inference_results_dir)
+    logging.info('Plotted inference algorithm results.')
 
 
 def setup(args: argparse.Namespace):

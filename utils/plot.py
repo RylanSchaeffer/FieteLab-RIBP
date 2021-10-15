@@ -5,16 +5,9 @@ import numpy as np
 import os
 import pandas as pd
 import seaborn as sns
+from typing import Union
 
 from utils.numpy_helpers import compute_largest_dish_idx
-
-
-# inference_alg_color_map = {
-#     'HMC-Gibbs': 'Green',
-#     'Doshi-Velez': 'Purple',
-#     'R-IBP': 'Blue',
-#     'Widjaja': 'Orange',
-# }
 
 
 def plot_analyze_all_negative_posterior_predictive_vs_runtime(inf_algorithms_results_df: pd.DataFrame,
@@ -209,17 +202,22 @@ def plot_inference_algs_runtimes_by_param(runtimes_by_dataset_by_inference_alg: 
     plt.close()
 
 
-def plot_run_one_num_features_by_num_obs(indicators,
-                                         num_dishes_poisson_rate_priors,
-                                         num_dishes_poisson_rate_posteriors,
-                                         plot_dir):
+def plot_run_one_num_features_by_num_obs_using_poisson_rates(indicators: Union[np.ndarray, None],
+                                                             num_dishes_poisson_rate_priors,
+                                                             num_dishes_poisson_rate_posteriors,
+                                                             plot_dir):
     """
     Plot inferred Poisson rates of number of dishes (Y) vs number of observations (X).
     """
-    seq_length = indicators.shape[0]
+    seq_length = num_dishes_poisson_rate_priors.shape[0]
     obs_indices = 1 + np.arange(seq_length)  # remember, we started with t = 0
-    real_num_dishes = np.concatenate(
-        [np.sum(np.minimum(np.cumsum(indicators, axis=0), 1), axis=1)])
+    if indicators is None:
+        real_num_dishes = np.full_like(
+            num_dishes_poisson_rate_priors[:, 0],
+            fill_value=np.nan,)
+    else:
+        real_num_dishes = np.concatenate(
+            [np.sum(np.minimum(np.cumsum(indicators, axis=0), 1), axis=1)])
 
     # r'$q(\Lambda_t|o_{< t})$'
     # r'$q(\Lambda_t|o_{\leq t})$'
@@ -229,6 +227,9 @@ def plot_run_one_num_features_by_num_obs(indicators,
         'Prior': num_dishes_poisson_rate_priors[:, 0],
         'Posterior': num_dishes_poisson_rate_posteriors[:, 0],
     })
+
+    if indicators is None:
+        data_to_plot.drop(axis='columns', labels='True', inplace=True)
 
     melted_data_to_plot = data_to_plot.melt(
         id_vars=['obs_idx'],  # columns to keep

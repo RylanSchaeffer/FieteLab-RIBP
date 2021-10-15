@@ -126,7 +126,7 @@ def plot_run_one_inference_results(sampled_linear_gaussian_data: dict,
                                    inference_alg_params: Dict[str, float],
                                    log_posterior_predictive_dict: Dict[str, float],
                                    plot_dir):
-    utils.plot.plot_run_one_num_features_by_num_obs(
+    utils.plot.plot_run_one_num_features_by_num_obs_using_poisson_rates(
         num_dishes_poisson_rate_priors=inference_alg_results['num_dishes_poisson_rate_priors'],
         num_dishes_poisson_rate_posteriors=inference_alg_results['num_dishes_poisson_rate_posteriors'],
         indicators=sampled_linear_gaussian_data['train_sampled_indicators'],

@@ -19,8 +19,9 @@ def run_all() -> None:
     results_dir_path = os.path.join(exp_dir_path, 'results')
     os.makedirs(results_dir_path, exist_ok=True)
 
-    alphas = np.round(np.arange(1., 5.01, 1), 4)
-    betas = np.round(np.arange(1., 5.01, 1), 4)
+    alphas = np.round(np.arange(1., 5.01, 1), 4)[::-1]
+    # betas = np.round(np.arange(1., 5.01, 1), 4)[::-1]
+    betas = np.round(np.arange(5., 10.01, 1), 4)[::-1]
     sigma_xs = np.round(np.logspace(-2, 2, 5), 4)
     feature_prior_cov_scalings = np.round(np.logspace(-2., 2., 5), 4)
     scale_prior_cov_scalings = np.round(np.logspace(-2., 2., 5), 4)
@@ -59,7 +60,7 @@ def run_all() -> None:
             scale_prior_cov_scaling=scale_prior_cov_scaling)
 
         counter += 1
-        if counter == 120:
+        if counter == 1000:
             break
 
 
