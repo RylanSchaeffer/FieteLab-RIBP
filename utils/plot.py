@@ -202,6 +202,30 @@ def plot_inference_algs_runtimes_by_param(runtimes_by_dataset_by_inference_alg: 
     plt.close()
 
 
+def plot_neg_log_posterior_predictive_by_alpha_beta(inf_algorithms_results_df: pd.DataFrame,
+                                                    plot_dir: str):
+    # sns.scatterplot(
+    #     data=inf_algorithms_results_df,
+    #     x='alpha',
+    #     y='beta',
+    #     hue='negative_log_posterior_predictive',
+    #     legend="full",
+    # )
+
+    sc = plt.scatter(
+        x=inf_algorithms_results_df['alpha'],
+        y=inf_algorithms_results_df['beta'],
+        c=inf_algorithms_results_df['negative_log_posterior_predictive'],
+    )
+    plt.colorbar(sc)
+    plt.savefig(os.path.join(plot_dir,
+                             'negative_log_posterior_predictive_by_alpha_beta.png'),
+                bbox_inches='tight',
+                dpi=300)
+    # plt.show()
+    plt.close()
+
+
 def plot_run_one_num_features_by_num_obs_using_poisson_rates(indicators: Union[np.ndarray, None],
                                                              num_dishes_poisson_rate_priors,
                                                              num_dishes_poisson_rate_posteriors,

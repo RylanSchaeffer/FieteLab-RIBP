@@ -14,6 +14,8 @@ import numpy as np
 import os
 import pandas as pd
 
+import plot_omniglot
+
 
 def analyze_all(args: argparse.Namespace):
     # create directory
@@ -32,9 +34,9 @@ def analyze_all(args: argparse.Namespace):
         os.path.join(exp_dir_path, 'inf_algorithms_results_df.csv'),
         index=False)
 
-    # plot_linear_gaussian.plot_analyze_all_algorithms_results(
-    #     inf_algorithms_results_df=inf_algorithms_results_df,
-    #     plot_dir=results_dir_path)
+    plot_omniglot.plot_analyze_all_algorithms_results(
+        inf_algorithms_results_df=inf_algorithms_results_df,
+        plot_dir=exp_dir_path)
 
 
 def load_all_datasets_all_alg_results(results_dir_path) -> pd.DataFrame:

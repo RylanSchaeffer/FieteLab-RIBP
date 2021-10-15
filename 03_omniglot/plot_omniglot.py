@@ -1,9 +1,20 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import seaborn as sns
 from typing import Dict
 
+import pandas as pd
+
 import utils.plot
+
+
+def plot_analyze_all_algorithms_results(inf_algorithms_results_df: pd.DataFrame,
+                                        plot_dir: str):
+
+    utils.plot.plot_neg_log_posterior_predictive_by_alpha_beta(
+        inf_algorithms_results_df=inf_algorithms_results_df,
+        plot_dir=plot_dir)
 
 
 def plot_run_one_inference_results(sampled_omniglot_data: Dict,

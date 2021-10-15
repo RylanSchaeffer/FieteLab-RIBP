@@ -23,8 +23,8 @@ def run_all() -> None:
     # betas = np.round(np.arange(1., 5.01, 1), 4)[::-1]
     betas = np.round(np.arange(5., 10.01, 1), 4)[::-1]
     sigma_xs = np.round(np.logspace(-2, 2, 5), 4)
-    feature_prior_cov_scalings = np.round(np.logspace(-2., 2., 5), 4)
-    scale_prior_cov_scalings = np.round(np.logspace(-2., 2., 5), 4)
+    feature_prior_cov_scalings = np.round(np.logspace(0, 2., 5), 4)
+    scale_prior_cov_scalings = np.round(np.logspace(-1., 1, 5), 4)
     inference_alg_strs = [
         'R-IBP',
     ]
