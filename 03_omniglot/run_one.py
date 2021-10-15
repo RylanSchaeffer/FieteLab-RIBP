@@ -116,28 +116,22 @@ def run_and_plot_inference_alg(sampled_omniglot_data,
     # read results from disk
     stored_data = joblib.load(inference_results_path)
 
-    # TODO: separate train and test data when plotting, otherwise arrays of unequal length
-    logging.info('Plotting inference algorithm results...')
-    plot_omniglot.plot_run_one_inference_results(
-        sampled_linear_gaussian_data=sampled_omniglot_data,
-        inference_alg_results=stored_data['inference_alg_results'],
-        inference_alg_str=stored_data['inference_alg_str'],
-        inference_alg_params=stored_data['inference_alg_params'],
-        log_posterior_predictive_dict=stored_data['log_posterior_predictive'],
-        plot_dir=inference_results_dir)
-    logging.info('Plotted inference algorithm results.')
+    # logging.info('Plotting inference algorithm results...')
+    # plot_omniglot.plot_run_one_inference_results(
+    #     sampled_linear_gaussian_data=sampled_omniglot_data,
+    #     inference_alg_results=stored_data['inference_alg_results'],
+    #     inference_alg_str=stored_data['inference_alg_str'],
+    #     inference_alg_params=stored_data['inference_alg_params'],
+    #     log_posterior_predictive_dict=stored_data['log_posterior_predictive'],
+    #     plot_dir=inference_results_dir)
+    # logging.info('Plotted inference algorithm results.')
 
 
 def setup(args: argparse.Namespace):
     """ Create necessary directories, set seeds and load linear-Gaussian data."""
 
-    inference_results_dir = f'{args.inference_alg_str}_a={args.alpha}_b={args.beta}_' \
-                            f'sigmax={args.sigma_x}_featurecov={args.feature_prior_cov_scaling}_' \
-                            f'scalecov={args.scale_prior_cov_scaling}'
-
-    inference_results_dir = os.path.join(
-        args.run_one_results_dir,
-        inference_results_dir)
+    inference_results_dir = args.run_one_results_dir
+    logging.info(f'Inference results dir: {inference_results_dir}')
     os.makedirs(inference_results_dir, exist_ok=True)
 
     utils.run_helpers.create_logger(run_dir=inference_results_dir)

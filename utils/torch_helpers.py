@@ -5,9 +5,21 @@ import torch
 
 
 def assert_no_nan_no_inf_is_real(x):
-    assert torch.all(~torch.isnan(x))
-    assert torch.all(~torch.isinf(x))
-    assert torch.all(torch.isreal(x))
+    try:
+        assert torch.all(~torch.isnan(x))
+    except AssertionError:
+        print(x)
+        raise ValueError('Contains NaNS')
+    try:
+        assert torch.all(~torch.isinf(x))
+    except AssertionError:
+        print(x)
+        raise ValueError('Contains Infs')
+    try:
+        assert torch.all(torch.isreal(x))
+    except AssertionError:
+        print(x)
+        raise ValueError('Contains imaginary values')
 
 
 def convert_half_cov_to_cov(half_cov: torch.Tensor) -> torch.Tensor:

@@ -19,11 +19,11 @@ def run_all() -> None:
     results_dir_path = os.path.join(exp_dir_path, 'results')
     os.makedirs(results_dir_path, exist_ok=True)
 
-    alphas = np.round(np.arange(1., 5.01, 0.5))
-    betas = np.round(np.arange(1., 5.01, 0.5))
-    sigma_xs = np.round(np.logspace(-2, 2, 0.5))
-    feature_prior_cov_scalings = np.round(np.logspace(-2., 2., 10))
-    scale_prior_cov_scalings = np.round(np.logspace(-2., 2., 10))
+    alphas = np.round(np.arange(1., 5.01, 1), 4)
+    betas = np.round(np.arange(1., 5.01, 1), 4)
+    sigma_xs = np.round(np.logspace(-2, 2, 5), 4)
+    feature_prior_cov_scalings = np.round(np.logspace(-2., 2., 5), 4)
+    scale_prior_cov_scalings = np.round(np.logspace(-2., 2., 5), 4)
     inference_alg_strs = [
         'R-IBP',
     ]
@@ -36,12 +36,18 @@ def run_all() -> None:
         inference_alg_strs,
     ]
 
+
+    counter = 0
     for alpha, beta, sigma_x, feature_prior_cov_scaling, scale_prior_cov_scaling,\
         inference_alg_str in itertools.product(*hyperparams):
 
+        run_str = f'{inference_alg_str}_a={alpha}_b={beta}_' \
+                                f'sigmax={sigma_x}_featurecov={feature_prior_cov_scaling}_' \
+                                f'scalecov={scale_prior_cov_scaling}'
+
         run_one_results_dir_path = os.path.join(
             results_dir_path,
-            f'IBP_a={alpha}_b={beta}')
+            run_str)
 
         launch_run_one(
             exp_dir_path=exp_dir_path,
@@ -53,7 +59,9 @@ def run_all() -> None:
             feature_prior_cov_scaling=feature_prior_cov_scaling,
             scale_prior_cov_scaling=scale_prior_cov_scaling)
 
-        continue
+        counter += 1
+        if counter == 30:
+            break
 
 
 def launch_run_one(exp_dir_path: str,

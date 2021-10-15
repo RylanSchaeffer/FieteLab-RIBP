@@ -10,6 +10,9 @@ run_one_results_dir_path=${1}
 inference_alg_str=${2}
 alpha=${3}
 beta=${4}
+sigma_x=${5}
+feature_prior_cov_scaling=${6}
+scale_prior_cov_scaling=${7}
 
 # don't remember what this does
 export PYTHONPATH=.
@@ -23,4 +26,7 @@ python -u 03_omniglot/run_one.py \
 --run_one_results_dir="${run_one_results_dir_path}" \
 --inference_alg_str="${inference_alg_str}" \
 --alpha="${alpha}" \
---beta="${beta}"
+--beta="${beta}" \
+--sigma_x="${sigma_x}" \
+--feature_prior_cov_scaling="${feature_prior_cov_scaling}" \
+--scale_prior_cov_scaling="${scale_prior_cov_scaling}"
