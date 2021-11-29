@@ -786,6 +786,188 @@ class LinearGaussianModel(abc.ABC):
         pass
 
 
+class CollapsedGibbsLinearGaussian(LinearGaussianModel):
+
+    def __init__(self,
+                 model_str: str,
+                 gen_model_params: Dict[str, Dict[str, float]],
+                 plot_dir: str = None,
+                 num_passes: int = 1,
+                 random_indicators_init: bool = True
+                 ):
+        # Check validity of input params
+        assert model_str == 'linear_gaussian'
+        self.gen_model_params = gen_model_params
+        self.ibp_params = gen_model_params['IBP']
+        assert self.ibp_params['alpha'] > 0
+        assert self.ibp_params['beta'] > 0
+        self.feature_prior_params = gen_model_params['feature_prior_params']
+        self.likelihood_params = gen_model_params['likelihood_params']
+        self.model_str = model_str
+        self.plot_dir = plot_dir
+        self.num_passes = num_passes
+        # Griffiths & Ghahramani 2011: "We start with an arbitrary binary matrix"
+        self.random_indicators_init = random_indicators_init
+        self.max_num_features = None
+
+    def fit(self,
+            observations: np.ndarray):
+        """
+        Perform inference using Recursive IBP with specified likelihood.
+        """
+
+        num_obs, obs_dim = observations.shape
+
+        # Note: the expected number of latents grows logarithmically as a*b*log(1 + N/beta)
+        self.max_num_features = compute_max_num_features(
+            alpha=self.gen_model_params['IBP']['alpha'],
+            beta=self.gen_model_params['IBP']['beta'],
+            num_obs=num_obs)
+
+        if self.random_indicators_init:
+            sampled_indicators = torch.from_numpy(np.random.randint(
+                low=0,
+                high=2,  # exclusive
+                size=(num_obs + 1, self.max_num_features)))
+            # Since we're indexing from 1, we want to make sure the first row
+            # is all 0s
+            sampled_indicators[0, :] = 0
+        else:
+            sampled_indicators = torch.zeros(
+                (num_obs + 1, self.max_num_features),  # Add 1 to the number of observations to use 1-based indexing
+                dtype=torch.float32,
+                requires_grad=False)
+
+        torch_observations = torch.from_numpy(observations).float()
+
+        for pass_idx in range(self.num_passes):
+
+            for obs_idx, torch_observation in enumerate(torch_observations[:num_obs], start=1):
+
+                customer_dishes_prior_probs = self._compute_customer_dishes_prior_probs(
+                    obs_idx=obs_idx,
+                    num_obs=num_obs,
+                    sampled_indicators=sampled_indicators)
+
+                for col_idx, customer_dish_prior_prob in enumerate(customer_dishes_prior_probs):
+
+                    log_likelihood_if_dish = self._compute_likelihood(
+                        torch_observations=torch_observations,
+                        obs_idx=obs_idx,
+                        col_idx=col_idx,
+                        eat_dish=True,
+                        sampled_indicators=sampled_indicators)
+
+                    log_likelihood_if_not_dish = self._compute_likelihood(
+                        torch_observations=torch_observations,
+                        obs_idx=obs_idx,
+                        col_idx=col_idx,
+                        eat_dish=False,
+                        sampled_indicators=sampled_indicators)
+
+                    unnormalize_posterior_if_dish = log_likelihood_if_dish * customer_dish_prior_prob
+                    unnormalized_posterior_if_not_dish = log_likelihood_if_not_dish * (1. - customer_dish_prior_prob)
+                    dish_posterior_prob = unnormalize_posterior_if_dish\
+                                          / (unnormalize_posterior_if_dish + unnormalized_posterior_if_not_dish)
+
+                    customer_dish_indicator = torch.from_numpy(
+                        np.random.binomial(n=1, p=dish_posterior_prob))
+
+                    sampled_indicators[obs_idx, col_idx] = customer_dish_indicator
+
+    def _compute_likelihood(self,
+                            torch_observations: torch.Tensor,
+                            obs_idx: int,
+                            col_idx: int,
+                            eat_dish: bool,
+                            sampled_indicators: torch.Tensor,
+                            ) -> torch.Tensor:
+
+        # for brevity
+        # Exclude the first row of all zeros when doing this calculation
+        Z = torch.clone(sampled_indicators).float()[1:, :]
+        X = torch_observations
+
+        if eat_dish:
+            Z[obs_idx, col_idx] = 1.
+        else:
+            Z[obs_idx, col_idx] = 0.
+
+        ZtransposeZ = Z.T @ Z
+        num_data, data_dim = torch_observations.shape
+        eye_num_data = torch.eye(num_data)
+        eye_num_features = torch.eye(self.max_num_features)
+        scaled_eye = self.feature_prior_params['gaussian_cov_scaling'] * eye_num_features
+        scaled_eye /= np.square(self.likelihood_params['sigma_x'])
+        Z_tranposeZ_plus_scaled_eye = ZtransposeZ + scaled_eye
+
+        normalizing_const = np.power(2*np.pi, num_data*data_dim/2)
+        # Divide by 2 because we want sigma_A^{ND} but we have sigma_A^2
+        normalizing_const *= np.power(
+            self.feature_prior_params['gaussian_cov_scaling'],
+            num_data*data_dim/2)
+        normalizing_const *= np.power(
+            self.likelihood_params['sigma_x'],
+            (num_data - self.max_num_features)*data_dim)
+        normalizing_const *= torch.float_power(
+            torch.linalg.det(Z_tranposeZ_plus_scaled_eye),
+            data_dim / 2)
+
+        middle_term = eye_num_data - Z @ torch.linalg.inv(Z_tranposeZ_plus_scaled_eye) @ Z.T
+        log_likelihood = torch.trace(X.T @ middle_term @ X)
+
+        log_likelihood = -log_likelihood / (2 * np.square(self.likelihood_params['sigma_x']))
+        return log_likelihood
+
+    def _compute_customer_dishes_prior_probs(self,
+                                             obs_idx: int,
+                                             num_obs: int,
+                                             sampled_indicators: torch.Tensor,
+                                             ) -> torch.Tensor:
+
+        sampled_indicators = self._delete_empty_columns_and_left_shift(
+            sampled_indicators=sampled_indicators)
+
+        # Shape: (max num features, )
+        indicators_col_sums_minus_current_row = torch.subtract(
+            torch.sum(sampled_indicators, dim=0),
+            sampled_indicators[obs_idx, :])
+
+        # Normalize
+        customer_dishes_prior_probs = indicators_col_sums_minus_current_row / num_obs
+
+        return customer_dishes_prior_probs
+
+    def _delete_empty_columns_and_left_shift(self,
+                                             sampled_indicators: torch.Tensor,
+                                             ) -> torch.Tensor:
+
+        # Create new array to store results
+        new_sampled_indicators = torch.zeros_like(sampled_indicators)
+
+        # Shape: (max num features, )
+        indicators_running_sum = torch.sum(sampled_indicators, dim=0)
+
+        # identify which column sums are positive; we will left shift these columns
+        cols_to_keep = indicators_running_sum > 0
+
+        num_cols_to_keep = torch.sum(cols_to_keep)
+
+        new_sampled_indicators[:, :num_cols_to_keep] = sampled_indicators[:, cols_to_keep]
+
+        return new_sampled_indicators
+
+    def sample_params_for_predictive_posterior(self,
+                                               num_samples: int):
+        raise NotImplementedError
+
+    def features_after_last_obs(self) -> np.ndarray:
+        raise NotImplementedError
+
+    def features_by_obs(self) -> np.ndarray:
+        raise NotImplementedError
+
+
 class DoshiVelezLinearGaussian(LinearGaussianModel):
     """
     Implementation of Doshi-Velez 2009 Variational Inference for the IBP.
@@ -1124,7 +1306,6 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
         num_obs, obs_dim = observations.shape
 
         # Note: the expected number of latents grows logarithmically as a*b*log(1 + N/beta)
-        # The 10 is a hopefully conservative heuristic to preallocate.
         max_num_features = compute_max_num_features(
             alpha=self.gen_model_params['IBP']['alpha'],
             beta=self.gen_model_params['IBP']['beta'],

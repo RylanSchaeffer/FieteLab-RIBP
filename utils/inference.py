@@ -11,6 +11,7 @@ torch.set_default_tensor_type('torch.FloatTensor')
 
 inference_algs = [
     'HMC-Gibbs',
+    'Collapsed-Gibbs',
     'Doshi-Velez-Finite',
     'Doshi-Velez-Infinite',
     'R-IBP',
@@ -62,6 +63,11 @@ def run_inference_alg(inference_alg_str: str,
                 num_samples=100000,  # 100000
                 num_warmup_samples=10000,  # 10000
                 num_thinning_samples=1000,  # 1000
+            )
+        elif inference_alg_str == 'Collapsed-Gibbs':
+            inference_alg = utils.prob_models.linear_gaussian.CollapsedGibbsLinearGaussian(
+                model_str=model_str,
+                gen_model_params=gen_model_params,
             )
         else:
             raise ValueError(f'Unknown inference algorithm: {inference_alg_str}')

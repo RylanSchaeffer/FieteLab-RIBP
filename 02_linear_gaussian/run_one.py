@@ -147,7 +147,7 @@ def setup(args: argparse.Namespace):
 
     logging.info(args)
 
-    # load Mixture of Gaussian data
+    # load data
     sampled_linear_gaussian_data = joblib.load(
         os.path.join(args.run_one_results_dir, 'data.joblib'))
 
