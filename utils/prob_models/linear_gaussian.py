@@ -18,6 +18,7 @@ import utils.torch_helpers
 
 torch.set_default_tensor_type('torch.FloatTensor')
 
+
 # Start Widjaja Code
 
 class OnlineFinite:
@@ -157,7 +158,7 @@ class OnlineFinite:
                     theta = theta_k \
                             - (torch.dot(train_mask[i, :], self.Phi[:, k]) + torch.dot(train_mask[i, :],
                                                                                        self.phi[:, k] ** 2)) / (
-                                        2.0 * self.var_x) \
+                                    2.0 * self.var_x) \
                             + torch.dot(train_mask[i, :] * self.phi[:, k],
                                         data[i, :] - torch.sum(nu[i, non_k_indices] * self.phi[:, non_k_indices],
                                                                dim=1)) / self.var_x
@@ -342,7 +343,7 @@ class OnlineInfinite:
                     theta = theta_k \
                             - (torch.dot(train_mask[i, :], self.Phi[:, k]) + torch.dot(train_mask[i, :],
                                                                                        self.phi[:, k] ** 2)) / (
-                                        2.0 * self.var_x) \
+                                    2.0 * self.var_x) \
                             + torch.dot(train_mask[i, :] * self.phi[:, k],
                                         data[i, :] - torch.sum(nu[i, non_k_indices] * self.phi[:, non_k_indices],
                                                                dim=1)) / self.var_x
@@ -500,7 +501,7 @@ class OfflineFinite:
                     theta = theta_k \
                             - (torch.dot(train_mask[i, :], self.Phi[:, k]) + torch.dot(train_mask[i, :],
                                                                                        self.phi[:, k] ** 2)) / (
-                                        2.0 * self.var_x) \
+                                    2.0 * self.var_x) \
                             + torch.dot(train_mask[i, :] * self.phi[:, k],
                                         data[i, :] - torch.sum(nu[i, non_k_indices] * self.phi[:, non_k_indices],
                                                                dim=1)) / self.var_x
@@ -699,7 +700,7 @@ class OfflineInfinite:
                     theta = theta_k \
                             - (torch.dot(train_mask[i, :], self.Phi[:, k]) + torch.dot(train_mask[i, :],
                                                                                        self.phi[:, k] ** 2)) / (
-                                        2.0 * self.var_x) \
+                                    2.0 * self.var_x) \
                             + torch.dot(train_mask[i, :] * self.phi[:, k],
                                         data[i, :] - torch.sum(nu[i, non_k_indices] * self.phi[:, non_k_indices],
                                                                dim=1)) / self.var_x
@@ -747,6 +748,7 @@ class Static:
         #     self.ll_std_set.append(ll_std)
 
         return step_results
+
 
 # End Widjaja Code
 
@@ -808,6 +810,7 @@ class CollapsedGibbsLinearGaussian(LinearGaussianModel):
         self.num_passes = num_passes
         # Griffiths & Ghahramani 2011: "We start with an arbitrary binary matrix"
         self.random_indicators_init = random_indicators_init
+        self.fit_results = None
         self.max_num_features = None
 
     def fit(self,
@@ -850,7 +853,6 @@ class CollapsedGibbsLinearGaussian(LinearGaussianModel):
                     sampled_indicators=sampled_indicators)
 
                 for col_idx, customer_dish_prior_prob in enumerate(customer_dishes_prior_probs):
-
                     log_likelihood_if_dish = self._compute_likelihood(
                         torch_observations=torch_observations,
                         obs_idx=obs_idx,
@@ -865,15 +867,29 @@ class CollapsedGibbsLinearGaussian(LinearGaussianModel):
                         eat_dish=False,
                         sampled_indicators=sampled_indicators)
 
-                    unnormalize_posterior_if_dish = log_likelihood_if_dish * customer_dish_prior_prob
-                    unnormalized_posterior_if_not_dish = log_likelihood_if_not_dish * (1. - customer_dish_prior_prob)
-                    dish_posterior_prob = unnormalize_posterior_if_dish\
-                                          / (unnormalize_posterior_if_dish + unnormalized_posterior_if_not_dish)
+                    unnormalize_log_posterior_if_dish = log_likelihood_if_dish \
+                                                        + torch.log(customer_dish_prior_prob)
+                    unnormalized_log_posterior_if_not_dish = log_likelihood_if_not_dish \
+                                                             + torch.log(1. - customer_dish_prior_prob)
+                    # Need to use max trick for stability with very large negative log posteriors
+                    max_value = torch.maximum(unnormalize_log_posterior_if_dish,
+                                             unnormalized_log_posterior_if_not_dish)
+                    term_if_dish = torch.exp(unnormalize_log_posterior_if_dish - max_value)
+                    term_if_not_dish = torch.exp(unnormalized_log_posterior_if_not_dish - max_value)
+                    dish_posterior_prob = term_if_dish / (term_if_dish + term_if_not_dish)
 
-                    customer_dish_indicator = torch.from_numpy(
-                        np.random.binomial(n=1, p=dish_posterior_prob))
+                    sampled_customer_dish_indicator = np.random.binomial(
+                        n=1,
+                        p=dish_posterior_prob.item())
+                    print(f'Obs Idx: {obs_idx}\tCol Idx: {col_idx}\tSampled: {sampled_customer_dish_indicator}')
 
-                    sampled_indicators[obs_idx, col_idx] = customer_dish_indicator
+                    sampled_indicators[obs_idx, col_idx] = sampled_customer_dish_indicator
+
+        self.fit_results = dict(
+            sampled_indicators=sampled_indicators[1:, :].numpy(),
+            gen_model_params=self.gen_model_params,
+        )
+        return self.fit_results
 
     def _compute_likelihood(self,
                             torch_observations: torch.Tensor,
@@ -889,9 +905,11 @@ class CollapsedGibbsLinearGaussian(LinearGaussianModel):
         X = torch_observations
 
         if eat_dish:
-            Z[obs_idx, col_idx] = 1.
+            # Subtract 1 because we started obs index at 1
+            Z[obs_idx - 1, col_idx] = 1.
         else:
-            Z[obs_idx, col_idx] = 0.
+            # Subtract 1 because we started obs index at 1
+            Z[obs_idx - 1, col_idx] = 0.
 
         ZtransposeZ = Z.T @ Z
         num_data, data_dim = torch_observations.shape
@@ -901,14 +919,14 @@ class CollapsedGibbsLinearGaussian(LinearGaussianModel):
         scaled_eye /= np.square(self.likelihood_params['sigma_x'])
         Z_tranposeZ_plus_scaled_eye = ZtransposeZ + scaled_eye
 
-        normalizing_const = np.power(2*np.pi, num_data*data_dim/2)
+        normalizing_const = np.power(2 * np.pi, num_data * data_dim / 2)
         # Divide by 2 because we want sigma_A^{ND} but we have sigma_A^2
         normalizing_const *= np.power(
             self.feature_prior_params['gaussian_cov_scaling'],
-            num_data*data_dim/2)
+            num_data * data_dim / 2)
         normalizing_const *= np.power(
             self.likelihood_params['sigma_x'],
-            (num_data - self.max_num_features)*data_dim)
+            (num_data - self.max_num_features) * data_dim)
         normalizing_const *= torch.float_power(
             torch.linalg.det(Z_tranposeZ_plus_scaled_eye),
             data_dim / 2)
@@ -959,13 +977,28 @@ class CollapsedGibbsLinearGaussian(LinearGaussianModel):
 
     def sample_params_for_predictive_posterior(self,
                                                num_samples: int):
-        raise NotImplementedError
+
+        # Shape: (max num features, )
+        indicators_running_sum = np.sum(
+            self.fit_results['sampled_indicators'],
+            axis=0).astype(np.float32)
+        indicators_running_sum /= self.fit_results['sampled_indicators'].shape[0]
+
+        indicators_probs = np.random.binomial(
+            n=1,
+            p=indicators_running_sum[np.newaxis, :],
+            size=(num_samples, self.max_num_features))
+
+        sampled_params = dict(
+            indicators_probs=indicators_probs)
+
+        return sampled_params
 
     def features_after_last_obs(self) -> np.ndarray:
-        raise NotImplementedError
+        raise AttributeError('Don\'t call this method. There are no features.')
 
     def features_by_obs(self) -> np.ndarray:
-        raise NotImplementedError
+        raise AttributeError('Don\'t call this method. There are no features.')
 
 
 class DoshiVelezLinearGaussian(LinearGaussianModel):
@@ -1390,7 +1423,7 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
             # Recursion: 1st term
             dish_eating_prior = torch.clone(
                 dish_eating_posteriors_running_sum[obs_idx - 1, :]) / (
-                                            self.gen_model_params['IBP']['beta'] + obs_idx - 1)
+                                        self.gen_model_params['IBP']['beta'] + obs_idx - 1)
             # Recursion: 2nd term; don't subtract 1 from latent indices b/c zero based indexing
             dish_eating_prior += poisson.cdf(k=latent_indices, mu=num_dishes_poisson_rate_posteriors[obs_idx - 1, :])
             # Recursion: 3rd term; don't subtract 1 from latent indices b/c zero based indexing
@@ -2352,4 +2385,3 @@ def recursive_ibp_optimize_gaussian_params(torch_observation: torch.Tensor,
     utils.torch_helpers.assert_no_nan_no_inf_is_real(gaussian_means)
     utils.torch_helpers.assert_no_nan_no_inf_is_real(gaussian_half_covs)
     return gaussian_means, gaussian_half_covs
-

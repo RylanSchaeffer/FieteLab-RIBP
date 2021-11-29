@@ -87,6 +87,7 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
 
         # record scores
         log_posterior_predictive_results = utils.metrics.compute_log_posterior_predictive_linear_gaussian(
+            train_observations=sampled_linear_gaussian_data['train_observations'],
             test_observations=sampled_linear_gaussian_data['test_observations'],
             inference_alg=inference_alg_results['inference_alg'])
         logging.info('Computed log posterior predictive.')
