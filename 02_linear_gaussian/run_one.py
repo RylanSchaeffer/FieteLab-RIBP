@@ -66,7 +66,8 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
         inference_results_dir,
         'inference_alg_results.joblib')
 
-    if not os.path.isfile(inference_results_path):
+    # if not os.path.isfile(inference_results_path):
+    if True:
         logging.info(f'Inference results not found at: {inference_results_path}')
         logging.info('Generating inference results...')
 

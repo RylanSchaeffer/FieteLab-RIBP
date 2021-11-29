@@ -32,12 +32,17 @@ def create_linear_gaussian_model(model_params: Dict[str, Dict[str, float]],
 
         # For each feature, sample its value
         with numpyro.plate('features_plate', max_num_features):
+            if 'gaussian_mean_prior_cov_scaling' in model_params['feature_prior_params']:
+                cov_prefactor = model_params['feature_prior_params']['gaussian_mean_prior_cov_scaling']
+            elif 'feature_prior_cov_scaling' in model_params['feature_prior_params']:
+                cov_prefactor = model_params['feature_prior_params']['feature_prior_cov_scaling']
+            else:
+                raise ValueError('Prior is not in dict')
             features = numpyro.sample(
                 'A',
                 numpyro.distributions.MultivariateNormal(
                     loc=jnp.zeros(obs_dim),
-                    covariance_matrix=model_params['feature_prior_params'][
-                                          'gaussian_mean_prior_cov_scaling'] * jnp.eye(obs_dim)))
+                    covariance_matrix=cov_prefactor * jnp.eye(obs_dim)))
 
         with numpyro.plate('data', num_obs):
             # For some reason, this broadcasting is easier with numpyro. Don't fight it.
