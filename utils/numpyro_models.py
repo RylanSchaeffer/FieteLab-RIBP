@@ -13,7 +13,7 @@ def create_factor_analysis_model(model_params: Dict[str, float],
     return factor_analysis_model
 
 
-def create_linear_gaussian_model(model_params: Dict[str, float],
+def create_linear_gaussian_model(model_params: Dict[str, Dict[str, float]],
                                  max_num_features: int,
                                  num_obs: int,
                                  obs_dim: int):
@@ -37,7 +37,7 @@ def create_linear_gaussian_model(model_params: Dict[str, float],
                 numpyro.distributions.MultivariateNormal(
                     loc=jnp.zeros(obs_dim),
                     covariance_matrix=model_params['feature_prior_params'][
-                                          'feature_prior_cov_scaling'] * jnp.eye(obs_dim)))
+                                          'gaussian_mean_prior_cov_scaling'] * jnp.eye(obs_dim)))
 
         with numpyro.plate('data', num_obs):
             # For some reason, this broadcasting is easier with numpyro. Don't fight it.
