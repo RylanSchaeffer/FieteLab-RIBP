@@ -55,6 +55,11 @@ def load_all_datasets_all_alg_results(results_dir_path) -> pd.DataFrame:
                     logging.info(f'Could not find results for {inference_alg_dir_path}.')
                     continue
                 logging.info(f'Successfully loaded {inference_alg_dir_path} algorithm results.')
+
+                # Backwards compatibility
+                if 'training_reconstruction_error' not in stored_data:
+                    stored_data['training_reconstruction_error'] = np.nan
+
                 new_row = [sampling_dir, dataset_dir, stored_data['inference_alg_str'],
                            stored_data['inference_alg_params']['IBP']['alpha'],
                            stored_data['inference_alg_params']['IBP']['beta'],
@@ -67,7 +72,7 @@ def load_all_datasets_all_alg_results(results_dir_path) -> pd.DataFrame:
     inf_algorithms_results_df = pd.DataFrame(
         rows,
         columns=['sampling', 'dataset', 'inference_alg', 'alpha',
-                 'beta', 'runtime', 'log_posterior_predictive', 'reconstruction_error'])
+                 'beta', 'runtime', 'log_posterior_predictive', 'training_reconstruction_error'])
 
     inf_algorithms_results_df['negative_log_posterior_predictive'] = -inf_algorithms_results_df['log_posterior_predictive']
     return inf_algorithms_results_df

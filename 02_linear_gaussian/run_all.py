@@ -38,9 +38,9 @@ def run_all():
     num_customers = 100
 
     inference_alg_strs = [
-        # 'R-IBP',
+        'R-IBP',
         # 'HMC-Gibbs',
-        'Collapsed-Gibbs',
+        # 'Collapsed-Gibbs',
         # 'Doshi-Velez-Finite',
         # 'Doshi-Velez-Infinite',
         # 'Widjaja-Finite',

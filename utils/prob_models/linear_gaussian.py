@@ -8,6 +8,8 @@ import numpy as np
 import numpyro
 import os
 import scipy.linalg
+import scipy.special as sps
+import scipy.stats
 from scipy.stats import poisson
 import torch
 from typing import Dict, Tuple, Union
@@ -85,7 +87,7 @@ class OnlineFinite:
         rho = (1.0 - (self.iteration + self.t0) ** -self.kappa)
 
         nu = torch.from_numpy(
-            stats.uniform.rvs(size=(size, self.max_num_features))).float()
+            scipy.stats.uniform.rvs(size=(size, self.max_num_features))).float()
 
         prior = self.tau_1 / (self.tau_1 + self.tau_2)
         prior = prior.reshape(1, -1)  # add a batch dimension
@@ -143,7 +145,7 @@ class OnlineFinite:
         size = data.shape[0]
 
         nu = torch.from_numpy(
-            stats.uniform.rvs(size=(size, self.max_num_features))).float().float()
+            scipy.stats.uniform.rvs(size=(size, self.max_num_features))).float().float()
 
         for t in range(convergence_iters):
             nu_orig = torch.clone(nu)
@@ -259,7 +261,7 @@ class OnlineInfinite:
         rho = (1.0 - (self.iteration + self.t0) ** -self.kappa)
 
         nu = torch.from_numpy(
-            stats.uniform.rvs(size=(minibatch_size, self.max_num_features))).float()
+            scipy.stats.uniform.rvs(size=(minibatch_size, self.max_num_features))).float()
 
         prior = torch.cumprod(self.tau_1 / (self.tau_1 + self.tau_2), dim=0)
         prior = prior.reshape(1, -1)  # add a batch dimension
@@ -326,7 +328,7 @@ class OnlineInfinite:
         size = data.shape[0]
 
         nu = torch.from_numpy(
-            stats.uniform.rvs(size=(size, self.max_num_features))).float()
+            scipy.stats.uniform.rvs(size=(size, self.max_num_features))).float()
 
         for t in range(convergence_iters):
             nu_orig = torch.clone(nu)
@@ -383,9 +385,9 @@ class OfflineFinite:
         self.tau_1 = torch.full(size=(max_num_features,), fill_value=alpha * beta / max_num_features)
         self.tau_2 = torch.full(size=(max_num_features,), fill_value=beta)
         self.mu = torch.from_numpy(
-            stats.norm.rvs(scale=0.01, size=(obs_dim, max_num_features))).float()
+            scipy.stats.norm.rvs(scale=0.01, size=(obs_dim, max_num_features))).float()
         self.tau = torch.from_numpy(
-            stats.norm.rvs(scale=0.1, size=(obs_dim, max_num_features)))
+            scipy.stats.norm.rvs(scale=0.1, size=(obs_dim, max_num_features)))
         # self.phi = stats.norm.rvs(scale=0.01, size=(obs_dim, max_num_features))
         # self.Phi = stats.norm.rvs(scale=0.1, size=(obs_dim, max_num_features))
         self.phi = torch.zeros(size=(obs_dim, max_num_features))
@@ -410,7 +412,7 @@ class OfflineFinite:
         Phi = torch.clone(self.Phi)
 
         nu = torch.from_numpy(
-            stats.uniform.rvs(size=(size, self.num_features))).float()
+            scipy.stats.uniform.rvs(size=(size, self.num_features))).float()
 
         for t in range(convergence_iters):
             order = [0, 1, 2] if self.iteration == 0 else [2, 0, 1]
@@ -486,7 +488,7 @@ class OfflineFinite:
         size = data.shape[0]
 
         nu = torch.from_numpy(
-            stats.uniform.rvs(size=(size, self.num_features))).float()
+            scipy.stats.uniform.rvs(size=(size, self.num_features))).float()
 
         for t in range(convergence_iters):
             nu_orig = torch.clone(nu)
@@ -539,8 +541,10 @@ class OfflineInfinite:
 
         self.tau_1 = torch.full(size=(max_num_features,), fill_value=alpha / max_num_features)
         self.tau_2 = torch.ones(max_num_features)
-        self.mu = torch.from_numpy(stats.norm.rvs(scale=0.01, size=(obs_dim, max_num_features)))
-        self.tau = torch.from_numpy(stats.norm.rvs(scale=0.1, size=(obs_dim, max_num_features)))
+        self.mu = torch.from_numpy(
+            scipy.stats.norm.rvs(scale=0.01, size=(obs_dim, max_num_features)))
+        self.tau = torch.from_numpy(
+            scipy.stats.norm.rvs(scale=0.1, size=(obs_dim, max_num_features)))
         # self.phi = stats.norm.rvs(scale=0.01, size=(obs_dim, max_num_features))
         # self.Phi = stats.norm.rvs(scale=0.1, size=(obs_dim, max_num_features))
         self.phi = torch.zeros(size=(obs_dim, max_num_features))
@@ -595,7 +599,7 @@ class OfflineInfinite:
         Phi = torch.clone(self.Phi)
 
         nu = torch.from_numpy(
-            stats.uniform.rvs(size=(num_obs, self.max_num_features))).float()
+            scipy.stats.uniform.rvs(size=(num_obs, self.max_num_features))).float()
 
         for t in range(convergence_iters):
             order = [0, 1, 2] if self.iteration == 0 else [2, 0, 1]
@@ -683,7 +687,7 @@ class OfflineInfinite:
         size = data.shape[0]
 
         nu = torch.from_numpy(
-            stats.uniform.rvs(size=(size, self.max_num_features))).float()
+            scipy.stats.uniform.rvs(size=(size, self.max_num_features))).float()
 
         for t in range(convergence_iters):
             nu_orig = torch.clone(nu)
@@ -1063,7 +1067,7 @@ class DoshiVelezLinearGaussian(LinearGaussianModel):
                 num_obs=num_obs)
 
         if self.use_infinite:
-            offline_model = utils.inference_widjaja.OfflineInfinite(
+            offline_model = utils.prob_models.linear_gaussian.OfflineInfinite(
                 obs_dim=obs_dim,
                 num_obs=num_obs,
                 max_num_features=self.max_num_features,
@@ -1074,7 +1078,7 @@ class DoshiVelezLinearGaussian(LinearGaussianModel):
                 t0=self.gen_model_params['t0'],
                 kappa=self.gen_model_params['kappa'])
         else:
-            offline_model = utils.inference_widjaja.OfflineFinite(
+            offline_model = utils.prob_models.linear_gaussian.OfflineFinite(
                 obs_dim=obs_dim,
                 num_obs=num_obs,
                 max_num_features=self.max_num_features,
@@ -1086,7 +1090,7 @@ class DoshiVelezLinearGaussian(LinearGaussianModel):
                 kappa=self.gen_model_params['kappa'])
 
         torch_observations = torch.from_numpy(observations).float()
-        offline_strategy = utils.inference_widjaja.Static(
+        offline_strategy = utils.prob_models.linear_gaussian.Static(
             offline_model,
             torch_observations,
             minibatch_size=num_obs,  # full batch
@@ -1834,7 +1838,7 @@ class WidjajaLinearGaussian(LinearGaussianModel):
                 num_obs=num_obs)
 
         if self.use_infinite:
-            online_model = utils.inference_widjaja.OnlineInfinite(
+            online_model = utils.prob_models.linear_gaussian.OnlineInfinite(
                 obs_dim=obs_dim,
                 max_num_features=self.max_num_features,
                 alpha=self.gen_model_params['IBP']['alpha'],
@@ -1844,7 +1848,7 @@ class WidjajaLinearGaussian(LinearGaussianModel):
                 t0=0.,
                 kappa=0.)
         else:
-            online_model = utils.inference_widjaja.OnlineFinite(
+            online_model = utils.prob_models.linear_gaussian.OnlineFinite(
                 obs_dim=obs_dim,
                 max_num_features=self.max_num_features,
                 alpha=self.gen_model_params['IBP']['alpha'],
@@ -1855,7 +1859,7 @@ class WidjajaLinearGaussian(LinearGaussianModel):
                 kappa=0.)
 
         torch_observations = torch.from_numpy(observations).float()
-        online_strategy = utils.inference_widjaja.Static(
+        online_strategy = utils.prob_models.linear_gaussian.Static(
             online_model,
             torch_observations,
             minibatch_size=10)
@@ -2160,7 +2164,8 @@ def posterior_multivariate_normal_linear_regression_leave_one_out(torch_observat
             log_likelihoods_per_latent_equal_zero[dish_idx] = mv_normal_latent_equal_zero.log_prob(
                 value=torch_observation_minus_component_explained_by_other_features)
 
-            # log_ratio = log_likelihoods_per_latent_equal_one[dish_idx] - log_likelihoods_per_latent_equal_zero[dish_idx]
+            # log_ratio = log_likelihoods_per_latent_equal_one[dish_idx] - log_likelihoods_per_latent_equal_zero[
+            # dish_idx]
 
             # reset mask for next step
             mask[dish_idx] = True
