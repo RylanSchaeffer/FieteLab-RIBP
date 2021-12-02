@@ -812,6 +812,7 @@ class CollapsedGibbsLinearGaussian(LinearGaussianModel):
         self.random_indicators_init = random_indicators_init
         self.fit_results = None
         self.max_num_features = None
+        self.features = None
 
     def fit(self,
             observations: np.ndarray):
@@ -886,9 +887,13 @@ class CollapsedGibbsLinearGaussian(LinearGaussianModel):
                     sampled_indicators[obs_idx, col_idx] = sampled_customer_dish_indicator
 
         self.fit_results = dict(
-            sampled_indicators=sampled_indicators[1:, :].numpy(),
+            observations=observations,
+            dish_eating_posteriors=sampled_indicators[1:, :].numpy(),
             gen_model_params=self.gen_model_params,
         )
+
+        self.features = self.features_after_last_obs()
+
         return self.fit_results
 
     def _compute_likelihood(self,
@@ -980,25 +985,45 @@ class CollapsedGibbsLinearGaussian(LinearGaussianModel):
 
         # Shape: (max num features, )
         indicators_running_sum = np.sum(
-            self.fit_results['sampled_indicators'],
+            self.fit_results['dish_eating_posteriors'],
             axis=0).astype(np.float32)
-        indicators_running_sum /= self.fit_results['sampled_indicators'].shape[0]
+        indicators_running_sum /= self.fit_results['dish_eating_posteriors'].shape[0]
 
+        # shape (num samples, max num features, obs dim)
         indicators_probs = np.random.binomial(
             n=1,
             p=indicators_running_sum[np.newaxis, :],
             size=(num_samples, self.max_num_features))
 
+        # shape (num samples, num obs, obs dim)
+        # Take MAP estimate for now?
+        features = np.repeat(
+            self.features[np.newaxis, :, :],
+            repeats=num_samples,
+            axis=0,
+        )
+
         sampled_params = dict(
-            indicators_probs=indicators_probs)
+            indicators_probs=indicators_probs,
+            features=features)
 
         return sampled_params
 
     def features_after_last_obs(self) -> np.ndarray:
-        raise AttributeError('Don\'t call this method. There are no features.')
+        if self.features is None:
+            # for brevity
+            Z = self.fit_results['dish_eating_posteriors']
+            X = self.fit_results['observations']
+
+            sigma_a = np.sqrt(self.gen_model_params['feature_prior_params']['feature_prior_cov_scaling'])
+            sigma_x = self.gen_model_params['likelihood_params']['sigma_x']
+            term_to_inv = Z.T @ Z + np.square(sigma_x) * np.eye(self.max_num_features) / np.square(sigma_a)
+            self.features = np.linalg.inv(term_to_inv) @ Z.T @ X
+
+        return self.features
 
     def features_by_obs(self) -> np.ndarray:
-        raise AttributeError('Don\'t call this method. There are no features.')
+        raise NotImplementedError
 
 
 class DoshiVelezLinearGaussian(LinearGaussianModel):
@@ -1045,7 +1070,7 @@ class DoshiVelezLinearGaussian(LinearGaussianModel):
                 alpha=self.gen_model_params['IBP']['alpha'],
                 beta=self.gen_model_params['IBP']['beta'],
                 sigma_a=np.sqrt(self.gen_model_params['feature_prior_params']['feature_prior_cov_scaling']),
-                sigma_x=np.sqrt(self.gen_model_params['likelihood_params']['sigma_x']),
+                sigma_x=self.gen_model_params['likelihood_params']['sigma_x'],
                 t0=self.gen_model_params['t0'],
                 kappa=self.gen_model_params['kappa'])
         else:
@@ -1056,7 +1081,7 @@ class DoshiVelezLinearGaussian(LinearGaussianModel):
                 alpha=self.gen_model_params['IBP']['alpha'],
                 beta=self.gen_model_params['IBP']['beta'],
                 sigma_a=np.sqrt(self.gen_model_params['feature_prior_params']['feature_prior_cov_scaling']),
-                sigma_x=np.sqrt(self.gen_model_params['likelihood_params']['sigma_x']),
+                sigma_x=self.gen_model_params['likelihood_params']['sigma_x'],
                 t0=self.gen_model_params['t0'],
                 kappa=self.gen_model_params['kappa'])
 
@@ -1815,7 +1840,7 @@ class WidjajaLinearGaussian(LinearGaussianModel):
                 alpha=self.gen_model_params['IBP']['alpha'],
                 beta=self.gen_model_params['IBP']['beta'],
                 sigma_a=np.sqrt(self.gen_model_params['feature_prior_params']['feature_prior_cov_scaling']),
-                sigma_x=np.sqrt(self.gen_model_params['likelihood_params']['sigma_x']),
+                sigma_x=self.gen_model_params['likelihood_params']['sigma_x'],
                 t0=0.,
                 kappa=0.)
         else:
@@ -1825,7 +1850,7 @@ class WidjajaLinearGaussian(LinearGaussianModel):
                 alpha=self.gen_model_params['IBP']['alpha'],
                 beta=self.gen_model_params['IBP']['beta'],
                 sigma_a=np.sqrt(self.gen_model_params['feature_prior_params']['feature_prior_cov_scaling']),
-                sigma_x=np.sqrt(self.gen_model_params['likelihood_params']['sigma_x']),
+                sigma_x=self.gen_model_params['likelihood_params']['sigma_x'],
                 t0=0,
                 kappa=0.)
 

@@ -39,7 +39,8 @@ def run_all():
 
     inference_alg_strs = [
         # 'R-IBP',
-        'HMC-Gibbs',
+        # 'HMC-Gibbs',
+        'Collapsed-Gibbs',
         # 'Doshi-Velez-Finite',
         # 'Doshi-Velez-Infinite',
         # 'Widjaja-Finite',

@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Tuple
+from typing import Dict, Tuple
 
 from utils.prob_models.linear_gaussian import LinearGaussianModel
 
@@ -7,7 +7,8 @@ from utils.prob_models.linear_gaussian import LinearGaussianModel
 def compute_log_posterior_predictive(train_observations: np.ndarray,
                                      test_observations: np.ndarray,
                                      inference_alg,
-                                     num_samples: int = 100) -> Tuple[np.ndarray, np.ndarray]:
+                                     num_samples: int = 100,
+                                     ) -> Tuple[np.ndarray, np.ndarray]:
     """
     """
 
@@ -33,7 +34,8 @@ def compute_log_posterior_predictive(train_observations: np.ndarray,
 def compute_log_posterior_predictive_factor_analysis(train_observations: np.ndarray,
                                                      test_observations: np.ndarray,
                                                      inference_alg: LinearGaussianModel,
-                                                     num_samples: int = 100) -> Tuple[np.ndarray, np.ndarray]:
+                                                     num_samples: int = 100,
+                                                     ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Compute the predictive log likelihood of new data using a Monte Carlo estimate:
 
@@ -98,7 +100,8 @@ def compute_log_posterior_predictive_factor_analysis(train_observations: np.ndar
 def compute_log_posterior_predictive_linear_gaussian(train_observations: np.ndarray,
                                                      test_observations: np.ndarray,
                                                      inference_alg: LinearGaussianModel,
-                                                     num_samples: int = 100) -> Tuple[np.ndarray, np.ndarray]:
+                                                     num_samples: int = 100,
+                                                     ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Compute the predictive log likelihood of new data using a Monte Carlo estimate:
 
@@ -157,3 +160,17 @@ def compute_log_posterior_predictive_linear_gaussian(train_observations: np.ndar
         raise NotImplementedError
 
     return log_posterior_predictive_results
+
+
+def compute_reconstruction_error_linear_gaussian(observations: np.ndarray,
+                                                 dish_eating_posteriors: np.ndarray,
+                                                 features_after_last_obs: np.ndarray,
+                                                 ) -> float:
+    """
+    Compute the reconstruction error: ||X - ZA||_2^2.
+    """
+
+    diff = observations - dish_eating_posteriors @ features_after_last_obs
+    error = np.square(np.linalg.norm(diff))
+    return error
+

@@ -86,12 +86,18 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
         runtime = stop_time - start_time
         logging.info('Generated inference results.')
 
+        training_reconstruction_error = utils.metrics.compute_reconstruction_error_linear_gaussian(
+            observations=sampled_linear_gaussian_data['train_observations'],
+            dish_eating_posteriors=inference_alg_results['dish_eating_posteriors'],
+            features_after_last_obs=inference_alg_results['inference_alg'].features_after_last_obs())
+        logging.info(f'Computed training reconstruction error: {training_reconstruction_error}')
+
         # record scores
         log_posterior_predictive_results = utils.metrics.compute_log_posterior_predictive_linear_gaussian(
             train_observations=sampled_linear_gaussian_data['train_observations'],
             test_observations=sampled_linear_gaussian_data['test_observations'],
             inference_alg=inference_alg_results['inference_alg'])
-        logging.info('Computed log posterior predictive.')
+        logging.info(f"Computed log posterior predictive: mean={log_posterior_predictive_results['mean']}")
 
         # count number of indicators
         num_indicators = np.sum(
@@ -104,12 +110,13 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
             num_indicators=num_indicators,
             log_posterior_predictive=dict(mean=log_posterior_predictive_results['mean'],
                                           std=log_posterior_predictive_results['std']),
+            training_reconstruction_error=training_reconstruction_error,
             runtime=runtime)
 
         logging.info(f'Writing inference results to disk at:'
                      f' {inference_results_path}')
 
-        # TODO: Investigate why HMC throws a
+        # TODO: Investigate why HMC throws the following error
         # _pickle.PicklingError: Can't pickle <function create_linear_gaussian_model.<locals>.linear_gaussian_model at 0x2b2a3d9e7170>: it's not found as utils.numpyro_models.create_linear_gaussian_model.<locals>.linear_gaussian_model
         # Then remove this del
         # This will break regardless inside plot_linear_gaussian.plot_run_one_inference_results

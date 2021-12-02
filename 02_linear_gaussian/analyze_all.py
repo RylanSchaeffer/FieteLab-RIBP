@@ -59,14 +59,15 @@ def load_all_datasets_all_alg_results(results_dir_path) -> pd.DataFrame:
                            stored_data['inference_alg_params']['IBP']['alpha'],
                            stored_data['inference_alg_params']['IBP']['beta'],
                            stored_data['runtime'],
-                           stored_data['log_posterior_predictive']['mean']]
+                           stored_data['log_posterior_predictive']['mean'],
+                           stored_data['training_reconstruction_error']]
                 del stored_data
                 rows.append(new_row)
 
     inf_algorithms_results_df = pd.DataFrame(
         rows,
         columns=['sampling', 'dataset', 'inference_alg', 'alpha',
-                 'beta', 'runtime', 'log_posterior_predictive'])
+                 'beta', 'runtime', 'log_posterior_predictive', 'reconstruction_error'])
 
     inf_algorithms_results_df['negative_log_posterior_predictive'] = -inf_algorithms_results_df['log_posterior_predictive']
     return inf_algorithms_results_df

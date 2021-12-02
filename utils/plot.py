@@ -51,6 +51,47 @@ def plot_analyze_all_negative_posterior_predictive_vs_runtime(inf_algorithms_res
         plt.close()
 
 
+def plot_analyze_all_reconstruction_error_vs_runtime(inf_algorithms_results_df: pd.DataFrame,
+                                                              plot_dir: str):
+    # In alpha (X) vs beta (Y) space, plot runtime (grouping by algorithm,
+    for sampling_scheme, results_by_sampling_df in inf_algorithms_results_df.groupby('sampling'):
+        sampling_results_dir_path = os.path.join(plot_dir, sampling_scheme)
+
+        for inf_alg_str, inf_alg_results_df in results_by_sampling_df.groupby(['inference_alg']):
+            algs_runstimes_and_train_recon_error = inf_alg_results_df.agg({
+                'runtime': ['mean', 'sem'],
+                'training_reconstruction_error': ['mean', 'sem']
+            })
+
+            plt.errorbar(
+                x=algs_runstimes_and_train_recon_error['runtime']['mean'],
+                xerr=algs_runstimes_and_train_recon_error['runtime']['sem'],
+                y=algs_runstimes_and_train_recon_error['training_reconstruction_error']['mean'],
+                yerr=algs_runstimes_and_train_recon_error['training_reconstruction_error']['sem'],
+                fmt='o',
+                label=inf_alg_str)
+
+        plt.legend()
+        if sampling_scheme.startswith('IBP'):
+            split_sampling_scheme = sampling_scheme.split('=')
+            alpha_str = float(split_sampling_scheme[1][:-2])
+            beta_str = float(split_sampling_scheme[2])
+            nice_title = rf'IBP($\alpha={alpha_str}, \beta={beta_str}$)'
+        else:
+            raise NotImplementedError
+        plt.title(nice_title)
+        plt.xlabel('Runtime (s)')
+        plt.ylabel(r'$||X - Z A||_2^2$')
+        plt.xscale('log')
+        # plt.yscale('log')
+        plt.savefig(os.path.join(sampling_results_dir_path,
+                                 f'negative_posterior_predictive_vs_runtime_{sampling_scheme}.png'),
+                    bbox_inches='tight',
+                    dpi=300)
+        # plt.show()
+        plt.close()
+
+
 def plot_indicators_by_index_over_many_observations(indicators, ):
     # plt.title(f'Obs Idx: {obs_idx}, VI Idx: {vi_idx + 1}')
     # plt.scatter(np.arange(len(dish_eating_prior)), dish_eating_prior, label='prior')
