@@ -104,6 +104,7 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
             np.sum(inference_alg_results['dish_eating_posteriors'], axis=0) > 0.)
 
         data_to_store = dict(
+            sampled_linear_gaussian_data=sampled_linear_gaussian_data,
             inference_alg_str=inference_alg_str,
             inference_alg_params=gen_model_params,
             inference_alg_results=inference_alg_results,

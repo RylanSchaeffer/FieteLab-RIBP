@@ -174,9 +174,6 @@ def compute_log_posterior_predictive_linear_gaussian(train_observations: np.ndar
 
         log_posterior_predictive_per_sample = np.zeros(shape=(num_samples,))
 
-        log_prior_prob = sampled_variables_posterior['log_prior_prob']
-        log_posterior_predictive_per_sample += log_prior_prob
-
         # shape: num train + num test, obs dim
         Otilde = np.concatenate([test_observations, train_observations])
         # shape (num samples, num train + num test, max num features)
@@ -226,6 +223,11 @@ def compute_log_posterior_predictive_linear_gaussian(train_observations: np.ndar
             )
 
             log_posterior_predictive_per_sample[sample_idx] = sample_log_posterior_predictive
+
+        # TODO: because we can't evaluate p(Z_train=Gibbs sample|O_train),
+        #  use p(Z_train=Gibbs sample)
+        log_prior_prob = sampled_variables_posterior['log_prior_prob']
+        log_posterior_predictive_per_sample += log_prior_prob
 
     log_posterior_predictive_results = dict(
         mean=np.mean(log_posterior_predictive_per_sample),

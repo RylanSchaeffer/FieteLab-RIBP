@@ -7,6 +7,8 @@ import pandas as pd
 import seaborn as sns
 from typing import Union
 
+plt.rcParams.update({'font.size': 22})
+
 from utils.numpy_helpers import compute_largest_dish_idx
 
 
@@ -30,7 +32,8 @@ def plot_analyze_all_negative_posterior_predictive_vs_runtime(inf_algorithms_res
                 fmt='o',
                 label=inf_alg_str)
 
-        plt.legend()
+        # plt.legend()
+        lg = plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left')
         if sampling_scheme.startswith('IBP'):
             split_sampling_scheme = sampling_scheme.split('=')
             alpha_str = float(split_sampling_scheme[1][:-2])
@@ -43,16 +46,21 @@ def plot_analyze_all_negative_posterior_predictive_vs_runtime(inf_algorithms_res
         plt.ylabel('Negative Log Posterior Predictive')
         plt.xscale('log')
         plt.yscale('log')
+        # Make room at bottom
+        plt.subplots_adjust(left=0.15)
+        plt.subplots_adjust(bottom=0.15)
+        # plt.tight_layout()
         plt.savefig(os.path.join(sampling_results_dir_path,
                                  f'negative_posterior_predictive_vs_runtime_{sampling_scheme}.png'),
+                    bbox_extra_artists=(lg,),
                     bbox_inches='tight',
                     dpi=300)
-        plt.show()
+        # plt.show()
         plt.close()
 
 
 def plot_analyze_all_reconstruction_error_vs_runtime(inf_algorithms_results_df: pd.DataFrame,
-                                                              plot_dir: str):
+                                                     plot_dir: str):
     # In alpha (X) vs beta (Y) space, plot runtime (grouping by algorithm,
     for sampling_scheme, results_by_sampling_df in inf_algorithms_results_df.groupby('sampling'):
         sampling_results_dir_path = os.path.join(plot_dir, sampling_scheme)
@@ -71,7 +79,8 @@ def plot_analyze_all_reconstruction_error_vs_runtime(inf_algorithms_results_df: 
                 fmt='o',
                 label=inf_alg_str)
 
-        plt.legend()
+        # plt.legend()
+        plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left')
         if sampling_scheme.startswith('IBP'):
             split_sampling_scheme = sampling_scheme.split('=')
             alpha_str = float(split_sampling_scheme[1][:-2])
@@ -84,8 +93,13 @@ def plot_analyze_all_reconstruction_error_vs_runtime(inf_algorithms_results_df: 
         plt.ylabel(r'$||X - Z A||_2^2$')
         plt.xscale('log')
         # plt.yscale('log')
+        # Make room at bottom
+        # plt.subplots_adjust(bottom=0.15)
+        # Ensures things aren't cut off - maybe?
+        # https://www.delftstack.com/howto/matplotlib/how-to-place-legend-outside-of-the-plot-in-matplotlib/
+        plt.tight_layout()
         plt.savefig(os.path.join(sampling_results_dir_path,
-                                 f'negative_posterior_predictive_vs_runtime_{sampling_scheme}.png'),
+                                 f'reconstruction_error_vs_runtime_{sampling_scheme}.png'),
                     bbox_inches='tight',
                     dpi=300)
         # plt.show()
@@ -279,7 +293,7 @@ def plot_run_one_num_features_by_num_obs_using_poisson_rates(indicators: Union[n
     if indicators is None:
         real_num_dishes = np.full_like(
             num_dishes_poisson_rate_priors[:, 0],
-            fill_value=np.nan,)
+            fill_value=np.nan, )
     else:
         real_num_dishes = np.concatenate(
             [np.sum(np.minimum(np.cumsum(indicators, axis=0), 1), axis=1)])

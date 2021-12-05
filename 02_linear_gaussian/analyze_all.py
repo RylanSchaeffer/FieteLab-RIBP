@@ -54,6 +54,20 @@ def load_all_datasets_all_alg_results(results_dir_path) -> pd.DataFrame:
                 except FileNotFoundError:
                     logging.info(f'Could not find results for {inference_alg_dir_path}.')
                     continue
+                if inference_alg_dir.startswith('Collapsed-Gibbs'):
+                    continue
+                    # dish_eating_posteriors = stored_data['inference_alg_results']['dish_eating_posteriors']
+                    # import matplotlib.pyplot as plt
+                    # plt.rcParams.update({'font.size': 18})
+                    # plt.imshow(dish_eating_posteriors, cmap='gray', interpolation='none',
+                    #            vmin=0., vmax=1.)
+                    # alpha = stored_data['inference_alg_params']['IBP']['alpha']
+                    # beta = stored_data['inference_alg_params']['IBP']['beta']
+                    # plt.title(rf'$\alpha={alpha}, \beta={beta}$')
+                    # plt.ylabel('Obs Index')
+                    # plt.xlabel('Feature Index')
+                    # plt.subplots_adjust(bottom=0.15)
+                    # plt.show()
                 logging.info(f'Successfully loaded {inference_alg_dir_path} algorithm results.')
 
                 # Backwards compatibility
