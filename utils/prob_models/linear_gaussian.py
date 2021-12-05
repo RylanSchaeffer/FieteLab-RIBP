@@ -772,8 +772,8 @@ class LinearGaussianModel(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def sample_params_for_predictive_posterior(self,
-                                               num_samples: int):
+    def sample_variables_for_predictive_posterior(self,
+                                                  num_samples: int):
         pass
 
     @abc.abstractmethod
@@ -817,6 +817,7 @@ class CollapsedGibbsLinearGaussian(LinearGaussianModel):
         self.fit_results = None
         self.max_num_features = None
         self.features = None
+        self.log_prior_prob = None
 
     def fit(self,
             observations: np.ndarray):
@@ -827,6 +828,8 @@ class CollapsedGibbsLinearGaussian(LinearGaussianModel):
         num_obs, obs_dim = observations.shape
 
         # Note: the expected number of latents grows logarithmically as a*b*log(1 + N/beta)
+        # Our method doesn't require truncation, but pre-allocating makes the
+        # implementation easier.
         self.max_num_features = compute_max_num_features(
             alpha=self.gen_model_params['IBP']['alpha'],
             beta=self.gen_model_params['IBP']['beta'],
@@ -848,6 +851,7 @@ class CollapsedGibbsLinearGaussian(LinearGaussianModel):
 
         torch_observations = torch.from_numpy(observations).float()
 
+        # TODO: add dish_eating_priors to fit_results as pure IBP
         for pass_idx in range(self.num_passes):
 
             for obs_idx, torch_observation in enumerate(torch_observations[:num_obs], start=1):
@@ -878,7 +882,7 @@ class CollapsedGibbsLinearGaussian(LinearGaussianModel):
                                                              + torch.log(1. - customer_dish_prior_prob)
                     # Need to use max trick for stability with very large negative log posteriors
                     max_value = torch.maximum(unnormalize_log_posterior_if_dish,
-                                             unnormalized_log_posterior_if_not_dish)
+                                              unnormalized_log_posterior_if_not_dish)
                     term_if_dish = torch.exp(unnormalize_log_posterior_if_dish - max_value)
                     term_if_not_dish = torch.exp(unnormalized_log_posterior_if_not_dish - max_value)
                     dish_posterior_prob = term_if_dish / (term_if_dish + term_if_not_dish)
@@ -890,13 +894,28 @@ class CollapsedGibbsLinearGaussian(LinearGaussianModel):
 
                     sampled_indicators[obs_idx, col_idx] = sampled_customer_dish_indicator
 
+        dish_eating_posteriors = sampled_indicators[1:, :].numpy()
+
+        betas = np.random.beta(
+            a=self.ibp_params['alpha'],
+            b=self.ibp_params['beta'],
+            size=self.max_num_features)
+        prod_betas = np.cumprod(betas)
+        prod_betas = np.repeat(prod_betas[np.newaxis, :],
+                               repeats=num_obs,
+                               axis=0)
+
+        log_prior_prob = np.sum(scipy.stats.bernoulli.logpmf(
+            dish_eating_posteriors.flatten(),
+            p=prod_betas.flatten()))
+
+        self.log_prior_prob = log_prior_prob
+
         self.fit_results = dict(
             observations=observations,
-            dish_eating_posteriors=sampled_indicators[1:, :].numpy(),
+            dish_eating_posteriors=dish_eating_posteriors,
             gen_model_params=self.gen_model_params,
         )
-
-        self.features = self.features_after_last_obs()
 
         return self.fit_results
 
@@ -984,50 +1003,50 @@ class CollapsedGibbsLinearGaussian(LinearGaussianModel):
 
         return new_sampled_indicators
 
-    def sample_params_for_predictive_posterior(self,
-                                               num_samples: int):
+    def sample_variables_for_predictive_posterior(self,
+                                                  num_samples: int):
 
         # Shape: (max num features, )
         indicators_running_sum = np.sum(
             self.fit_results['dish_eating_posteriors'],
             axis=0).astype(np.float32)
-        indicators_running_sum /= self.fit_results['dish_eating_posteriors'].shape[0]
+        indicators_probs = indicators_running_sum / \
+                           self.fit_results['dish_eating_posteriors'].shape[0]
 
-        # shape (num samples, max num features, obs dim)
-        indicators_probs = np.random.binomial(
-            n=1,
-            p=indicators_running_sum[np.newaxis, :],
-            size=(num_samples, self.max_num_features))
-
-        # shape (num samples, num obs, obs dim)
-        # Take MAP estimate for now?
-        features = np.repeat(
-            self.features[np.newaxis, :, :],
-            repeats=num_samples,
-            axis=0,
-        )
+        # # shape (num samples, num obs, obs dim)
+        # # Take MAP estimate for now?
+        # features = np.repeat(
+        #     self.features[np.newaxis, :, :],
+        #     repeats=num_samples,
+        #     axis=0,
+        # )
 
         sampled_params = dict(
             indicators_probs=indicators_probs,
-            features=features)
+            indicators_probs_train=self.fit_results['dish_eating_posteriors'],
+            observations_train=self.fit_results['observations'],
+            log_prior_prob=self.log_prior_prob,
+            # features=features,
+        )
 
         return sampled_params
 
     def features_after_last_obs(self) -> np.ndarray:
-        if self.features is None:
-            # for brevity
-            Z = self.fit_results['dish_eating_posteriors']
-            X = self.fit_results['observations']
-
-            sigma_a = np.sqrt(self.gen_model_params['feature_prior_params']['feature_prior_cov_scaling'])
-            sigma_x = self.gen_model_params['likelihood_params']['sigma_x']
-            term_to_inv = Z.T @ Z + np.square(sigma_x) * np.eye(self.max_num_features) / np.square(sigma_a)
-            self.features = np.linalg.inv(term_to_inv) @ Z.T @ X
-
-        return self.features
+        # if self.features is None:
+        #     # for brevity
+        #     Z = self.fit_results['dish_eating_posteriors']
+        #     X = self.fit_results['observations']
+        #
+        #     sigma_a = np.sqrt(self.gen_model_params['feature_prior_params']['feature_prior_cov_scaling'])
+        #     sigma_x = self.gen_model_params['likelihood_params']['sigma_x']
+        #     term_to_inv = Z.T @ Z + np.square(sigma_x) * np.eye(self.max_num_features) / np.square(sigma_a)
+        #     self.features = np.linalg.inv(term_to_inv) @ Z.T @ X
+        #
+        # return self.features
+        return None
 
     def features_by_obs(self) -> np.ndarray:
-        raise NotImplementedError
+        return None
 
 
 class DoshiVelezLinearGaussian(LinearGaussianModel):
@@ -1151,8 +1170,8 @@ class DoshiVelezLinearGaussian(LinearGaussianModel):
 
         return self.fit_results
 
-    def sample_params_for_predictive_posterior(self,
-                                               num_samples: int) -> Dict[str, np.ndarray]:
+    def sample_variables_for_predictive_posterior(self,
+                                                  num_samples: int) -> Dict[str, np.ndarray]:
 
         var_params = self.fit_results['variational_params']
         param_1 = np.copy(var_params['beta']['param_1'])
@@ -1282,8 +1301,8 @@ class HMCGibbsLinearGaussian(LinearGaussianModel):
 
         return self.fit_results
 
-    def sample_params_for_predictive_posterior(self,
-                                               num_samples: int) -> Dict[str, np.ndarray]:
+    def sample_variables_for_predictive_posterior(self,
+                                                  num_samples: int) -> Dict[str, np.ndarray]:
 
         if self.fit_results is None:
             raise ValueError('Must call .fit() before calling .predict()')
@@ -1751,8 +1770,8 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
 
         return self.fit_results
 
-    def sample_params_for_predictive_posterior(self,
-                                               num_samples: int) -> Dict[str, np.ndarray]:
+    def sample_variables_for_predictive_posterior(self,
+                                                  num_samples: int) -> Dict[str, np.ndarray]:
 
         # obs index is customer index (1-based)
         # add one because we are predicting the next customer
@@ -1781,11 +1800,6 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
         # set floating errors to small values
         dish_eating_prior[dish_eating_prior < 1e-10] = 1e-10
 
-        indicators_probs = np.random.binomial(
-            n=1,
-            p=dish_eating_prior[np.newaxis, :],
-            size=(num_samples, max_num_features))
-
         var_params = self.fit_results['variational_params']
 
         covs = utils.numpy_helpers.convert_half_cov_to_cov(
@@ -1797,11 +1811,11 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
         # shape = (num samples, max num features, obs dim)
         features = features.transpose(1, 0, 2)
 
-        sampled_params = dict(
-            indicators_probs=indicators_probs,
+        sampled_variables = dict(
+            indicators_probs=dish_eating_prior,
             features=features)
 
-        return sampled_params
+        return sampled_variables
 
     def features_after_last_obs(self) -> np.ndarray:
         return self.fit_results['variational_params']['A']['mean'][-1, :, :]
@@ -1917,8 +1931,8 @@ class WidjajaLinearGaussian(LinearGaussianModel):
 
         return self.fit_results
 
-    def sample_params_for_predictive_posterior(self,
-                                               num_samples: int) -> Dict[str, np.ndarray]:
+    def sample_variables_for_predictive_posterior(self,
+                                                  num_samples: int) -> Dict[str, np.ndarray]:
 
         var_params = self.fit_results['variational_params']
         # TODO: investigate why some param_2 are negative and how to stop it.

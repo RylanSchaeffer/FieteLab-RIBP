@@ -60,7 +60,7 @@ def run_inference_alg(inference_alg_str: str,
             inference_alg = utils.prob_models.linear_gaussian.HMCGibbsLinearGaussian(
                 model_str=model_str,
                 gen_model_params=gen_model_params,
-                num_samples=10000,  # 100000
+                num_samples=50000,  # 100000
                 num_warmup_samples=1000,  # 10000
                 num_thinning_samples=500,  # 1000
             )

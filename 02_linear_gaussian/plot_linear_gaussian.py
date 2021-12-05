@@ -28,6 +28,10 @@ def plot_run_one_gaussian_features_by_num_obs(observations: np.ndarray,
                                               plot_dir: str,
                                               max_obs_idx: int = 20,
                                               max_num_features: int = 15):
+
+    if gaussian_features is None:
+        return
+
     """
     Plot Gaussian 2-D features in grid, where each subplot in the grid
     is a different observation. Only plot the first max_obs_idx.
@@ -100,6 +104,9 @@ def plot_run_one_distance_btwn_true_features_and_inferred_feature_means(true_fea
     :param metric_str:
     :return:
     """
+    if inferred_feature_means is None:
+        return
+
     distances = cdist(true_features,
                       inferred_feature_means,
                       metric=metric_str)
@@ -129,6 +136,7 @@ def plot_run_one_inference_results(sampled_linear_gaussian_data: dict,
                                    inference_alg_params: Dict[str, float],
                                    log_posterior_predictive_dict: Dict[str, float],
                                    plot_dir):
+
     plot_run_one_distance_btwn_true_features_and_inferred_feature_means(
         true_features=sampled_linear_gaussian_data['gaussian_params']['means'],
         inferred_feature_means=inference_alg_results['inference_alg'].features_after_last_obs(),
@@ -199,6 +207,10 @@ def plot_run_one_true_features_vs_inferred_feature_means(observations: np.ndarra
                                                          true_features: np.ndarray,
                                                          inferred_feature_means: np.ndarray,
                                                          plot_dir: str):
+
+    if inferred_feature_means is None:
+        return
+
     fig, axes = plt.subplots(nrows=1, ncols=2)
 
     ax = axes[0]

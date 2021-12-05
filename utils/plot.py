@@ -47,7 +47,7 @@ def plot_analyze_all_negative_posterior_predictive_vs_runtime(inf_algorithms_res
                                  f'negative_posterior_predictive_vs_runtime_{sampling_scheme}.png'),
                     bbox_inches='tight',
                     dpi=300)
-        # plt.show()
+        plt.show()
         plt.close()
 
 
