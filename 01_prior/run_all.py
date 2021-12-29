@@ -1,6 +1,6 @@
 """
 Launch run_one.py with each configuration of the params, to compare the
-analytical DCRP marginal distribution against Monte-Carlo estimates of the DCRP
+analytical RIBP marginal distribution against Monte-Carlo estimates of the RIBP
 marginal distribution.
 
 Example usage:

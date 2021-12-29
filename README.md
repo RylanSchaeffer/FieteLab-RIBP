@@ -1,6 +1,6 @@
 # Streaming Inference for Infinite Feature Models
 
-### Authors: Rylan Schaeffer, Yilun Du, Ila Rani Fiete
+### Authors: Rylan Schaeffer, Yilun Du, Gabrielle Kaili-May Liu, Ila Rani Fiete
 
 -----
 
