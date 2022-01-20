@@ -143,7 +143,7 @@ def setup(args: argparse.Namespace):
     torch.manual_seed(args.seed)
 
     # load Mixture of Gaussian data
-    sampled_omniglot_data = utils.data.real.load_omniglot_dataset(
+    sampled_omniglot_data = utils.data.real.load_dataset_omniglot(
         num_data=300,
         feature_extractor_method='vae',
     )

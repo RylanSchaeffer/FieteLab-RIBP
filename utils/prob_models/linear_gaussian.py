@@ -801,6 +801,7 @@ class CollapsedGibbsLinearGaussian(LinearGaussianModel):
                  num_passes: int = 1,
                  random_indicators_init: bool = True
                  ):
+
         # Check validity of input params
         assert model_str == 'linear_gaussian'
         self.gen_model_params = gen_model_params
@@ -2267,11 +2268,6 @@ def recursive_ibp_optimize_bernoulli_params(torch_observation: torch.Tensor,
             slices_indices = list(reversed(slices_indices))
     else:
         raise ValueError(f'Impermissible value for simultaneous_or_sequential: {simultaneous_or_sequential}')
-
-    # establish that first feature has closest distance
-    A_means = variational_params['A']['mean'][obs_idx].detach().numpy()
-    from scipy.spatial.distance import cdist
-    distances_to_obs = cdist(A_means, torch_observation.unsqueeze(0))
 
     bernoulli_probs = variational_params['Z']['prob'][obs_idx].detach().clone()
     # either do 1 iteration of all indices (simultaneous) or do K iterations of each index (sequential)
