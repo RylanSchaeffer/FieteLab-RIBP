@@ -25,8 +25,8 @@ def run_all():
     inference_alg_strs = [
         'R-IBP',
     ]
-    alphas = [1., 5., 10., 25.]
-    betas = [1., 5., 10.]
+    alphas = [1., 2.5, 5., 7.5]
+    betas = [1., 2.5, 5., 7.5]
     feature_prior_cov_scalings = [0.1, 1., 5., 10.]
     sigma_xs = [0.1, 1., 5., 10.]
     seeds = list(range(3))
@@ -79,9 +79,9 @@ def launch_run_one(exp_dir_path: str,
         inference_alg_str,
         str(alpha),
         str(beta),
-        feature_prior_cov_scaling,
-        sigma_x,
-        seed]
+        str(feature_prior_cov_scaling),
+        str(sigma_x),
+        str(seed)]
 
     # TODO: Figure out where the logger is logging to
     logging.info(f'Launching ' + ' '.join(command_and_args))

@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH -p fiete
-#SBATCH -n 2                    # two cores
-#SBATCH --mem=64G               # RAM
+#SBATCH -p use-everything
+#SBATCH -n 4                    # two cores
+#SBATCH --mem=40G               # RAM
 #SBATCH --time=99:99:99         # total run time limit (HH:MM:SS)
 #SBATCH --mail-user=rylansch
 #SBATCH --mail-type=FAIL
@@ -23,11 +23,11 @@ export PYTHONPATH=.
 set -x
 
 # -u flushes output buffer immediately
-python -u 02_linear_gaussian/run_one.py \
+python -u 04_cancer_gene_expression/run_one.py \
 --run_one_results_dir="${run_one_results_dir_path}" \
 --inference_alg_str="${inference_alg_str}" \
 --alpha="${alpha}" \
 --beta="${beta}" \
---feature_prior_cov_scaling="${feature_prior_cov_scaling}"
---sigma_x="${sigma_x}"
+--feature_prior_cov_scaling="${feature_prior_cov_scaling}" \
+--sigma_x="${sigma_x}" \
 --seed="${seed}"
