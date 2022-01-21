@@ -25,8 +25,8 @@ def run_all():
     inference_alg_strs = [
         'R-IBP',
     ]
-    alphas = [1., 2.5, 5., 7.5]
-    betas = [1., 2.5, 5., 7.5]
+    alphas = [1., 2.5, 5.,]
+    betas = [1., 2.5, 5.]
     feature_prior_cov_scalings = [0.1, 1., 5., 10.]
     sigma_xs = [0.1, 1., 5., 10.]
     seeds = list(range(3))
