@@ -8,13 +8,18 @@ python3 00_motivation/run_one.py
 """
 
 import matplotlib.pyplot as plt
+import matplotlib.pylab as pylab
 import numpy as np
 import os
 import pandas as pd
 import seaborn as sns
 from sklearn.decomposition import PCA
 
-import utils.real
+import utils.data.real
+
+# Font setup
+plt.rcParams["font.family"] = "Times New Roman"
+sns.set(font_scale=1.2)
 
 plot_dir = '00_motivation/results'
 os.makedirs(plot_dir, exist_ok=True)
@@ -24,12 +29,12 @@ thresholds = [0.5, 0.75, 0.95, 0.99]
 dataset_sizes = np.arange(100, 3501, 100)
 for dataset in datasets:
     if dataset == 'MNIST':
-        mnist_results = utils.real.load_mnist_dataset(
+        mnist_results = utils.data.real.load_mnist_dataset(
             feature_extractor_method=None)
         features = mnist_results['image_features']
         possible_indices = np.arange(features.shape[0])
     elif dataset == 'Omniglot':
-        omniglot_results = utils.real.load_omniglot_dataset(
+        omniglot_results = utils.data.real.load_omniglot_dataset(
             feature_extractor_method=None,
             center_crop=False)
         features = omniglot_results['image_features']
@@ -63,9 +68,10 @@ for dataset in datasets:
                          hue='threshold',
                          legend='full',  # necessary to force seaborn to not try binning based on hue
                          )
-        plt.title(f'{dataset}')
-        plt.xlabel('Dataset Size')
-        plt.ylabel(f'Num PCs to Explain % Variance')
+        plt.title(f'{dataset}', fontname='Times New Roman',fontsize=14)
+        plt.xlabel('Dataset Size', fontname='Times New Roman',fontsize=14)
+        plt.ylabel(f'Num PCs to Explain % Variance', fontname='Times New Roman',fontsize=14)
+        plt.grid()
         legend = g.legend()
         legend.texts[0].set_text("% Variance")
         plt.savefig(os.path.join(plot_dir,

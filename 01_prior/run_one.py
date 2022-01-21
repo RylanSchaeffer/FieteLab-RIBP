@@ -17,9 +17,8 @@ import os
 import scipy.stats
 from typing import Dict
 
-
 import plot_prior
-import utils.data_synthetic
+import utils.data.synthetic
 import utils.run_helpers
 
 
@@ -27,18 +26,22 @@ def run_one(args: argparse.Namespace):
 
     run_one_results_dir = setup(args=args)
 
-    sample_ibp_results = sample_ibp_and_save(
-        num_customer=args.num_customer,
-        alpha=args.alpha,
-        beta=args.beta,
-        run_one_results_dir=run_one_results_dir,
-        num_mc_sample=args.num_mc_sample)
+    # sample_ibp_results = sample_ibp_and_save(
+    #     num_customer=args.num_customer,
+    #     alpha=args.alpha,
+    #     beta=args.beta,
+    #     run_one_results_dir=run_one_results_dir,
+    #     num_mc_sample=args.num_mc_sample)
 
-    analytical_ibp_results = compute_analytical_ibp_and_save(
-        num_customer=args.num_customer,
-        alpha=args.alpha,
-        beta=args.beta,
-        run_one_results_dir=run_one_results_dir)
+    # analytical_ibp_results = compute_analytical_ibp_and_save(
+    #     num_customer=args.num_customer,
+    #     alpha=args.alpha,
+    #     beta=args.beta,
+    #     run_one_results_dir=run_one_results_dir)
+
+    sample_ibp_results = joblib.load(os.path.join(run_one_results_dir,
+                                                  f'monte_carlo_samples={args.num_mc_sample}.joblib'))
+    analytical_ibp_results = joblib.load(os.path.join(run_one_results_dir, 'analytical.joblib'))
 
     plot_prior.plot_customer_dishes_analytical_vs_monte_carlo(
         sampled_dishes_by_customer_idx=sample_ibp_results['sampled_dishes_by_customer_idx'],
@@ -101,7 +104,7 @@ def compute_analytical_ibp(num_customer: int,
     new_dishes_rate = alpha * beta / (beta + 1 - 1)
     total_dishes_rate = new_dishes_rate
     num_dishes_by_customer_idx[1, :] = scipy.stats.poisson.pmf(
-            dish_indices, mu=total_dishes_rate)
+        dish_indices, mu=total_dishes_rate)
     analytical_dishes_by_customer_idx[1, :] = np.cumsum(
         scipy.stats.poisson.pmf(dish_indices[::-1], mu=new_dishes_rate))[::-1]
     cum_analytical_dishes_by_customer_idx[1, :] = analytical_dishes_by_customer_idx[1, :]
@@ -180,7 +183,7 @@ def sample_ibp_and_save(num_customer: int,
 
     # if not os.path.isfile(ibp_samples_path):
 
-    sample_ibp_results = utils.data_synthetic.sample_ibp(
+    sample_ibp_results = utils.data.synthetic.sample_ibp(
         num_mc_sample=num_mc_sample,
         num_customer=num_customer,
         alpha=alpha,

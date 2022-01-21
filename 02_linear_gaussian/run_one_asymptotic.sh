@@ -1,16 +1,13 @@
 #!/bin/bash
 #SBATCH -p fiete
 #SBATCH -n 2                    # two cores
-#SBATCH --mem=24G               # RAM
-#SBATCH --time=2:99:99         # total run time limit (HH:MM:SS)
-#SBATCH --mail-user=gkml
-#SBATCH --mail-type=FAIL
+#SBATCH --mem=64G               # RAM
+#SBATCH --time=99:99:99         # total run time limit (HH:MM:SS)
 
 run_one_results_dir_path=${1}
-num_customer=${2}
-num_mc_sample=${3}
-alpha=${4}
-beta=${5}
+inference_alg_str=${2}
+alpha=${3}
+beta=${4}
 
 # don't remember what this does
 export PYTHONPATH=.
@@ -20,9 +17,8 @@ export PYTHONPATH=.
 set -x
 
 # -u flushes output buffer immediately
-python -u 01_prior/run_one.py \
---results_dir_path="${run_one_results_dir_path}" \
---num_customer="${num_customer}" \
---num_mc_sample="${num_mc_sample}" \
+python -u 02_linear_gaussian/run_one_asymptotic.py \
+--run_one_results_dir="${run_one_results_dir_path}" \
+--inference_alg_str="${inference_alg_str}" \
 --alpha="${alpha}" \
 --beta="${beta}"

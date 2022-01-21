@@ -1,5 +1,6 @@
 from matplotlib.animation import FuncAnimation
 import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 import numpy as np
 import os
 import pandas as pd
@@ -246,3 +247,4 @@ def plot_run_one_true_features_vs_inferred_feature_means(observations: np.ndarra
                 dpi=300)
     # plt.show()
     plt.close()
+
