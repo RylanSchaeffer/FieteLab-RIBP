@@ -39,7 +39,7 @@ def run_one(args: argparse.Namespace):
         args.run_one_results_dir))
 
     run_and_plot_inference_alg(
-        sampled_cancer_gene_expression_data=setup_results['sampled_cancer_gene_expression_data'],
+        diabetes_hospitals_data=setup_results['diabetes_hospitals_data'],
         inference_alg_str=setup_results['inference_alg_str'],
         gen_model_params=setup_results['gen_model_params'],
         inference_results_dir=setup_results['inference_results_dir'])
@@ -49,7 +49,7 @@ def run_one(args: argparse.Namespace):
         args.run_one_results_dir))
 
 
-def run_and_plot_inference_alg(sampled_cancer_gene_expression_data,
+def run_and_plot_inference_alg(diabetes_hospitals_data,
                                inference_alg_str,
                                gen_model_params,
                                inference_results_dir,
@@ -58,12 +58,12 @@ def run_and_plot_inference_alg(sampled_cancer_gene_expression_data,
     assert 0. <= train_fraction <= 1.
 
     # Determine the index for train-test split
-    num_obs = sampled_cancer_gene_expression_data['observations'].shape[0]
+    num_obs = diabetes_hospitals_data['observations'].shape[0]
     train_end_idx = int(num_obs * train_fraction)
-    sampled_cancer_gene_expression_data['train_observations'] = \
-        sampled_cancer_gene_expression_data['observations'][:train_end_idx]
-    sampled_cancer_gene_expression_data['test_observations'] = \
-        sampled_cancer_gene_expression_data['observations'][train_end_idx:]
+    diabetes_hospitals_data['train_observations'] = \
+        diabetes_hospitals_data['observations'][:train_end_idx]
+    diabetes_hospitals_data['test_observations'] = \
+        diabetes_hospitals_data['observations'][train_end_idx:]
 
     inference_results_path = os.path.join(
         inference_results_dir,
@@ -80,7 +80,7 @@ def run_and_plot_inference_alg(sampled_cancer_gene_expression_data,
 
         inference_alg_results = utils.inference.run_inference_alg(
             inference_alg_str=inference_alg_str,
-            observations=sampled_cancer_gene_expression_data['train_observations'],
+            observations=diabetes_hospitals_data['train_observations'],
             model_str='linear_gaussian',
             gen_model_params=gen_model_params,
             plot_dir=inference_results_dir)
@@ -92,8 +92,8 @@ def run_and_plot_inference_alg(sampled_cancer_gene_expression_data,
 
         # record scores
         log_posterior_predictive_results = utils.metrics.compute_log_posterior_predictive_factor_analysis(
-            train_observations=sampled_cancer_gene_expression_data['train_observations'],
-            test_observations=sampled_cancer_gene_expression_data['test_observations'],
+            train_observations=diabetes_hospitals_data['train_observations'],
+            test_observations=diabetes_hospitals_data['test_observations'],
             inference_alg=inference_alg_results['inference_alg'])
         print('Computed log posterior predictive.')
 
@@ -147,29 +147,29 @@ def setup(args: argparse.Namespace):
     torch.manual_seed(args.seed)
 
     print('Loading 2014 Diabetes Hospitals...')
-    sampled_cancer_gene_expression_data = load_dataset_diabetes_hospitals_2014()
+    diabetes_hospitals_data = load_dataset_diabetes_hospitals_2014()
     print('Loaded 2014 Diabetes Hospitals!')
 
     # Permute the order of the data
-    n_obs = sampled_cancer_gene_expression_data['observations'].shape[0]
+    n_obs = diabetes_hospitals_data['observations'].shape[0]
     permutation = np.random.permutation(np.arange(n_obs))
-    sampled_cancer_gene_expression_data['observations'] = \
-        sampled_cancer_gene_expression_data['observations'][permutation]
-    sampled_cancer_gene_expression_data['labels'] = \
-        sampled_cancer_gene_expression_data['labels'][permutation]
+    diabetes_hospitals_data['observations'] = \
+        diabetes_hospitals_data['observations'][permutation]
+    diabetes_hospitals_data['labels'] = \
+        diabetes_hospitals_data['labels'][permutation]
     print('Randomly permuted the order of 2014 Diabetes Hospitals data.')
 
     from sklearn.random_projection import GaussianRandomProjection
     jl_projection = GaussianRandomProjection(n_components='auto',
                                              eps=args.jl_eps)
     projected_observations = jl_projection.fit_transform(
-        sampled_cancer_gene_expression_data['observations'])
+        diabetes_hospitals_data['observations'])
     print(f'Randomly projected 2014 Diabetes Hospitals data to {projected_observations.shape[1]} dimensions.')
 
     from sklearn.preprocessing import StandardScaler
     scaler = StandardScaler()
     scaled_projected_observations = scaler.fit_transform(projected_observations)
-    sampled_cancer_gene_expression_data['observations'] = \
+    diabetes_hospitals_data['observations'] = \
         scaled_projected_observations
     print('Rescaled the 2014 Diabetes Hospitals data.')
 
@@ -187,7 +187,7 @@ def setup(args: argparse.Namespace):
     setup_results = dict(
         inference_alg_str=args.inference_alg_str,
         gen_model_params=gen_model_params,
-        sampled_cancer_gene_expression_data=sampled_cancer_gene_expression_data,
+        diabetes_hospitals_data=diabetes_hospitals_data,
         inference_results_dir=inference_results_dir,
     )
 

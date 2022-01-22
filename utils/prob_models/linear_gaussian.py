@@ -1516,7 +1516,7 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
 
                 elif not self.numerically_optimize:
                     with torch.no_grad():
-                        # logging.info(f'Obs Idx: {obs_idx}, VI idx: {vi_idx}')
+                        print(f'Obs Idx: {obs_idx}, VI idx: {vi_idx}')
 
                         # tracemalloc.start()
                         # start_time = timer()
@@ -1533,7 +1533,7 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
                         #               f"current={current / 10 ** 6}MB; peak={peak / 10 ** 6}MB")
                         # logging.debug(f'runtime:recursive_ibp_compute_approx_lower_bound: {stop_time - start_time}')
                         # tracemalloc.stop()
-                        # logging.info(prof.key_averages().table(sort_by="self_cpu_memory_usage"))
+                        # print(prof.key_averages().table(sort_by="self_cpu_memory_usage"))
 
                         # tracemalloc.start()
                         # start_time = timer()

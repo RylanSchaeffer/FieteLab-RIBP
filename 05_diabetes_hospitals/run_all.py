@@ -13,7 +13,7 @@ import numpy as np
 import os
 import subprocess
 
-import plot_cancer_gene_expression
+import plot_diabetes_hospitals
 
 
 def run_all():
@@ -29,7 +29,7 @@ def run_all():
     betas = [1., 2.5, 5.]
     feature_prior_cov_scalings = [0.1, 1., 5., 10.]
     sigma_xs = [0.1, 1., 5., 10.]
-    seeds = list(range(3))
+    seeds = list(range(1))
 
     hyperparams = [
         inference_alg_strs,
@@ -60,8 +60,6 @@ def run_all():
             feature_prior_cov_scaling=feature_prior_cov_scaling,
             sigma_x=sigma_x,
             seed=seed)
-
-        break
 
 
 def launch_run_one(exp_dir_path: str,

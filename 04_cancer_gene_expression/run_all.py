@@ -61,8 +61,6 @@ def run_all():
             sigma_x=sigma_x,
             seed=seed)
 
-        break
-
 
 def launch_run_one(exp_dir_path: str,
                    run_one_results_dir_path: str,
