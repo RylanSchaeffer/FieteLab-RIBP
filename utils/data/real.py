@@ -14,7 +14,6 @@ def load_dataset(dataset_name: str,
                  dataset_kwargs: Dict = None,
                  data_dir: str = 'data',
                  ) -> Dict[str, np.ndarray]:
-
     if dataset_name == 'boston_housing_1993':
         load_dataset_fn = load_dataset_boston_housing_1993
     elif dataset_name == 'cancer_gene_expression_2016':
@@ -94,8 +93,8 @@ def load_dataset_cancer_gene_expression_2016(data_dir: str = 'data',
     labels = labels[rows_without_nan]
 
     dataset_dict = dict(
-        observations=observations.values,
-        labels=labels.values,
+        observations=observations.values.astype(np.float32),
+        labels=labels.values.astype(np.float32),
     )
 
     return dataset_dict
@@ -132,15 +131,55 @@ def load_dataset_diabetes_hospitals_2014(data_dir: str = 'data',
                                          ) -> Dict[str, np.ndarray]:
     dataset_dir = os.path.join(data_dir,
                                'diabetes_hospitals_2014')
-    data_path = os.path.join(dataset_dir, 'data.csv')
+    data_path = os.path.join(dataset_dir, 'diabetic_data.csv')
 
-    data = pd.read_csv(data_path, index_col=False)
-    observations = data.loc[:, ~data.columns.isin(['id', 'diagnosis'])]
-    labels = data['diagnosis'].astype('category').cat.codes
+    data = pd.read_csv(data_path, index_col=False, na_values=['?'])
+
+    # drop unwanted columns e.g. patient number, encounter id
+    unwanted_columns = ['encounter_id',
+                        'patient_nbr',
+                        'weight',  # most are empty
+                        'payer_code',
+                        'medical_specialty',
+                        ]
+
+    data = data.loc[:, ~data.columns.isin(unwanted_columns)]
+
+    label_columns = [
+        # 'admission_type_id',
+        #                       'discharge_disposition_id',
+        #                       'admission_source_id',
+        'readmitted',
+    ]
+
+    labels = data[label_columns]
+    labels = pd.get_dummies(
+        labels,
+        drop_first=True,
+        columns=label_columns)
+
+    observations = data.loc[:, ~data.columns.isin(label_columns)]
+
+    # These three columns are numeric but occasionally have strings
+    # Forcibly coerce
+    observations[['diag_1', 'diag_2', 'diag_3']] = observations[['diag_1', 'diag_2', 'diag_3']].apply(
+        pd.to_numeric, errors='coerce', downcast='float'
+    )
+
+    columns_to_convert_to_one_hot = observations.columns[
+        observations.dtypes.eq('object')]
+
+    observations = pd.get_dummies(
+        observations,
+        drop_first=True,
+        columns=columns_to_convert_to_one_hot)
+
+    # Fill missing values with column means.
+    observations.fillna(observations.mean(), inplace=True)
 
     dataset_dict = dict(
-        observations=observations.values,
-        labels=labels.values,
+        observations=observations.values.astype(np.float32),
+        labels=labels.values.astype(np.float32),
     )
 
     return dataset_dict
@@ -303,7 +342,6 @@ def load_dataset_mnist(data_dir: str = 'data',
                        center_crop: bool = False,
                        avg_pool: bool = False,
                        feature_extractor_method: str = 'pca'):
-
     assert feature_extractor_method in {'pca', None}
     transforms = [torchvision.transforms.ToTensor()]
     if center_crop:

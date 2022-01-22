@@ -166,12 +166,12 @@ def setup(args: argparse.Namespace):
         cancer_gene_expression_data['observations'])
     print(f'Randomly projected 2016 Cancer Gene Expression data to {projected_observations.shape[1]} dimensions.')
 
-    from sklearn.preprocessing import StandardScaler
-    scaler = StandardScaler()
-    scaled_projected_observations = scaler.fit_transform(projected_observations)
-    cancer_gene_expression_data['observations'] = \
-        scaled_projected_observations
-    print('Rescaled the 2016 Cancer Gene Expression data.')
+    # from sklearn.preprocessing import StandardScaler
+    # scaler = StandardScaler()
+    # scaled_projected_observations = scaler.fit_transform(projected_observations)
+    # cancer_gene_expression_data['observations'] = \
+    #     scaled_projected_observations
+    # print('Rescaled the 2016 Cancer Gene Expression data.')
 
     gen_model_params = dict(
         IBP=dict(

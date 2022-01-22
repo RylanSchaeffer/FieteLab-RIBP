@@ -155,23 +155,21 @@ def setup(args: argparse.Namespace):
     permutation = np.random.permutation(np.arange(n_obs))
     diabetes_hospitals_data['observations'] = \
         diabetes_hospitals_data['observations'][permutation]
-    diabetes_hospitals_data['labels'] = \
-        diabetes_hospitals_data['labels'][permutation]
     print('Randomly permuted the order of 2014 Diabetes Hospitals data.')
 
-    from sklearn.random_projection import GaussianRandomProjection
-    jl_projection = GaussianRandomProjection(n_components='auto',
-                                             eps=args.jl_eps)
-    projected_observations = jl_projection.fit_transform(
-        diabetes_hospitals_data['observations'])
-    print(f'Randomly projected 2014 Diabetes Hospitals data to {projected_observations.shape[1]} dimensions.')
+    # from sklearn.random_projection import GaussianRandomProjection
+    # jl_projection = GaussianRandomProjection(n_components='auto',
+    #                                          eps=args.jl_eps)
+    # projected_observations = jl_projection.fit_transform(
+    #     diabetes_hospitals_data['observations'])
+    # print(f'Randomly projected 2014 Diabetes Hospitals data to {projected_observations.shape[1]} dimensions.')
 
-    from sklearn.preprocessing import StandardScaler
-    scaler = StandardScaler()
-    scaled_projected_observations = scaler.fit_transform(projected_observations)
-    diabetes_hospitals_data['observations'] = \
-        scaled_projected_observations
-    print('Rescaled the 2014 Diabetes Hospitals data.')
+    # from sklearn.preprocessing import StandardScaler
+    # scaler = StandardScaler()
+    # scaled_projected_observations = scaler.fit_transform(projected_observations)
+    # diabetes_hospitals_data['observations'] = \
+    #     scaled_projected_observations
+    # print('Rescaled the 2014 Diabetes Hospitals data.')
 
     gen_model_params = dict(
         IBP=dict(

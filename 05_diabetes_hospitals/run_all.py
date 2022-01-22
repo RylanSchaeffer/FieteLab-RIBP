@@ -27,8 +27,8 @@ def run_all():
     ]
     alphas = [1., 2.5, 5.]
     betas = [1., 2.5, 5.]
-    feature_prior_cov_scalings = [0.1, 1., 5., 10.]
-    sigma_xs = [0.1, 1., 5., 10.]
+    feature_prior_cov_scalings = [1., 5., 10.]
+    sigma_xs = [0.1, 1., 5.]
     seeds = list(range(1))
 
     hyperparams = [
