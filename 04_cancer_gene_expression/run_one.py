@@ -146,8 +146,9 @@ def setup(args: argparse.Namespace):
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
 
-    # load Mixture of Gaussian data
+    logging.info('Loading 2016 Cancer Gene Expression...')
     sampled_cancer_gene_expression_data = load_dataset_cancer_gene_expression_2016()
+    logging.info('Loaded 2016 Cancer Gene Expression!')
 
     # Permute the order of the data
     n_obs = sampled_cancer_gene_expression_data['observations'].shape[0]
@@ -156,18 +157,21 @@ def setup(args: argparse.Namespace):
         sampled_cancer_gene_expression_data['observations'][permutation]
     sampled_cancer_gene_expression_data['labels'] = \
         sampled_cancer_gene_expression_data['labels'][permutation]
+    logging.info('Randomly permuted the order of 2016 Cancer Gene Expression data.')
 
     from sklearn.random_projection import GaussianRandomProjection
     jl_projection = GaussianRandomProjection(n_components='auto',
                                              eps=args.jl_eps)
     projected_observations = jl_projection.fit_transform(
         sampled_cancer_gene_expression_data['observations'])
+    logging.info(f'Randomly projected 2016 Cancer Gene Expression data to {projected_observations.shape[1]} dimensions.')
 
     from sklearn.preprocessing import StandardScaler
     scaler = StandardScaler()
     scaled_projected_observations = scaler.fit_transform(projected_observations)
     sampled_cancer_gene_expression_data['observations'] = \
         scaled_projected_observations
+    logging.info('Rescaled the 2016 Cancer Gene Expression data.')
 
     gen_model_params = dict(
         IBP=dict(
