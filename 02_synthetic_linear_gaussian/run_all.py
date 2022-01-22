@@ -94,7 +94,7 @@ def launch_run_one(exp_dir_path: str,
 
     run_one_script_path = os.path.join(exp_dir_path, 'run_one.sh')
     command_and_args = [
-        'sbatch',
+        # 'sbatch',
         run_one_script_path,
         run_one_results_dir_path,
         inference_alg_str,

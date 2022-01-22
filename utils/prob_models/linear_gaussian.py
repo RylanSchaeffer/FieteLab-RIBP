@@ -1395,8 +1395,7 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
             requires_grad=self.numerically_optimize)
 
         # we use half covariance because we want to numerically optimize
-        A_half_covs = torch.stack([
-            np.sqrt(self.gen_model_params['feature_prior_params']['feature_prior_cov_scaling']) * torch.eye(
+        A_half_covs = torch.stack([np.sqrt(self.gen_model_params['feature_prior_params']['feature_prior_cov_scaling']) * torch.eye(
                 obs_dim).float()
             for _ in range(max_num_features)])
         A_half_covs = A_half_covs.view(1, max_num_features, obs_dim, obs_dim)
@@ -1517,7 +1516,7 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
 
                 elif not self.numerically_optimize:
                     with torch.no_grad():
-                        logging.info(f'Obs Idx: {obs_idx}, VI idx: {vi_idx}')
+                        # logging.info(f'Obs Idx: {obs_idx}, VI idx: {vi_idx}')
 
                         # tracemalloc.start()
                         # start_time = timer()

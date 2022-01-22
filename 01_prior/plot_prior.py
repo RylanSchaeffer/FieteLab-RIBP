@@ -1,6 +1,7 @@
 import pandas as pd
 from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
+import matplotlib
 import numpy as np
 import os
 import scipy.stats
@@ -12,6 +13,16 @@ alphas_color_map = {
     15.78: 'tab:purple',
     30.91: 'tab:green'
 }
+
+# Font setup
+# sns.set(font_scale=1.2)
+# plt.rcParams["font.family"] = "serif"
+# plt.rcParams['font.serif'] = "Times New Roman"
+# params = {'axes.labelsize': 'medium',
+#           'axes.titlesize':'large',
+#           'xtick.labelsize':'medium',
+#           'ytick.labelsize':'medium'}
+# pylab.rcParams.update(params)
 
 
 def plot_analytical_vs_monte_carlo_mse(mse_df: pd.DataFrame,
@@ -69,7 +80,7 @@ def plot_customer_dishes_analytical_vs_monte_carlo(sampled_dishes_by_customer_id
     sns.heatmap(avg_sampled_dishes_by_customer,
                 ax=ax,
                 mask=np.isnan(avg_sampled_dishes_by_customer),
-                cmap='jet',
+                cmap='Spectral',
                 vmin=cutoff,
                 vmax=1.,
                 norm=LogNorm())
@@ -84,7 +95,7 @@ def plot_customer_dishes_analytical_vs_monte_carlo(sampled_dishes_by_customer_id
     sns.heatmap(analytical_dishes_by_customer_idx,
                 ax=ax,
                 mask=np.isnan(analytical_dishes_by_customer_idx),
-                cmap='jet',
+                cmap='Spectral',
                 norm=LogNorm(),
                 vmin=cutoff,
                 vmax=1.,
@@ -127,7 +138,7 @@ def plot_num_dishes_analytical_vs_monte_carlo(sampled_num_dishes_by_customer_idx
     sns.heatmap(avg_sampled_num_tables_by_customer,
                 ax=ax,
                 mask=np.isnan(avg_sampled_num_tables_by_customer),
-                cmap='jet',
+                cmap='Spectral',
                 norm=LogNorm(),
                 vmin=cutoff,
                 vmax=1.,
@@ -143,7 +154,7 @@ def plot_num_dishes_analytical_vs_monte_carlo(sampled_num_dishes_by_customer_idx
     sns.heatmap(analytical_num_dishes_by_customer,
                 ax=ax,
                 mask=np.isnan(analytical_num_dishes_by_customer),
-                cmap='jet',
+                cmap='Spectral',
                 norm=LogNorm(),
                 vmin=cutoff,
                 vmax=1.,
@@ -168,9 +179,19 @@ def plot_recursion_visualization(cum_analytical_dishes_by_customer_idx: np.ndarr
                                  cutoff: float = 1e-4):
     fig, axes = plt.subplots(nrows=1,
                              ncols=5,
-                             figsize=(13, 4),
-                             gridspec_kw={"width_ratios": [1, 0.1, 1, 0.1, 1]},
+                             figsize=(15, 4),
+                             gridspec_kw={"width_ratios": [1.5, 0.3, 1.5, 0.3, 1.5]},
                              sharex=True)
+
+    # Font setup
+    # sns.set(font_scale=2)
+    # sns.set_style({'font.family':'serif', 'font.serif':'Times New Roman'})
+    # plt.rcParams["font.family"] = "serif"
+    # plt.rcParams['font.serif'] = "Times New Roman"
+    # params = {'xtick.labelsize':20,
+    #           'ytick.labelsize':20}
+    # pylab.rcParams.update(params)
+    # plt.rc('font',family = 'sans-serif'
 
     ax = axes[0]
     cum_analytical_dishes_by_customer_idx[cum_analytical_dishes_by_customer_idx < cutoff] = np.nan
@@ -179,55 +200,60 @@ def plot_recursion_visualization(cum_analytical_dishes_by_customer_idx: np.ndarr
     max_dish_idx = np.argmax(np.nansum(cum_analytical_dishes_by_customer_idx, axis=0) < cutoff)
     if max_dish_idx == 0 and np.nansum(cum_analytical_dishes_by_customer_idx, axis=0)[max_dish_idx] >= cutoff:
         max_dish_idx = cum_analytical_dishes_by_customer_idx.shape[1]
+    matplotlib.rc('font',**{'family':'sans-serif','sans-serif':'Times New Roman'})
     sns.heatmap(
         data=cum_analytical_dishes_by_customer_idx[:, :max_dish_idx],
         ax=ax,
         cbar_kws=dict(label=r'$\sum_{n^{\prime} = 1}^{n-1} p(z_{n^{\prime} k} = 1)$'),
-        cmap='jet',
+        cmap='Spectral',
         mask=np.isnan(cum_analytical_dishes_by_customer_idx[:, :max_dish_idx]),
         vmin=cutoff,
         vmax=np.nanmax(cum_analytical_dishes_by_customer_idx),
-        norm=LogNorm(),
+        norm=LogNorm()
     )
-    ax.set_xlabel('Dish Index')
-    ax.set_ylabel('Customer Index')
-    ax.set_title('Running Sum of Prev.\n Customers\' Dish Distributions')
+    ax.set_xlabel('Dish Index', fontname='Times New Roman',fontsize=15)
+    ax.set_ylabel('Customer Index', fontname='Times New Roman', fontsize=15)
+    ax.set_title('Running Sum of Prev.\n Customers\' Dish Distributions', fontname='Times New Roman', fontsize=15)
 
     # necessary to make space for colorbar text
     axes[1].axis('off')
 
     ax = axes[2]
     analytical_num_dishes_by_customer[analytical_num_dishes_by_customer < cutoff] = np.nan
+    matplotlib.rc('font',**{'family':'sans-serif','sans-serif':'Times New Roman'})
     sns.heatmap(
         data=analytical_num_dishes_by_customer[:, :max_dish_idx],
         ax=ax,
         cbar_kws=dict(label=r'$p(\Lambda_n = \ell)$'),
-        cmap='jet',
+        cmap='Spectral',
         mask=np.isnan(analytical_num_dishes_by_customer[:, :max_dish_idx]),
         vmin=cutoff,
-        vmax=1.,
-        norm=LogNorm(),
+        vmax=np.nanmax(cum_analytical_dishes_by_customer_idx),
+        # vmax=1.,
+        norm=LogNorm()
     )
-    ax.set_title('Distribution over\nTotal Number of Dishes')
-    ax.set_xlabel('Dish Index')
+    ax.set_title('Distribution over\nTotal Number of Dishes', fontname='Times New Roman',fontsize=15)
+    ax.set_xlabel('Dish Index', fontname='Times New Roman',fontsize=15)
 
     # necessary to make space for colorbar text
     axes[3].axis('off')
 
     ax = axes[4]
     analytical_dishes_by_customer_idx[analytical_dishes_by_customer_idx < cutoff] = np.nan
+    matplotlib.rc('font',**{'family':'sans-serif','sans-serif':'Times New Roman'})
     sns.heatmap(
         data=analytical_dishes_by_customer_idx[:, :max_dish_idx],
         ax=ax,
         cbar_kws=dict(label='$p(z_{nk}=1)$'),
-        cmap='jet',
+        cmap='Spectral',
         mask=np.isnan(analytical_dishes_by_customer_idx[:, :max_dish_idx]),
         vmin=cutoff,
-        vmax=1.,
+        vmax=np.nanmax(cum_analytical_dishes_by_customer_idx),
+        # vmax=1.,
         norm=LogNorm(),
     )
-    ax.set_title('New Customer\'s\n Dish Distribution')
-    ax.set_xlabel('Dish Index')
+    ax.set_title('New Customer\'s\n Dish Distribution', fontname='Times New Roman',fontsize=15)
+    ax.set_xlabel('Dish Index', fontname='Times New Roman',fontsize=15)
 
     # for some reason, on OpenMind, colorbar ticks disappear without calling plt.show() first
     plt.show()

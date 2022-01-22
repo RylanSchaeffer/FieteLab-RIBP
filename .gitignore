@@ -11,4 +11,4 @@ ribp
 *.joblib
 **/__pycache__/
 /tmp.py
-**/.DS_STORE
+**/.DS_Store
