@@ -187,6 +187,7 @@ def run_all():
         alpha = indicator_sampling_params['alpha']
         beta = indicator_sampling_params['beta']
         data_dim = data_dimensions_array[data_dimension_idx]
+        alpha_beta_datadim_string = 'alpha_'+str(alpha)+'_beta_'+str(beta)+'_datadim_'+str(data_dim)
 
         print("ON DATASET",dataset_idx,"WITH ALPHA, BETA, DATA DIM",alpha, beta, data_dim)
         logging.info(f'Sampling: {indicator_sampling}, Dataset Index: {dataset_idx}')
@@ -236,17 +237,18 @@ def run_all():
                 data_to_plot = pd.concat([data_to_plot, results_for_all_datasets])
 
             # Save results
-            alpha_beta_datadim_string = 'alpha_'+str(alpha)+'_beta_'+str(beta)+'_datadim_'+str(data_dim)
-
             data_to_plot.to_pickle(results_dir_path+'/data_to_plot_'+alpha_beta_datadim_string+'.pkl')
             print("DATA SAVED TO:",results_dir_path+'/data_to_plot_'+alpha_beta_datadim_string+'.pkl')
 
         # Plot result
-        if data_dimension_idx==data_dimensions_array.shape[0]-1:
+        if data_dimension_idx==data_dimensions_array.shape[0]-1 and dataset_idx == num_datasets-1:
+            plot_dir_path = os.path.join(results_dir_path,
+                                         alpha_beta_datadim_string)
+            os.makedirs(plot_dir_path, exist_ok=True)
             plot_avg_feature_ratio_by_num_obs_using_poisson_rates(data_to_plot=data_to_plot,
-                                                                 plot_dir=results_dir_path+'alpha_beta_datadim_string')
+                                                                 plot_dir=plot_dir_path)
                                                                  # alpha_beta_datadim_string=alpha_beta_datadim_string)
-            print("FIGURE SAVED TO:",results_dir_path+'alpha_beta_datadim_string')
+            print("FIGURE SAVED TO:",plot_dir_path)
 
 
 def plot_avg_feature_ratio_by_num_obs_using_poisson_rates(data_to_plot: pd.DataFrame,
