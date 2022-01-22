@@ -258,29 +258,24 @@ def plot_avg_feature_ratio_by_num_obs_using_poisson_rates(data_to_plot: pd.DataF
     fig, ax = plt.subplots(figsize=(10,8))
     sns.set_style("darkgrid")
     g = sns.lineplot(x='obs_idx', y='dish_ratio', data=data_to_plot,
-                     hue='data_dim', ci='sd', ax=ax)
+                     hue='data_dim', ci='sd', ax=ax, legend='full')
 
     # Remove "quantity" from legend title
     # see https://stackoverflow.com/questions/51579215/remove-seaborn-lineplot-legend-title
     handles, labels = g.get_legend_handles_labels()
     g.legend(handles=handles[1:], labels=labels[1:])
 
-    # remove quantity from title
     plt.grid()
     plt.xlabel('Number of Observations')
-    plt.ylabel('Ratio of Inferred to True \nNumber of Features')
+    plt.ylabel('Num Inferred Features / Num True Features')
     plt.ylim(bottom=0.)
-    # plt.gca().axis('equal')
-    # plt.xlim(0, 80)
-    # plt.ylim(0, 8)
-    # plt.gca().invert_yaxis()
-    # plt.legend(loc='lower right')
     g.get_legend().set_title('Data Dimension')
     plt.savefig(os.path.join(plot_dir, 'fig6_st1_plot.png'),
                 bbox_inches='tight',
                 dpi=300)
     # plt.show()
     plt.close()
+    print("FIGURE SAVED TO:",plot_dir+'/fig6_st1_plot.png')
 
 
 def launch_run_one(exp_dir_path: str,
@@ -309,4 +304,10 @@ def launch_run_one(exp_dir_path: str,
 
 if __name__ == '__main__':
     run_all()
+
+    # If only generating the figure:
+    # data_to_plot = pd.read_pickle('/om2/user/gkml/FieteLab-RIBP/02_linear_gaussian/results/data_to_plot_alpha_5.98_beta_1.0_datadim_20.pkl')
+    # plot_dir = '/om2/user/gkml/FieteLab-RIBP/02_linear_gaussian/results'
+    # plot_avg_feature_ratio_by_num_obs_using_poisson_rates(data_to_plot=data_to_plot,
+    #                                                       plot_dir=plot_dir)
     logging.info('Finished.')
