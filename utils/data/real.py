@@ -174,8 +174,13 @@ def load_dataset_diabetes_hospitals_2014(data_dir: str = 'data',
         drop_first=True,
         columns=columns_to_convert_to_one_hot)
 
-    # Fill missing values with column means.
-    observations.fillna(observations.mean(), inplace=True)
+    # Drop rows with NaNs
+    obs_rows_with_nan = observations.isna().any(axis=1)
+    print(f'Dropping {obs_rows_with_nan.sum()}/{len(obs_rows_with_nan)} rows containing NaNs')
+    label_rows_with_nan = observations.isna().any(axis=1)
+    rows_without_nan = ~(obs_rows_with_nan | label_rows_with_nan)
+    observations = observations[rows_without_nan]
+    labels = labels[rows_without_nan]
 
     dataset_dict = dict(
         observations=observations.values.astype(np.float32),
