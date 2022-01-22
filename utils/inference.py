@@ -25,6 +25,7 @@ def run_inference_alg(inference_alg_str: str,
                       model_str: str,
                       gen_model_params: dict,
                       plot_dir: str = None):
+
     if model_str == 'linear_gaussian':
         assert 'IBP' in gen_model_params
         assert 'feature_prior_params' in gen_model_params

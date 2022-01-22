@@ -165,15 +165,6 @@ def plot_run_one_inference_results(sampled_linear_gaussian_data: dict,
             indicators=sampled_linear_gaussian_data['train_sampled_indicators'],
             plot_dir=plot_dir)
 
-    try:
-        plot_run_one_gaussian_features_by_num_obs(
-            observations=sampled_linear_gaussian_data['train_observations'],
-            gaussian_features=inference_alg_results['inference_alg'].features_by_obs(),
-            dish_eating_posteriors=inference_alg_results['dish_eating_posteriors'],
-            plot_dir=plot_dir)
-    except NotImplementedError:
-        pass
-
 
 def plot_run_one_sample_from_linear_gaussian(features: np.ndarray,
                                              observations: np.ndarray,
