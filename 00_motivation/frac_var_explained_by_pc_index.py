@@ -23,12 +23,12 @@ os.makedirs(plot_dir, exist_ok=True)
 datasets = ['Omniglot', 'MNIST']
 for dataset in datasets:
     if dataset == 'MNIST':
-        mnist_results = utils.real.load_mnist_dataset(
+        mnist_results = utils.real.load_dataset_mnist(
             feature_extractor_method=None)
         features = mnist_results['image_features']
         possible_indices = np.arange(features.shape[0])
     elif dataset == 'Omniglot':
-        omniglot_results = utils.real.load_omniglot_dataset(
+        omniglot_results = utils.real.load_dataset_omniglot(
             feature_extractor_method=None,
             center_crop=False)
         features = omniglot_results['image_features']

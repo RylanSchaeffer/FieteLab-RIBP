@@ -19,7 +19,7 @@ import utils.data.synthetic
 
 def run_all():
     # create directory
-    exp_dir_path = '02_linear_gaussian'
+    exp_dir_path = '02_synthetic_linear_gaussian'
     results_dir_path = os.path.join(exp_dir_path, 'results')
     os.makedirs(results_dir_path, exist_ok=True)
 
@@ -75,14 +75,14 @@ def run_all():
             plot_dir=run_one_results_dir_path)
 
         for inference_alg_str, in itertools.product(*hyperparams):
-            alpha = indicator_sampling_params['alpha']
-            beta = indicator_sampling_params['beta']
-            launch_run_one(
-                exp_dir_path=exp_dir_path,
-                run_one_results_dir_path=run_one_results_dir_path,
-                inference_alg_str=inference_alg_str,
-                alpha=alpha,
-                beta=beta)
+            # alpha = indicator_sampling_params['alpha']
+            # beta = indicator_sampling_params['beta']
+            # launch_run_one(
+            #     exp_dir_path=exp_dir_path,
+            #     run_one_results_dir_path=run_one_results_dir_path,
+            #     inference_alg_str=inference_alg_str,
+            #     alpha=alpha,
+            #     beta=beta)
             continue
 
 

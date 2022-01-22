@@ -4,11 +4,10 @@ vs the principal component index (X) for varying dataset sizes (hue).
 
 Example usage:
 
-python3 00_motivation/run_one.py
+python3 00_motivation/frac_var_explained_by_fixed_num_pcs.py
 """
 
 import matplotlib.pyplot as plt
-import matplotlib.pylab as pylab
 import numpy as np
 import os
 import pandas as pd
@@ -30,12 +29,12 @@ num_pcs = [100, 250, 500, 1000]
 dataset_sizes = np.arange(100, 3501, 100)
 for dataset in datasets:
     if dataset == 'MNIST':
-        mnist_results = utils.data.real.load_mnist_dataset(
+        mnist_results = utils.data.real.load_dataset_mnist(
             feature_extractor_method=None)
         features = mnist_results['image_features']
         possible_indices = np.arange(features.shape[0])
     elif dataset == 'Omniglot':
-        omniglot_results = utils.data.real.load_omniglot_dataset(
+        omniglot_results = utils.data.real.load_dataset_omniglot(
             feature_extractor_method=None,
             center_crop=False)
         features = omniglot_results['image_features']
