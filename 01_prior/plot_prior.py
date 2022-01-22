@@ -1,7 +1,7 @@
 import pandas as pd
 from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
-import matplotlib.pylab as pylab
+import matplotlib
 import numpy as np
 import os
 import scipy.stats
@@ -200,6 +200,7 @@ def plot_recursion_visualization(cum_analytical_dishes_by_customer_idx: np.ndarr
     max_dish_idx = np.argmax(np.nansum(cum_analytical_dishes_by_customer_idx, axis=0) < cutoff)
     if max_dish_idx == 0 and np.nansum(cum_analytical_dishes_by_customer_idx, axis=0)[max_dish_idx] >= cutoff:
         max_dish_idx = cum_analytical_dishes_by_customer_idx.shape[1]
+    matplotlib.rc('font',**{'family':'sans-serif','sans-serif':'Times New Roman'})
     sns.heatmap(
         data=cum_analytical_dishes_by_customer_idx[:, :max_dish_idx],
         ax=ax,
@@ -219,6 +220,7 @@ def plot_recursion_visualization(cum_analytical_dishes_by_customer_idx: np.ndarr
 
     ax = axes[2]
     analytical_num_dishes_by_customer[analytical_num_dishes_by_customer < cutoff] = np.nan
+    matplotlib.rc('font',**{'family':'sans-serif','sans-serif':'Times New Roman'})
     sns.heatmap(
         data=analytical_num_dishes_by_customer[:, :max_dish_idx],
         ax=ax,
@@ -238,6 +240,7 @@ def plot_recursion_visualization(cum_analytical_dishes_by_customer_idx: np.ndarr
 
     ax = axes[4]
     analytical_dishes_by_customer_idx[analytical_dishes_by_customer_idx < cutoff] = np.nan
+    matplotlib.rc('font',**{'family':'sans-serif','sans-serif':'Times New Roman'})
     sns.heatmap(
         data=analytical_dishes_by_customer_idx[:, :max_dish_idx],
         ax=ax,

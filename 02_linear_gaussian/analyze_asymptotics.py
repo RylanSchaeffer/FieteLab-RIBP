@@ -31,6 +31,7 @@ def sample_ibp(num_mc_sample: int,
 
     # preallocate results
     # use 10 * expected number of dishes as heuristic
+    # max_dishes = 10 * int(alpha * beta * np.sum(1 / (1 + np.arange(num_customer))))
     max_dishes = max(10 * int(alpha * beta * np.sum(1 / (1 + np.arange(num_customer)))), num_true_features)
     sampled_dishes_by_customer_idx = np.zeros(
         shape=(num_mc_sample, num_customer, max_dishes),
@@ -208,18 +209,17 @@ def analyze_asymptotics():
         # ('categorical', dict(probs=np.ones(5) / 5.)),
         # ('categorical', dict(probs=np.array([0.4, 0.25, 0.2, 0.1, 0.05]))),
         ('IBP', dict(alpha=1.17, beta=1.)),
-        # ('IBP', dict(alpha=2.4, beta=1.)),
-        # ('IBP', dict(alpha=5.98, beta=1.)),
+        ('IBP', dict(alpha=2.4, beta=1.)),
+        ('IBP', dict(alpha=5.98, beta=1.)),
     ]
 
     gaussian_cov_scaling: float = 0.3
     feature_prior_cov_scaling: float = 100.
 
-    # num_customers_array = np.arange(10,10**4)
-    # num_true_features_array = np.arange(10,11)
-    num_customers_array = np.array([10, 50, 100, 200])
-    num_true_features_array = np.unique(np.logspace(0,5,num=400).astype(int))
-    # num_true_features_array = np.array([30,31,32,33])
+    num_true_features_array = np.array([10, 50, 100, 200])
+    num_customers_array = np.unique(np.logspace(0,3,num=250).astype(int))[1:]
+    # num_true_features_array = np.array([11])
+    # num_customers_array = np.array([2,10,1000])
 
     inference_alg_strs = [
         'R-IBP',
@@ -232,16 +232,19 @@ def analyze_asymptotics():
     ]
     hyperparams = [inference_alg_strs]
 
-    num_inferred_features_per_num_obs_per_num_true_features_array = np.empty((num_customers_array.shape[0], num_true_features_array.shape[0]))
+    asymptotic_feature_ratios = np.empty((num_true_features_array.shape[0], num_customers_array.shape[0]))
 
     # Launch inference for different numbers of observations and true features
-    for (indicator_sampling, indicator_sampling_params), num_customers_idx, num_true_features_idx in \
-            itertools.product(feature_samplings, range(num_customers_array.shape[0]), range(num_true_features_array.shape[0])):
+    for (indicator_sampling, indicator_sampling_params), num_true_features_idx, num_customers_idx in \
+            itertools.product(feature_samplings, range(num_true_features_array.shape[0]), range(num_customers_array.shape[0])):
 
-        num_customers = num_customers_array[num_customers_idx]
         num_true_features = num_true_features_array[num_true_features_idx]
+        num_customers = num_customers_array[num_customers_idx]
+        alpha = indicator_sampling_params['alpha']
+        beta = indicator_sampling_params['beta']
+        alpha_beta_string = 'alpha_'+str(alpha)+'_beta_'+str(beta)
 
-        print("NUM CUSTOMERS AND GT FEATURES:",num_customers, num_true_features)
+        print("NUM GT FEATURES AND CUSTOMERS:", num_true_features,num_customers, "WITH ALPHA, BETA", alpha, beta)
         logging.info(f'Sampling: {indicator_sampling}, '
                      f'Number of Customers: {num_customers}, '
                      f'Number of True Features: {num_true_features}')
@@ -271,9 +274,6 @@ def analyze_asymptotics():
         #     plot_dir=run_one_results_dir_path)
 
         for inference_alg_str, in itertools.product(*hyperparams):
-            alpha = indicator_sampling_params['alpha']
-            beta = indicator_sampling_params['beta']
-
             # get # of inferred features for current # of observations & # of true features
             asymptotic_datapoint = eval(launch_run_one(
                 exp_dir_path=exp_dir_path,
@@ -281,18 +281,22 @@ def analyze_asymptotics():
                 inference_alg_str=inference_alg_str,
                 alpha=alpha,
                 beta=beta))
-            # print("ASYMPTOTIC DATAPOINT:",(num_customers, num_true_features,asymptotic_datapoint))
             print("ASYMPTOTIC DATAPOINT:",asymptotic_datapoint,'\n')
+
             # save number of inferred features to list
-            num_inferred_features_per_num_obs_per_num_true_features_array[num_customers_idx][num_true_features_idx] = asymptotic_datapoint[-1]
-            np.save(results_dir_path+'/asymptotic_array_alpha_1.17_beta_1.npy', num_inferred_features_per_num_obs_per_num_true_features_array)
-            # np.load('test3.npy')
+            asymptotic_feature_ratios[num_true_features_idx][num_customers_idx] = asymptotic_datapoint[-1]
+            np.save(results_dir_path+'/asymptotic_array_'+alpha_beta_string+'.npy', asymptotic_feature_ratios)
+            print("DATA SAVED AT:",results_dir_path+'/asymptotic_array_'+alpha_beta_string+'.npy')
             continue
 
-    # generate plot of asymptotic # inferred features vs true features
-    plot_asymp_inferred_feature_num_vs_true_feature_num(
-        num_inferred_features_per_num_obs_per_num_true_features_array,
-        plot_dir=results_dir_path)
+        if num_customers_idx==num_customers_array.shape[0]-1 and num_true_features_idx==num_true_features_array.shape[0]-1:
+            # generate plot of asymptotic ratio of # inferred features vs # true features
+            plot_asymp_inferred_feature_num_vs_true_feature_num(
+                asymptotic_feature_ratios=asymptotic_feature_ratios,
+                num_true_features_array=num_true_features_array,
+                num_customers_array=num_customers_array,
+                plot_dir=results_dir_path,
+                alpha_beta_string=alpha_beta_string)
 
 
 def launch_run_one(exp_dir_path: str,
@@ -313,38 +317,38 @@ def launch_run_one(exp_dir_path: str,
         str(beta)]
 
     # TODO: Figure out where the logger is logging to
-    logging.info(f'Launching ' + ' '.join(command_and_args))
-    # subprocess.run(command_and_args)
-    # asymptotic_datapoint = subprocess.run(command_and_args, capture_output=True).stdout #, encoding='UTF-8'
+    # logging.info(f'Launching ' + ' '.join(command_and_args))
     asymptotic_datapoint = subprocess.check_output(command_and_args, encoding='UTF-8')
-    logging.info(f'Launched ' + ' '.join(command_and_args))
+    # logging.info(f'Launched ' + ' '.join(command_and_args))
     return asymptotic_datapoint
 
-def plot_asymp_inferred_feature_num_vs_true_feature_num(num_inferred_features_per_num_obs_per_num_true_features: np.ndarray,
-                                                        plot_dir: str):
+def plot_asymp_inferred_feature_num_vs_true_feature_num(asymptotic_feature_ratios: np.ndarray,
+                                                        num_true_features_array: np.ndarray,
+                                                        num_customers_array: np.ndarray,
+                                                        plot_dir: str,
+                                                        alpha_beta_string: str):
 
-    fig, axes = plt.subplots(nrows=1,
-                             ncols=1,
-                             figsize=(13, 4),
-                             gridspec_kw={"width_ratios": [1, 0.1, 1, 0.1, 1]})
 
-    ax = axes[0]
-    sns.heatmap(
-        data=num_inferred_features_per_num_obs_per_num_true_features,
-        ax=ax,
-        cbar_kws=dict(label='Number of Inferred Features'),
-        cmap='jet',
-        mask=np.isnan(num_inferred_features_per_num_obs_per_num_true_features),
-        vmin=0,
-        vmax=np.nanmax(num_inferred_features_per_num_obs_per_num_true_features),
-        norm=LogNorm(),
-    )
-    plt.yscale('log')
-    ax.set_xlabel('Number of True Features')
-    ax.set_ylabel('Number of Observations')
-    ax.set_title('Asymptotic Number of Inferred Features \nversus Number of True Features')
+    # num_customers_array = np.array([10, 50, 100, 200])
+    # num_true_features_array = np.unique(np.logspace(0,5,num=400).astype(int))
+    # asymptotic_feature_ratios = np.load(plot_dir+'/asymptotic_array_'+alpha_beta_string+'.npy)
 
-    plt.savefig(os.path.join(plot_dir, 'asymptotic_inferred_feature_num_vs_true_feature_num.png'),
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(7, 5))
+
+    for idx in range(num_true_features_array.shape[0]):
+        plt.plot(num_customers_array, asymptotic_feature_ratios[idx], label=str(num_true_features_array[idx]))
+
+    ax.set_xlabel('Number of Observations', fontsize=12)
+    plt.ylabel('Asymptotic Ratio of Inferred to True \nNumber of Features',fontsize=12)
+    plt.legend(title='Number of True Features')
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
+    # plt.title('Ground Truth Data')
+    plt.xscale('log')
+    plt.grid()
+    plt.show()
+    plt.tight_layout()
+    plt.savefig(os.path.join(plot_dir, 'fig6_subtask2_asymptotic_feature_ratio_'+alpha_beta_string+'.png'),
                 bbox_inches='tight',
                 dpi=300)
     # plt.show()
