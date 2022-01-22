@@ -19,7 +19,7 @@ export PYTHONPATH=.
 set -x
 
 # -u flushes output buffer immediately
-python -u 02_linear_gaussian/run_one.py \
+python -u 02_synthetic_linear_gaussian/run_one.py \
 --run_one_results_dir="${run_one_results_dir_path}" \
 --inference_alg_str="${inference_alg_str}" \
 --alpha="${alpha}" \

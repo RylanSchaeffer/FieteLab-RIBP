@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -p fiete
+#SBATCH -p use-everything
 #SBATCH -n 1                    # two cores
 #SBATCH --mem=1G                # RAM
 #SBATCH --time=01:99:99         # total run time limit (HH:MM:SS)
@@ -7,4 +7,4 @@
 #SBATCH --mail-type=FAIL
 
 export PYTHONPATH=.
-python -u 02_linear_gaussian/run_all.py        # -u flushes output buffer immediately
+python -u 02_synthetic_linear_gaussian/run_all.py        # -u flushes output buffer immediately
