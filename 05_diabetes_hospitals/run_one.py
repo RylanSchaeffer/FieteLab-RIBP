@@ -1,12 +1,12 @@
 """
 Perform inference in a linear-Gaussian model X = ZA + noise
-for the specified inference algorithm on the 2016 cancer
-gene expression dataset.
+for the specified inference algorithm on the 2014 diabetes
+hospital dataset.
 
 Example usage:
 
-04_cancer_gene_expression/run_one.py \
- --run_one_results_dir=04_cancer_gene_expression/results/ \
+05_diabetes_hospitals/run_one.py \
+ --run_one_results_dir=05_diabetes_hospitals/results/ \
  --inference_alg_str=R-IBP \
  --alpha=5.91 \
  --beta=4.3 \
@@ -23,8 +23,8 @@ import os
 from timeit import default_timer as timer
 import torch
 
-import plot_cancer_gene_expression
-from utils.data.real import load_dataset_cancer_gene_expression_2016
+import plot_diabetes_hospitals
+from utils.data.real import load_dataset_diabetes_hospitals_2014
 import utils.inference
 import utils.metrics
 import utils.run_helpers
@@ -121,7 +121,7 @@ def run_and_plot_inference_alg(sampled_cancer_gene_expression_data,
     stored_data = joblib.load(inference_results_path)
 
     print('Plotting inference algorithm results...')
-    # plot_cancer_gene_expression.plot_run_one_inference_results(
+    # plot_diabetes_hospitals.plot_run_one_inference_results(
     #     sampled_cancer_gene_expression_data=sampled_cancer_gene_expression_data,
     #     inference_alg_results=stored_data['inference_alg_results'],
     #     inference_alg_str=stored_data['inference_alg_str'],
@@ -146,9 +146,9 @@ def setup(args: argparse.Namespace):
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
 
-    print('Loading 2016 Cancer Gene Expression...')
-    sampled_cancer_gene_expression_data = load_dataset_cancer_gene_expression_2016()
-    print('Loaded 2016 Cancer Gene Expression!')
+    print('Loading 2014 Diabetes Hospitals...')
+    sampled_cancer_gene_expression_data = load_dataset_diabetes_hospitals_2014()
+    print('Loaded 2014 Diabetes Hospitals!')
 
     # Permute the order of the data
     n_obs = sampled_cancer_gene_expression_data['observations'].shape[0]
@@ -157,21 +157,21 @@ def setup(args: argparse.Namespace):
         sampled_cancer_gene_expression_data['observations'][permutation]
     sampled_cancer_gene_expression_data['labels'] = \
         sampled_cancer_gene_expression_data['labels'][permutation]
-    print('Randomly permuted the order of 2016 Cancer Gene Expression data.')
+    print('Randomly permuted the order of 2014 Diabetes Hospitals data.')
 
     from sklearn.random_projection import GaussianRandomProjection
     jl_projection = GaussianRandomProjection(n_components='auto',
                                              eps=args.jl_eps)
     projected_observations = jl_projection.fit_transform(
         sampled_cancer_gene_expression_data['observations'])
-    print(f'Randomly projected 2016 Cancer Gene Expression data to {projected_observations.shape[1]} dimensions.')
+    print(f'Randomly projected 2014 Diabetes Hospitals data to {projected_observations.shape[1]} dimensions.')
 
     from sklearn.preprocessing import StandardScaler
     scaler = StandardScaler()
     scaled_projected_observations = scaler.fit_transform(projected_observations)
     sampled_cancer_gene_expression_data['observations'] = \
         scaled_projected_observations
-    print('Rescaled the 2016 Cancer Gene Expression data.')
+    print('Rescaled the 2014 Diabetes Hospitals data.')
 
     gen_model_params = dict(
         IBP=dict(

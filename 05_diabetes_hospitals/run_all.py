@@ -3,7 +3,7 @@ Launch run_one.py with each configuration of the hyperparameters.
 
 Example usage:
 
-04_cancer_gene_expression/run_all.py
+05_diabetes_hospitals/run_all.py
 """
 
 import itertools
@@ -18,7 +18,7 @@ import plot_cancer_gene_expression
 
 def run_all():
     # create directory
-    exp_dir_path = '04_cancer_gene_expression'
+    exp_dir_path = '05_diabetes_hospitals'
     results_dir_path = os.path.join(exp_dir_path, 'results')
     os.makedirs(results_dir_path, exist_ok=True)
 
@@ -29,7 +29,7 @@ def run_all():
     betas = [1., 2.5, 5.]
     feature_prior_cov_scalings = [0.1, 1., 5., 10.]
     sigma_xs = [0.1, 1., 5., 10.]
-    seeds = list(range(1))
+    seeds = list(range(3))
 
     hyperparams = [
         inference_alg_strs,
