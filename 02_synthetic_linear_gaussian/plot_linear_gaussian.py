@@ -9,24 +9,37 @@ import seaborn as sns
 from typing import Dict
 
 # common plotting functions
-import utils.plot
+import utils.plot_general
 
 
-plt.rcParams["font.family"] = "DejaVu Serif"
-plt.rcParams["font.serif"] = ["Times New Roman"]
+plt.rcParams["font.family"] = ["Times New Roman"]
 plt.rcParams["font.size"] = 16  # was previously 22
 sns.set_style("whitegrid")
 
 
-def plot_analyze_all_algorithms_results(inf_algorithms_results_df: pd.DataFrame,
+def plot_analyze_all_algorithms_results(inf_algs_results_df: pd.DataFrame,
                                         plot_dir: str):
-    utils.plot.plot_analyze_all_negative_posterior_predictive_vs_runtime(
-        inf_algorithms_results_df=inf_algorithms_results_df,
-        plot_dir=plot_dir)
 
-    utils.plot.plot_analyze_all_reconstruction_error_vs_runtime(
-        inf_algorithms_results_df=inf_algorithms_results_df,
-        plot_dir=plot_dir)
+    for sampling_scheme, inf_algs_results_by_sampling_df in inf_algs_results_df.groupby('sampling'):
+
+        sampling_results_dir_path = os.path.join(plot_dir, sampling_scheme)
+
+        if sampling_scheme.startswith('IBP'):
+            split_sampling_scheme = sampling_scheme.split('=')
+            alpha_str = float(split_sampling_scheme[1][:-2])
+            beta_str = float(split_sampling_scheme[2])
+            nice_title = rf'IBP($\alpha={alpha_str}, \beta={beta_str}$)'
+        else:
+            raise NotImplementedError
+
+        utils.plot.plot_neg_log_posterior_predictive_vs_runtime_by_alg(
+            inf_algs_results_df=inf_algs_results_by_sampling_df,
+            plot_dir=sampling_results_dir_path,
+            title=nice_title)
+
+        utils.plot.plot_recon_error_vs_runtime_by_alg(
+            inf_algs_results_df=inf_algs_results_by_sampling_df,
+            plot_dir=sampling_results_dir_path)
 
 
 def plot_run_one_gaussian_features_by_num_obs(observations: np.ndarray,

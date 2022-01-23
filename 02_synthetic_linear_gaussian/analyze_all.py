@@ -22,11 +22,11 @@ def analyze_all(args: argparse.Namespace):
     exp_dir_path = args.exp_dir_path
     results_dir_path = os.path.join(exp_dir_path, 'results')
 
-    inf_algorithms_results_df = load_all_datasets_all_alg_results(
+    inf_algs_results_df = load_all_datasets_all_alg_results(
         results_dir_path=results_dir_path)
 
     plot_linear_gaussian.plot_analyze_all_algorithms_results(
-        inf_algorithms_results_df=inf_algorithms_results_df,
+        inf_algs_results_df=inf_algs_results_df,
         plot_dir=results_dir_path)
 
 

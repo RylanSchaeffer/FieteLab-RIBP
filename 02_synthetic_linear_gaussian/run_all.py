@@ -3,7 +3,7 @@ Launch run_one.py with each configuration of the hyperparameters.
 
 Example usage:
 
-02_linear_gaussian/run_all.py
+02_synthetic_linear_gaussian/run_all.py
 """
 
 import itertools
@@ -33,9 +33,10 @@ def run_all():
     ]
 
     num_datasets = 10
-    gaussian_cov_scaling: float = 0.3
-    feature_prior_cov_scaling: float = 100.
+    gaussian_cov_scaling = 0.3
+    feature_prior_cov_scaling = 100.
     num_customers = 100
+    num_dimensions = [2, 10, 20]
 
     inference_alg_strs = [
         'R-IBP',
@@ -49,15 +50,16 @@ def run_all():
     hyperparams = [inference_alg_strs]
 
     # generate several datasets and independently launch inference
-    for (indicator_sampling, indicator_sampling_params), dataset_idx in \
-            itertools.product(feature_samplings, range(num_datasets)):
+    for (indicator_sampling, indicator_sampling_params), dataset_idx, num_dimension in \
+            itertools.product(feature_samplings, range(num_datasets), num_dimensions):
 
         logging.info(f'Sampling: {indicator_sampling}, Dataset Index: {dataset_idx}')
         sampled_linear_gaussian_data = utils.data.synthetic.sample_from_linear_gaussian(
             num_obs=num_customers,
             indicator_sampling_str=indicator_sampling,
             indicator_sampling_params=indicator_sampling_params,
-            feature_prior_params=dict(gaussian_cov_scaling=gaussian_cov_scaling,
+            feature_prior_params=dict(gaussian_dim=num_dimension,
+                                      gaussian_cov_scaling=gaussian_cov_scaling,
                                       feature_prior_cov_scaling=feature_prior_cov_scaling))
 
         # save dataset
@@ -69,20 +71,20 @@ def run_all():
         joblib.dump(sampled_linear_gaussian_data,
                     filename=os.path.join(run_one_results_dir_path, 'data.joblib'))
 
-        plot_linear_gaussian.plot_run_one_sample_from_linear_gaussian(
-            features=sampled_linear_gaussian_data['features'],
-            observations=sampled_linear_gaussian_data['observations'],
-            plot_dir=run_one_results_dir_path)
+        # plot_linear_gaussian.plot_run_one_sample_from_linear_gaussian(
+        #     features=sampled_linear_gaussian_data['features'],
+        #     observations=sampled_linear_gaussian_data['observations'],
+        #     plot_dir=run_one_results_dir_path)
 
         for inference_alg_str, in itertools.product(*hyperparams):
-            # alpha = indicator_sampling_params['alpha']
-            # beta = indicator_sampling_params['beta']
-            # launch_run_one(
-            #     exp_dir_path=exp_dir_path,
-            #     run_one_results_dir_path=run_one_results_dir_path,
-            #     inference_alg_str=inference_alg_str,
-            #     alpha=alpha,
-            #     beta=beta)
+            alpha = indicator_sampling_params['alpha']
+            beta = indicator_sampling_params['beta']
+            launch_run_one(
+                exp_dir_path=exp_dir_path,
+                run_one_results_dir_path=run_one_results_dir_path,
+                inference_alg_str=inference_alg_str,
+                alpha=alpha,
+                beta=beta)
             continue
 
 
