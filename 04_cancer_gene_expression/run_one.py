@@ -6,7 +6,7 @@ gene expression dataset.
 Example usage:
 
 04_cancer_gene_expression/run_one.py \
- --run_one_results_dir=04_cancer_gene_expression/results/ \
+ --run_one_results_dir=04_cancer_gene_expression/results/tmp/ \
  --inference_alg_str=R-IBP \
  --alpha=5.91 \
  --beta=4.3 \
@@ -165,6 +165,7 @@ def setup(args: argparse.Namespace):
     projected_observations = jl_projection.fit_transform(
         cancer_gene_expression_data['observations'])
     print(f'Randomly projected 2016 Cancer Gene Expression data to {projected_observations.shape[1]} dimensions.')
+    cancer_gene_expression_data['observations'] = projected_observations
 
     # from sklearn.preprocessing import StandardScaler
     # scaler = StandardScaler()
