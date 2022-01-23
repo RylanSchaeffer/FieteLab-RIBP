@@ -7,6 +7,12 @@ import os
 import scipy.stats
 import seaborn as sns
 
+plt.rcParams["font.family"] = "'DejaVu Serif'"
+plt.rcParams["font.serif"] = ["Times New Roman"]
+plt.rcParams["font.size"] = 16
+sns.set_style("whitegrid")
+
+
 alphas_color_map = {
     1.1: 'tab:blue',
     10.37: 'tab:orange',

@@ -1,6 +1,9 @@
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 
-plt.rcParams.update({'font.family': "Times New Roman"})
-plt.rcParams.update({'font.size': 11})
+plt.rcParams["font.family"] = "'DejaVu Serif'"
+plt.rcParams["font.serif"] = ["Times New Roman"]
+plt.rcParams["font.size"] = 16  # was previously 22
+sns.set_style("whitegrid")
 

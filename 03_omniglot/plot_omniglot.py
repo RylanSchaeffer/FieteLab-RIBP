@@ -2,12 +2,17 @@ from itertools import product
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import pandas as pd
 import seaborn as sns
 from typing import Dict, List
 
-import pandas as pd
-
 import utils.plot
+
+
+plt.rcParams["font.family"] = "'DejaVu Serif'"
+plt.rcParams["font.serif"] = ["Times New Roman"]
+plt.rcParams["font.size"] = 16  # was previously 22
+sns.set_style("whitegrid")
 
 
 def plot_analyze_all_algorithms_results(inf_algorithms_results_df: pd.DataFrame,

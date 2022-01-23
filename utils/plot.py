@@ -7,9 +7,13 @@ import pandas as pd
 import seaborn as sns
 from typing import Union
 
-plt.rcParams.update({'font.size': 22})
-
 from utils.numpy_helpers import compute_largest_dish_idx
+
+
+plt.rcParams["font.family"] = "'DejaVu Serif'"
+plt.rcParams["font.serif"] = ["Times New Roman"]
+plt.rcParams["font.size"] = 16  # was previously 22
+sns.set_style("whitegrid")
 
 
 def plot_analyze_all_negative_posterior_predictive_vs_runtime(inf_algorithms_results_df: pd.DataFrame,
@@ -50,6 +54,7 @@ def plot_analyze_all_negative_posterior_predictive_vs_runtime(inf_algorithms_res
         plt.subplots_adjust(left=0.15)
         plt.subplots_adjust(bottom=0.15)
         # plt.tight_layout()
+        plt.grid(visible=True, axis='both')
         plt.savefig(os.path.join(sampling_results_dir_path,
                                  f'negative_posterior_predictive_vs_runtime_{sampling_scheme}.png'),
                     bbox_extra_artists=(lg,),
@@ -92,6 +97,7 @@ def plot_analyze_all_reconstruction_error_vs_runtime(inf_algorithms_results_df: 
         plt.xlabel('Runtime (s)')
         plt.ylabel(r'$||X - Z A||_2^2$')
         plt.xscale('log')
+        plt.grid(visible=True, axis='both')
         # plt.yscale('log')
         # Make room at bottom
         # plt.subplots_adjust(bottom=0.15)
@@ -195,6 +201,7 @@ def plot_inference_algs_num_clusters_by_param(num_clusters_by_dataset_by_inferen
     plt.gca().set_xlim(left=0)
     plt.legend()
     plt.yscale('log')
+    plt.grid(visible=True, axis='both')
     plt.savefig(os.path.join(plot_dir, f'num_clusters_by_param.png'),
                 bbox_inches='tight',
                 dpi=300)
@@ -222,6 +229,7 @@ def plot_inference_algs_scores_by_param(scores_by_dataset_by_inference_alg_by_sc
         plt.ylabel(scoring_metric)
         plt.ylim(0., 1.)
         plt.gca().set_xlim(left=0)
+        plt.grid(visible=True, axis='both')
         plt.savefig(os.path.join(plot_dir, f'comparison_score={scoring_metric}.png'),
                     bbox_inches='tight',
                     dpi=300)
@@ -250,6 +258,7 @@ def plot_inference_algs_runtimes_by_param(runtimes_by_dataset_by_inference_alg: 
     plt.gca().set_xlim(left=0)
     plt.yscale('log')
     plt.legend()
+    plt.grid(visible=True, axis='both')
     plt.savefig(os.path.join(plot_dir, f'runtimes_by_param.png'),
                 bbox_inches='tight',
                 dpi=300)
@@ -273,6 +282,7 @@ def plot_neg_log_posterior_predictive_by_alpha_beta(inf_algorithms_results_df: p
         c=inf_algorithms_results_df['negative_log_posterior_predictive'],
     )
     plt.colorbar(sc)
+    plt.grid(visible=True, axis='both')
     plt.savefig(os.path.join(plot_dir,
                              'negative_log_posterior_predictive_by_alpha_beta.png'),
                 bbox_inches='tight',
@@ -333,6 +343,7 @@ def plot_run_one_num_features_by_num_obs_using_poisson_rates(indicators: Union[n
     # plt.ylim(0, seq_length)
     # plt.gca().invert_yaxis()
     g.get_legend().set_title(None)
+    plt.grid(visible=True, axis='both')
     plt.savefig(os.path.join(plot_dir, 'num_features_by_num_obs.png'),
                 bbox_inches='tight',
                 dpi=300)

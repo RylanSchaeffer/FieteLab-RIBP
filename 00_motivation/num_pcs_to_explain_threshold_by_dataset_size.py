@@ -19,7 +19,7 @@ import utils.data.real
 # Set style
 plt.rcParams["font.family"] = "'DejaVu Serif'"
 plt.rcParams["font.serif"] = ["Times New Roman"]
-plt.rcParams["font.size"] = 14
+plt.rcParams["font.size"] = 16
 sns.set_style("whitegrid")
 
 plot_dir = '00_motivation/results'
