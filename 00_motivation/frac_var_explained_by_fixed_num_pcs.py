@@ -16,9 +16,10 @@ from sklearn.decomposition import PCA
 
 import utils.data.real
 
-# Font setup
+# Set style
 plt.rcParams["font.family"] = "Times New Roman"
-sns.set(font_scale=1.2)
+plt.rcParams["font.size"] = 12
+sns.set_style("whitegrid")
 
 plot_dir = '00_motivation/results'
 os.makedirs(plot_dir, exist_ok=True)
@@ -55,6 +56,7 @@ for dataset in datasets:
             frac_var_explained_by_num_pcs_and_dataset_size.append(
                 (num_pc, dataset_size, frac_var_explained))
 
+            # Plot every time, just in case execution is interrupted
             df = pd.DataFrame(
                 frac_var_explained_by_num_pcs_and_dataset_size,
                 columns=['Num PCs', 'dataset_size', 'frac_var_explained'])
@@ -72,6 +74,6 @@ for dataset in datasets:
                                      f'{dataset.lower()}_frac_var_explained_by_fixed_num_pcs.png'),
                         bbox_inches='tight',
                         dpi=300)
-            # plt.show()
+            plt.show()
             plt.close()
 

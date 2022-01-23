@@ -16,9 +16,10 @@ from sklearn.decomposition import PCA
 
 import utils.data.real
 
-# Font setup
+# Set style
 plt.rcParams["font.family"] = "Times New Roman"
-sns.set(font_scale=1.2)
+plt.rcParams["font.size"] = 12
+sns.set_style("whitegrid")
 
 plot_dir = '00_motivation/results'
 os.makedirs(plot_dir, exist_ok=True)
