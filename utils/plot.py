@@ -9,117 +9,92 @@ from typing import Union
 
 from utils.numpy_helpers import compute_largest_dish_idx
 
-
-
 plt.rcParams["font.family"] = ["Times New Roman"]
 plt.rcParams["font.size"] = 16  # was previously 22
 sns.set_style("whitegrid")
 
 
-def plot_analyze_all_negative_posterior_predictive_vs_runtime(inf_algorithms_results_df: pd.DataFrame,
-                                                              plot_dir: str):
-    # In alpha (X) vs beta (Y) space, plot runtime (grouping by algorithm,
-    for sampling_scheme, results_by_sampling_df in inf_algorithms_results_df.groupby('sampling'):
-        sampling_results_dir_path = os.path.join(plot_dir, sampling_scheme)
+def plot_neg_log_posterior_predictive_vs_runtime_by_alg(
+        inf_algs_results_df: pd.DataFrame,
+        plot_dir: str,
+        title: str = None):
 
-        for inf_alg_str, inf_alg_results_df in results_by_sampling_df.groupby(['inference_alg']):
-            algs_runstimes_and_neg_log_pp = inf_alg_results_df.agg({
-                'runtime': ['mean', 'sem'],
-                'negative_log_posterior_predictive': ['mean', 'sem']
-            })
+    for inf_alg_str, inf_alg_results_df in inf_algs_results_df.groupby(['inference_alg']):
+        algs_runstimes_and_neg_log_pp = inf_alg_results_df.agg({
+            'runtime': ['mean', 'sem'],
+            'negative_log_posterior_predictive': ['mean', 'sem']
+        })
 
-            plt.errorbar(
-                x=algs_runstimes_and_neg_log_pp['runtime']['mean'],
-                xerr=algs_runstimes_and_neg_log_pp['runtime']['sem'],
-                y=algs_runstimes_and_neg_log_pp['negative_log_posterior_predictive']['mean'],
-                yerr=algs_runstimes_and_neg_log_pp['negative_log_posterior_predictive']['sem'],
-                fmt='o',
-                label=inf_alg_str)
+        plt.errorbar(
+            x=algs_runstimes_and_neg_log_pp['runtime']['mean'],
+            xerr=algs_runstimes_and_neg_log_pp['runtime']['sem'],
+            y=algs_runstimes_and_neg_log_pp['negative_log_posterior_predictive']['mean'],
+            yerr=algs_runstimes_and_neg_log_pp['negative_log_posterior_predictive']['sem'],
+            fmt='o',
+            label=inf_alg_str)
 
-        # plt.legend()
-        lg = plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left')
-        if sampling_scheme.startswith('IBP'):
-            split_sampling_scheme = sampling_scheme.split('=')
-            alpha_str = float(split_sampling_scheme[1][:-2])
-            beta_str = float(split_sampling_scheme[2])
-            nice_title = rf'IBP($\alpha={alpha_str}, \beta={beta_str}$)'
-        else:
-            raise NotImplementedError
-        plt.title(nice_title)
-        plt.xlabel('Runtime (s)')
-        plt.ylabel('Negative Log Posterior Predictive')
-        plt.xscale('log')
-        plt.yscale('log')
-        # Make room at bottom
-        plt.subplots_adjust(left=0.15)
-        plt.subplots_adjust(bottom=0.15)
-        # plt.tight_layout()
-        plt.grid(visible=True, axis='both')
-        plt.savefig(os.path.join(sampling_results_dir_path,
-                                 f'negative_posterior_predictive_vs_runtime_{sampling_scheme}.png'),
-                    bbox_extra_artists=(lg,),
-                    bbox_inches='tight',
-                    dpi=300)
-        # plt.show()
-        plt.close()
-
-
-def plot_analyze_all_reconstruction_error_vs_runtime(inf_algorithms_results_df: pd.DataFrame,
-                                                     plot_dir: str):
-    # In alpha (X) vs beta (Y) space, plot runtime (grouping by algorithm,
-    for sampling_scheme, results_by_sampling_df in inf_algorithms_results_df.groupby('sampling'):
-        sampling_results_dir_path = os.path.join(plot_dir, sampling_scheme)
-
-        for inf_alg_str, inf_alg_results_df in results_by_sampling_df.groupby(['inference_alg']):
-            algs_runstimes_and_train_recon_error = inf_alg_results_df.agg({
-                'runtime': ['mean', 'sem'],
-                'training_reconstruction_error': ['mean', 'sem']
-            })
-
-            plt.errorbar(
-                x=algs_runstimes_and_train_recon_error['runtime']['mean'],
-                xerr=algs_runstimes_and_train_recon_error['runtime']['sem'],
-                y=algs_runstimes_and_train_recon_error['training_reconstruction_error']['mean'],
-                yerr=algs_runstimes_and_train_recon_error['training_reconstruction_error']['sem'],
-                fmt='o',
-                label=inf_alg_str)
-
-        # plt.legend()
-        plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left')
-        if sampling_scheme.startswith('IBP'):
-            split_sampling_scheme = sampling_scheme.split('=')
-            alpha_str = float(split_sampling_scheme[1][:-2])
-            beta_str = float(split_sampling_scheme[2])
-            nice_title = rf'IBP($\alpha={alpha_str}, \beta={beta_str}$)'
-        else:
-            raise NotImplementedError
-        plt.title(nice_title)
-        plt.xlabel('Runtime (s)')
-        plt.ylabel(r'$||X - Z A||_2^2$')
-        plt.xscale('log')
-        plt.grid(visible=True, axis='both')
-        # plt.yscale('log')
-        # Make room at bottom
-        # plt.subplots_adjust(bottom=0.15)
-        # Ensures things aren't cut off - maybe?
-        # https://www.delftstack.com/howto/matplotlib/how-to-place-legend-outside-of-the-plot-in-matplotlib/
-        plt.tight_layout()
-        plt.savefig(os.path.join(sampling_results_dir_path,
-                                 f'reconstruction_error_vs_runtime_{sampling_scheme}.png'),
-                    bbox_inches='tight',
-                    dpi=300)
-        # plt.show()
-        plt.close()
-
-
-def plot_indicators_by_index_over_many_observations(indicators, ):
-    # plt.title(f'Obs Idx: {obs_idx}, VI Idx: {vi_idx + 1}')
-    # plt.scatter(np.arange(len(dish_eating_prior)), dish_eating_prior, label='prior')
-    # plt.scatter(np.arange(len(dish_eating_prior)), Z_probs.detach().numpy(), label='posterior')
     # plt.legend()
-    # plt.xlim(0, 15)
+    lg = plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left')
+    if title is not None:
+        plt.title(title)
+    plt.xlabel('Runtime (s)')
+    plt.ylabel('Negative Log Posterior Predictive')
+    plt.xscale('log')
+    plt.yscale('log')
+    # Make room at bottom
+    plt.subplots_adjust(left=0.15)
+    plt.subplots_adjust(bottom=0.15)
+    # plt.tight_layout()
+    plt.grid(visible=True, axis='both')
+    plt.savefig(os.path.join(plot_dir,
+                             f'negative_posterior_predictive_vs_runtime.png'),
+                bbox_extra_artists=(lg,),
+                bbox_inches='tight',
+                dpi=300)
     # plt.show()
-    raise NotImplementedError
+    plt.close()
+
+
+def plot_recon_error_vs_runtime_by_alg(
+        inf_algs_results_df: pd.DataFrame,
+        plot_dir: str,
+        title: str = None):
+
+    for inf_alg_str, inf_alg_results_df in inf_algs_results_df.groupby(['inference_alg']):
+
+        algs_runstimes_and_train_recon_error = inf_alg_results_df.agg({
+            'runtime': ['mean', 'sem'],
+            'training_reconstruction_error': ['mean', 'sem']
+        })
+
+        plt.errorbar(
+            x=algs_runstimes_and_train_recon_error['runtime']['mean'],
+            xerr=algs_runstimes_and_train_recon_error['runtime']['sem'],
+            y=algs_runstimes_and_train_recon_error['training_reconstruction_error']['mean'],
+            yerr=algs_runstimes_and_train_recon_error['training_reconstruction_error']['sem'],
+            fmt='o',
+            label=inf_alg_str)
+
+    # plt.legend()
+    plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left')
+    if title is not None:
+        plt.title(title)
+    plt.xlabel('Runtime (s)')
+    plt.ylabel(r'$||X - Z A||_2^2$')
+    plt.xscale('log')
+    plt.grid(visible=True, axis='both')
+    # plt.yscale('log')
+    # Make room at bottom
+    # plt.subplots_adjust(bottom=0.15)
+    # Ensures things aren't cut off - maybe?
+    # https://www.delftstack.com/howto/matplotlib/how-to-place-legend-outside-of-the-plot-in-matplotlib/
+    plt.tight_layout()
+    plt.savefig(os.path.join(plot_dir,
+                             f'reconstruction_error_vs_runtime.png'),
+                bbox_inches='tight',
+                dpi=300)
+    # plt.show()
+    plt.close()
 
 
 def plot_inference_algs_comparison(inference_algs_results_by_dataset_idx: dict,
@@ -444,6 +419,7 @@ def plot_run_one_indicators_by_num_obs(indicators: np.ndarray,
                 dpi=500)
     # plt.show()
     plt.close()
+
 
 # def plot_posterior_num_dishes_by_num_obs(dish_eating_array: np.ndarray,
 #                                          plot_dir: str,

@@ -31,7 +31,6 @@ import utils.run_helpers
 
 
 def run_one(args: argparse.Namespace):
-
     setup_results = setup(args=args)
 
     print('Running and plotting {} on dataset {}'.format(
@@ -53,7 +52,7 @@ def run_and_plot_inference_alg(cancer_gene_expression_data,
                                inference_alg_str,
                                gen_model_params,
                                inference_results_dir,
-                               train_fraction: int = .80):
+                               train_fraction: int = .75):
 
     assert 0. <= train_fraction <= 1.
 
@@ -70,7 +69,6 @@ def run_and_plot_inference_alg(cancer_gene_expression_data,
         'inference_alg_results.joblib')
 
     if not os.path.isfile(inference_results_path):
-
         print(f'Inference results not found at: {inference_results_path}')
         print('Generating inference results...')
 
@@ -91,7 +89,13 @@ def run_and_plot_inference_alg(cancer_gene_expression_data,
         print('Generated inference results.')
 
         # record scores
-        log_posterior_predictive_results = utils.metrics.compute_log_posterior_predictive_factor_analysis(
+        training_reconstruction_error = utils.metrics.compute_reconstruction_error_linear_gaussian(
+            observations=cancer_gene_expression_data['train_observations'],
+            dish_eating_posteriors=inference_alg_results['dish_eating_posteriors'],
+            features_after_last_obs=inference_alg_results['inference_alg'].features_after_last_obs())
+        logging.info(f'Computed training reconstruction error: {training_reconstruction_error}')
+
+        log_posterior_predictive_results = utils.metrics.compute_log_posterior_predictive_linear_gaussian(
             train_observations=cancer_gene_expression_data['train_observations'],
             test_observations=cancer_gene_expression_data['test_observations'],
             inference_alg=inference_alg_results['inference_alg'])
@@ -108,10 +112,10 @@ def run_and_plot_inference_alg(cancer_gene_expression_data,
             num_indicators=num_indicators,
             log_posterior_predictive=dict(mean=log_posterior_predictive_results['mean'],
                                           std=log_posterior_predictive_results['std']),
+            training_reconstruction_error=training_reconstruction_error,
             runtime=runtime)
 
-        print(f'Writing inference results to disk at:'
-                     f' {inference_results_path}')
+        print(f'Writing inference results to disk at:' f' {inference_results_path}')
         joblib.dump(data_to_store,
                     filename=inference_results_path)
 
@@ -150,6 +154,10 @@ def setup(args: argparse.Namespace):
     cancer_gene_expression_data = load_dataset_cancer_gene_expression_2016()
     print('Loaded 2016 Cancer Gene Expression!')
 
+    # Just use the first 16 data points
+    cancer_gene_expression_data['observations'] = cancer_gene_expression_data[
+                                                      'observations'][:8]
+
     # Permute the order of the data
     n_obs = cancer_gene_expression_data['observations'].shape[0]
     permutation = np.random.permutation(np.arange(n_obs))
@@ -183,7 +191,7 @@ def setup(args: argparse.Namespace):
         ),
         likelihood_params=dict(
             sigma_x=args.sigma_x),
-        )
+    )
 
     setup_results = dict(
         inference_alg_str=args.inference_alg_str,
