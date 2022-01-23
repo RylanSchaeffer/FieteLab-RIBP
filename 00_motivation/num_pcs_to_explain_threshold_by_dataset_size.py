@@ -7,20 +7,13 @@ Example usage:
 python3 00_motivation/num_pcs_to_explain_threshold_by_dataset_size.py
 """
 
-import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
-import seaborn as sns
 from sklearn.decomposition import PCA
 
 import utils.data.real
 
-# Set style
-plt.rcParams["font.family"] = "'DejaVu Serif'"
-plt.rcParams["font.serif"] = ["Times New Roman"]
-plt.rcParams["font.size"] = 16
-sns.set_style("whitegrid")
 
 plot_dir = '00_motivation/results'
 os.makedirs(plot_dir, exist_ok=True)
@@ -63,21 +56,5 @@ for dataset in datasets:
         df = pd.DataFrame(
             num_pcs_to_explain_var_by_dataset_size,
             columns=['threshold', 'dataset_size', 'num_pcs'])
-        g = sns.lineplot(data=df,
-                         x='dataset_size',
-                         y='num_pcs',
-                         hue='threshold',
-                         legend='full',  # necessary to force seaborn to not try binning based on hue
-                         )
-        plt.title(f'{dataset}')
-        plt.xlabel('Dataset Size')
-        plt.ylabel(f'Num PCs to Explain % Variance')
-        plt.grid(visible=True, axis='both')
-        legend = g.legend()
-        legend.texts[0].set_text("% Variance")
-        plt.savefig(os.path.join(plot_dir,
-                                 f'{dataset.lower()}_num_pcs_to_explain_by_dataset_size.png'),
-                    bbox_inches='tight',
-                    dpi=300)
-        # plt.show()
-        plt.close()
+        df.to_csv(os.path.join(plot_dir, f'{dataset.lower()}_num_pcs_to_explain_by_dataset_size.csv'),
+                  index=False)
