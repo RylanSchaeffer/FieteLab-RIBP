@@ -10,7 +10,7 @@ from typing import Union
 from utils.numpy_helpers import compute_largest_dish_idx
 
 
-plt.rcParams["font.family"] = "'DejaVu Serif'"
+plt.rcParams["font.family"] = "DejaVu Serif"
 plt.rcParams["font.serif"] = ["Times New Roman"]
 plt.rcParams["font.size"] = 16  # was previously 22
 sns.set_style("whitegrid")
