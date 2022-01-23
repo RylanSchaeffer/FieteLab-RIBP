@@ -17,13 +17,13 @@ from sklearn.decomposition import PCA
 import utils.data.real
 
 # Set style
-plt.rcParams["font.family"] = "Times New Roman"
-plt.rcParams["font.size"] = 12
+plt.rcParams["font.family"] = "'DejaVu Serif'"
+plt.rcParams["font.serif"] = ["Times New Roman"]
+plt.rcParams["font.size"] = 14
 sns.set_style("whitegrid")
 
 plot_dir = '00_motivation/results'
 os.makedirs(plot_dir, exist_ok=True)
-
 
 datasets = ['Omniglot', 'MNIST']
 num_pcs = [100, 250, 500, 1000]
@@ -66,14 +66,13 @@ for dataset in datasets:
                          hue='Num PCs',
                          legend='full',  # necessary to force seaborn to not try binning based on hue
                          )
-            plt.title(f'{dataset}', fontname='Times New Roman',fontsize=14)
-            plt.xlabel('Dataset Size', fontname='Times New Roman',fontsize=14)
-            plt.ylabel(f'Fraction of Variance Explained', fontname='Times New Roman',fontsize=14)
-            plt.grid()
+            plt.title(f'{dataset}')
+            plt.xlabel('Dataset Size')
+            plt.ylabel(f'Fraction of Variance Explained')
+            plt.grid(visible=True, axis='both')
             plt.savefig(os.path.join(plot_dir,
                                      f'{dataset.lower()}_frac_var_explained_by_fixed_num_pcs.png'),
                         bbox_inches='tight',
                         dpi=300)
-            plt.show()
+            # plt.show()
             plt.close()
-

@@ -17,8 +17,9 @@ from sklearn.decomposition import PCA
 import utils.data.real
 
 # Set style
-plt.rcParams["font.family"] = "Times New Roman"
-plt.rcParams["font.size"] = 12
+plt.rcParams["font.family"] = "'DejaVu Serif'"
+plt.rcParams["font.serif"] = ["Times New Roman"]
+plt.rcParams["font.size"] = 14
 sns.set_style("whitegrid")
 
 plot_dir = '00_motivation/results'
@@ -68,16 +69,10 @@ for dataset in datasets:
                          hue='threshold',
                          legend='full',  # necessary to force seaborn to not try binning based on hue
                          )
-        plt.title(f'{dataset}',
-                  fontname='Times New Roman',
-                  fontsize=14)
-        plt.xlabel('Dataset Size',
-                   fontname='Times New Roman',
-                   fontsize=14)
-        plt.ylabel(f'Num PCs to Explain % Variance',
-                   fontname='Times New Roman',
-                   fontsize=14)
-        plt.grid()
+        plt.title(f'{dataset}')
+        plt.xlabel('Dataset Size')
+        plt.ylabel(f'Num PCs to Explain % Variance')
+        plt.grid(visible=True, axis='both')
         legend = g.legend()
         legend.texts[0].set_text("% Variance")
         plt.savefig(os.path.join(plot_dir,
