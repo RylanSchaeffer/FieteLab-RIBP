@@ -122,9 +122,9 @@ def run_and_plot_inference_alg(cancer_gene_expression_data,
     print(f'Loading inference from {inference_results_path}')
 
     # read results from disk
-    stored_data = joblib.load(inference_results_path)
+    # stored_data = joblib.load(inference_results_path)
 
-    print('Plotting inference algorithm results...')
+    # print('Plotting inference algorithm results...')
     # plot_cancer_gene_expression.plot_run_one_inference_results(
     #     sampled_cancer_gene_expression_data=sampled_cancer_gene_expression_data,
     #     inference_alg_results=stored_data['inference_alg_results'],
@@ -132,7 +132,7 @@ def run_and_plot_inference_alg(cancer_gene_expression_data,
     #     inference_alg_params=stored_data['inference_alg_params'],
     #     log_posterior_predictive_dict=stored_data['log_posterior_predictive'],
     #     plot_dir=inference_results_dir)
-    print('Plotted inference algorithm results.')
+    # print('Plotted inference algorithm results.')
 
 
 def setup(args: argparse.Namespace):
@@ -156,7 +156,7 @@ def setup(args: argparse.Namespace):
 
     # Just use the first 16 data points
     cancer_gene_expression_data['observations'] = cancer_gene_expression_data[
-                                                      'observations'][:8]
+                                                      'observations'][:100]
 
     # Permute the order of the data
     n_obs = cancer_gene_expression_data['observations'].shape[0]

@@ -25,10 +25,10 @@ def run_all():
     inference_alg_strs = [
         'R-IBP',
     ]
-    alphas = [1., 2.5, 5.]
-    betas = [1., 2.5, 5.]
-    feature_prior_cov_scalings = [1., 5., 10.]
-    sigma_xs = [0.1, 1., 5.]
+    alphas = np.logspace(-1., 1., num=10)
+    betas = np.logspace(-1., 1., num=10)
+    feature_prior_cov_scalings = np.logspace(0., 2., num=10)
+    sigma_xs = np.logspace(-1., 1., num=10)
     seeds = list(range(1))
 
     hyperparams = [

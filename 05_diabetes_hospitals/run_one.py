@@ -91,7 +91,7 @@ def run_and_plot_inference_alg(diabetes_hospitals_data,
         print('Generated inference results.')
 
         # record scores
-        log_posterior_predictive_results = utils.metrics.compute_log_posterior_predictive_factor_analysis(
+        log_posterior_predictive_results = utils.metrics.compute_log_posterior_predictive_linear_gaussian(
             train_observations=diabetes_hospitals_data['train_observations'],
             test_observations=diabetes_hospitals_data['test_observations'],
             inference_alg=inference_alg_results['inference_alg'])

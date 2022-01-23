@@ -7,4 +7,4 @@
 #SBATCH --mail-type=FAIL
 
 export PYTHONPATH=.
-python -u 04_cancer_gene_expression/analyze_all.py        # -u flushes output buffer immediately
+python -u 05_diabetes_hospitals/analyze_all.py        # -u flushes output buffer immediately

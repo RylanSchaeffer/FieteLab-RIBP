@@ -6,7 +6,7 @@ import pandas as pd
 import seaborn as sns
 from typing import Dict, List
 
-import utils.plot
+import utils.plot_general
 
 
 

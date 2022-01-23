@@ -14,7 +14,7 @@ import os
 import pandas as pd
 from typing import List, Tuple
 
-import plot_cancer_gene_expression
+import plot_diabetes_hospitals
 
 
 def analyze_all(args: argparse.Namespace):
