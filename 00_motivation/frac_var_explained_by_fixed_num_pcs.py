@@ -7,20 +7,13 @@ Example usage:
 python3 00_motivation/frac_var_explained_by_fixed_num_pcs.py
 """
 
-import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
-import seaborn as sns
 from sklearn.decomposition import PCA
 
 import utils.data.real
 
-# Set style
-plt.rcParams["font.family"] = "'DejaVu Serif'"
-plt.rcParams["font.serif"] = ["Times New Roman"]
-plt.rcParams["font.size"] = 16
-sns.set_style("whitegrid")
 
 plot_dir = '00_motivation/results'
 os.makedirs(plot_dir, exist_ok=True)
@@ -60,19 +53,5 @@ for dataset in datasets:
             df = pd.DataFrame(
                 frac_var_explained_by_num_pcs_and_dataset_size,
                 columns=['Num PCs', 'dataset_size', 'frac_var_explained'])
-            sns.lineplot(data=df,
-                         x='dataset_size',
-                         y='frac_var_explained',
-                         hue='Num PCs',
-                         legend='full',  # necessary to force seaborn to not try binning based on hue
-                         )
-            plt.title(f'{dataset}')
-            plt.xlabel('Dataset Size')
-            plt.ylabel(f'Fraction of Variance Explained')
-            plt.grid(visible=True, axis='both')
-            plt.savefig(os.path.join(plot_dir,
-                                     f'{dataset.lower()}_frac_var_explained_by_fixed_num_pcs.png'),
-                        bbox_inches='tight',
-                        dpi=300)
-            # plt.show()
-            plt.close()
+            df.to_csv(os.path.join(plot_dir, f'{dataset.lower()}_frac_var_explained_by_fixed_num_pcs.csv'),
+                      index=False)
