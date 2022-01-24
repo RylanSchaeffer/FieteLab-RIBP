@@ -16,8 +16,11 @@ def plot_analyze_all_algorithms_results(inf_algs_results_df: pd.DataFrame,
 
     title = '2016 Cancer Gene Expression'
 
-    scores = ['runtime', 'negative_log_posterior_predictive', 'reconstruction_error']
+    utils.plot.metrics.plot_runtime_by_alpha_beta(
+        inf_algs_results_df=inf_algs_results_df,
+        plot_dir=plot_dir)
 
+    scores = ['runtime', 'negative_log_posterior_predictive', 'reconstruction_error']
     for score in scores:
         best_beta_all_dir = os.path.join(plot_dir, f'{score}_best_beta=all')
         os.makedirs(best_beta_all_dir, exist_ok=True)

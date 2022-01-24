@@ -1,4 +1,6 @@
 from matplotlib.colors import LogNorm
+import matplotlib as mpl
+import matplotlib.cm
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -114,7 +116,6 @@ def plot_score_all_params_violin_by_alg(inf_algs_results_df: pd.DataFrame,
 def plot_score_best_by_alg(inf_algs_results_df: pd.DataFrame,
                            plot_dir: str,
                            score: str = 'neg_log_posterior_predictive'):
-
     assert score in inf_algs_results_df.columns.values
 
     best_score_inf_algs_results_df = inf_algs_results_df.groupby('inference_alg').agg({
@@ -133,6 +134,60 @@ def plot_score_best_by_alg(inf_algs_results_df: pd.DataFrame,
     plt.grid(visible=True, axis='y')
     plt.tight_layout()
     plt.savefig(os.path.join(plot_dir, f'{score}_best_vs_inf_alg.png'),
+                bbox_inches='tight',
+                dpi=300)
+    # plt.show()
+    plt.close()
+
+
+def plot_runtime_by_alpha_beta(inf_algs_results_df: pd.DataFrame,
+                               plot_dir: str):
+
+    inf_algs_results_df['alpha_rounded'] = np.round(inf_algs_results_df['alpha'],
+                                                    decimals=3)
+
+    inf_algs_results_df['beta_rounded'] = np.round(inf_algs_results_df['beta'],
+                                                   decimals=3)
+
+    g = sns.lineplot(
+        data=inf_algs_results_df,
+        x='alpha_rounded',
+        y='runtime',
+        hue='beta_rounded',
+        legend='full',
+        palette='rocket_r',
+    )
+
+    # Remove "quantity" from legend title
+    # see https://stackoverflow.com/questions/51579215/remove-seaborn-lineplot-legend-title
+    # handles, labels = g.get_legend_handles_labels()
+    # g.legend(handles=handles[1:], labels=labels[1:])
+    # g.get_legend().set_title(r'$\beta$')
+
+    # Approach 1:
+    # tmp.figure.colorbar(
+    #     mpl.cm.ScalarMappable(
+    #         norm=mpl.colors.Normalize(vmin=inf_algs_results_df['beta_rounded'].min(),
+    #                                   vmax=inf_algs_results_df['beta_rounded'].max(),
+    #                                   clip=False)),
+    #     label=r'$\beta$')
+
+    # Approach 2:
+    norm = plt.Normalize(0.,
+                         inf_algs_results_df['beta_rounded'].max())
+    sm = plt.cm.ScalarMappable(norm=norm, cmap="rocket_r")
+    sm.set_array([])
+    g.get_legend().remove()
+    g.figure.colorbar(sm, label=r'$\beta$')
+
+    plt.xlabel(r'$\alpha$')
+    plt.ylabel('Runtime')
+    # plt.xscale('log')
+    plt.yscale('log')
+    plt.grid(visible=True, axis='both')
+
+    plt.savefig(os.path.join(plot_dir,
+                             f'runtime_by_alpha_beta.png'),
                 bbox_inches='tight',
                 dpi=300)
     # plt.show()
