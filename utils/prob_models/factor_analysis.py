@@ -23,8 +23,9 @@ def compute_max_num_features(alpha: float,
                              num_obs: int,
                              prefactor: int = 2):
     # Note: the expected number of latents grows logarithmically as a*b*log(1 + N/sticks)
-    # The 10 is a hopefully conservative heuristic to preallocate.
-    return prefactor * int(alpha * beta * np.log(1 + num_obs / beta))
+    # The 2 is a hopefully conservative heuristic to preallocate.
+    # Note: Add 1 to ensure at least one feature exists
+    return prefactor * int(1 + alpha * beta * np.log(1 + num_obs / beta))
 
 
 class FactorAnalysisModel(abc.ABC):
