@@ -13,11 +13,9 @@ plt.rcParams["font.size"] = 16  # was previously 22
 sns.set_style("whitegrid")
 
 
-def plot_neg_log_posterior_predictive_vs_runtime_by_alg(
-        inf_algs_results_df: pd.DataFrame,
-        plot_dir: str,
-        title: str = None):
-
+def plot_neg_log_posterior_predictive_vs_runtime_by_alg(inf_algs_results_df: pd.DataFrame,
+                                                        plot_dir: str,
+                                                        title: str = None):
     for inf_alg_str, inf_alg_results_df in inf_algs_results_df.groupby(['inference_alg']):
         algs_runstimes_and_neg_log_pp = inf_alg_results_df.agg({
             'runtime': ['mean', 'sem'],
@@ -54,23 +52,20 @@ def plot_neg_log_posterior_predictive_vs_runtime_by_alg(
     plt.close()
 
 
-def plot_recon_error_vs_runtime_by_alg(
-        inf_algs_results_df: pd.DataFrame,
-        plot_dir: str,
-        title: str = None):
-
+def plot_recon_error_vs_runtime_by_alg(inf_algs_results_df: pd.DataFrame,
+                                       plot_dir: str,
+                                       title: str = None):
     for inf_alg_str, inf_alg_results_df in inf_algs_results_df.groupby(['inference_alg']):
-
         algs_runstimes_and_train_recon_error = inf_alg_results_df.agg({
             'runtime': ['mean', 'sem'],
-            'training_reconstruction_error': ['mean', 'sem']
+            'reconstruction_error': ['mean', 'sem']
         })
 
         plt.errorbar(
             x=algs_runstimes_and_train_recon_error['runtime']['mean'],
             xerr=algs_runstimes_and_train_recon_error['runtime']['sem'],
-            y=algs_runstimes_and_train_recon_error['training_reconstruction_error']['mean'],
-            yerr=algs_runstimes_and_train_recon_error['training_reconstruction_error']['sem'],
+            y=algs_runstimes_and_train_recon_error['reconstruction_error']['mean'],
+            yerr=algs_runstimes_and_train_recon_error['reconstruction_error']['sem'],
             fmt='o',
             label=inf_alg_str)
 
@@ -90,6 +85,54 @@ def plot_recon_error_vs_runtime_by_alg(
     plt.tight_layout()
     plt.savefig(os.path.join(plot_dir,
                              f'reconstruction_error_vs_runtime.png'),
+                bbox_inches='tight',
+                dpi=300)
+    # plt.show()
+    plt.close()
+
+
+def plot_score_all_params_violin_by_alg(inf_algs_results_df: pd.DataFrame,
+                                        plot_dir: str,
+                                        score: str = 'neg_log_posterior_predictive',
+                                        title: str = None):
+    assert score in inf_algs_results_df.columns.values
+
+    sns.violinplot(x='inference_alg',
+                   y=score,
+                   data=inf_algs_results_df)
+
+    plt.yscale('log')
+    plt.grid(visible=True, axis='y')
+    plt.tight_layout()
+    plt.savefig(os.path.join(plot_dir, f'{score}_all_params_vs_inf_alg.png'),
+                bbox_inches='tight',
+                dpi=300)
+    # plt.show()
+    plt.close()
+
+
+def plot_score_best_by_alg(inf_algs_results_df: pd.DataFrame,
+                           plot_dir: str,
+                           score: str = 'neg_log_posterior_predictive',
+                           title: str = None):
+    assert score in inf_algs_results_df.columns.values
+
+    best_score_inf_algs_results_df = inf_algs_results_df.groupby('inference_alg').agg({
+        score: ['min']
+    })[score]
+
+    # Move inference_alg from index to a new column.
+    best_score_inf_algs_results_df.reset_index(inplace=True)
+
+    sns.catplot(x='inference_alg',
+                y='min',
+                data=best_score_inf_algs_results_df,
+                jitter=False)
+    plt.ylabel(score)
+    plt.yscale('log')
+    plt.grid(visible=True, axis='y')
+    plt.tight_layout()
+    plt.savefig(os.path.join(plot_dir, f'{score}_best_vs_inf_alg.png'),
                 bbox_inches='tight',
                 dpi=300)
     # plt.show()

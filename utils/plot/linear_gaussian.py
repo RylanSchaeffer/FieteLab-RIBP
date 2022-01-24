@@ -41,7 +41,7 @@ def plot_neg_log_posterior_predictive_by_linear_gaussian_parameters(inf_algs_res
                              f'negative_posterior_predictive_by_cov_scalings.png'),
                 bbox_inches='tight',
                 dpi=300)
-    plt.show()
+    # plt.show()
     plt.close()
 
 

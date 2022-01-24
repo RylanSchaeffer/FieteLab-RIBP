@@ -1948,8 +1948,9 @@ def compute_max_num_features(alpha: float,
                              num_obs: int,
                              prefactor: int = 2):
     # Note: the expected number of latents grows logarithmically as a*b*log(1 + N/sticks)
-    # The 10 is a hopefully conservative heuristic to preallocate.
-    return prefactor * int(alpha * beta * np.log(1 + num_obs / beta))
+    # The prefactor is a hopefully conservative heuristic to preallocate.
+    # Note: Add 1 to ensure that we have at least one feature.
+    return prefactor * int(1 + alpha * beta * np.log(1 + num_obs / beta))
 
 
 def create_new_feature_params_multivariate_normal(torch_observation: torch.Tensor,

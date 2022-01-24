@@ -20,14 +20,22 @@ import plot_cancer_gene_expression
 def analyze_all(args: argparse.Namespace):
     # create directory
     exp_dir_path = args.exp_dir_path
-    results_dir_path = os.path.join(exp_dir_path, 'results')
+    results_dir_path = os.path.join(exp_dir_path, 'results100')
 
-    inf_algs_results_df = load_all_inf_alg_results(
-        results_dir_path=results_dir_path)
+    inf_algs_results_df_path = os.path.join(results_dir_path,
+                                            'inf_algs_results_df.csv')
 
-    inf_algs_results_df.to_csv(
-        os.path.join(results_dir_path, 'inf_algs_results_df.csv'),
-        index=False)
+    if not os.path.isfile(inf_algs_results_df_path):
+        inf_algs_results_df = load_all_inf_alg_results(
+            results_dir_path=results_dir_path)
+
+        inf_algs_results_df.to_csv(
+            inf_algs_results_df_path,
+            index=False)
+
+    else:
+        inf_algs_results_df = pd.read_csv(inf_algs_results_df_path,
+                                          index_col=None)
 
     plot_cancer_gene_expression.plot_analyze_all_algorithms_results(
         inf_algs_results_df=inf_algs_results_df,
@@ -59,7 +67,7 @@ def load_all_inf_alg_results(results_dir_path: str,
             stored_data['inference_alg_params']['likelihood_params']['sigma_x'],
             stored_data['runtime'],
             stored_data['log_posterior_predictive']['mean'],
-            # stored_data['reconstruction_error'],
+            stored_data['training_reconstruction_error'],
         ]
 
         inf_algorithms_results_rows.append(inf_algorithms_results_row)
@@ -75,7 +83,7 @@ def load_all_inf_alg_results(results_dir_path: str,
         columns=['inference_alg', 'alpha', 'beta', 'feature_cov_scaling',
                  'likelihood_cov_scaling', 'runtime',
                  'log_posterior_predictive',
-                 # 'reconstruction_error',
+                 'reconstruction_error',
                  ])
 
     inf_algs_results_df['negative_log_posterior_predictive'] = \

@@ -16,6 +16,18 @@ def plot_analyze_all_algorithms_results(inf_algs_results_df: pd.DataFrame,
 
     title = '2016 Cancer Gene Expression'
 
+    utils.plot.metrics.plot_score_best_by_alg(
+        inf_algs_results_df,
+        score='runtime',
+        plot_dir=plot_dir,
+    )
+
+    utils.plot.metrics.plot_score_all_params_violin_by_alg(
+        inf_algs_results_df=inf_algs_results_df,
+        score='runtime',
+        plot_dir=plot_dir,
+    )
+
     utils.plot.linear_gaussian.plot_neg_log_posterior_predictive_by_linear_gaussian_parameters(
         inf_algs_results_df=inf_algs_results_df[inf_algs_results_df['inference_alg'] == 'R-IBP'],
         plot_dir=plot_dir,
@@ -35,4 +47,3 @@ def plot_analyze_all_algorithms_results(inf_algs_results_df: pd.DataFrame,
         inf_algs_results_df=inf_algs_results_df,
         plot_dir=plot_dir,
         title=title)
-
