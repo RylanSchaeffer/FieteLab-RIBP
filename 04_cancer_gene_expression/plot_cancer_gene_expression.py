@@ -16,17 +16,32 @@ def plot_analyze_all_algorithms_results(inf_algs_results_df: pd.DataFrame,
 
     title = '2016 Cancer Gene Expression'
 
-    utils.plot.metrics.plot_score_best_by_alg(
-        inf_algs_results_df,
-        score='runtime',
-        plot_dir=plot_dir,
-    )
+    scores = ['runtime', 'negative_log_posterior_predictive', 'reconstruction_error']
 
-    utils.plot.metrics.plot_score_all_params_violin_by_alg(
-        inf_algs_results_df=inf_algs_results_df,
-        score='runtime',
-        plot_dir=plot_dir,
-    )
+    for score in scores:
+        best_beta_all_dir = os.path.join(plot_dir, f'{score}_best_beta=all')
+        os.makedirs(best_beta_all_dir, exist_ok=True)
+        utils.plot.metrics.plot_score_best_by_alg(
+            inf_algs_results_df,
+            score=score,
+            plot_dir=best_beta_all_dir,
+        )
+
+        best_beta_one_dir = os.path.join(plot_dir, f'{score}_best_beta=1')
+        os.makedirs(best_beta_one_dir, exist_ok=True)
+        # utils.plot.metrics.plot_score_best_by_alg(
+        #     inf_algs_results_df[inf_algs_results_df['beta'] == 1.],
+        #     score=score,
+        #     plot_dir=best_beta_one_dir,
+        # )
+
+        all_dir = os.path.join(plot_dir, f'{score}_all')
+        os.makedirs(all_dir, exist_ok=True)
+        utils.plot.metrics.plot_score_all_params_violin_by_alg(
+            inf_algs_results_df=inf_algs_results_df,
+            score=score,
+            plot_dir=all_dir,
+        )
 
     utils.plot.linear_gaussian.plot_neg_log_posterior_predictive_by_linear_gaussian_parameters(
         inf_algs_results_df=inf_algs_results_df[inf_algs_results_df['inference_alg'] == 'R-IBP'],

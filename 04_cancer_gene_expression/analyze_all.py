@@ -18,6 +18,7 @@ import plot_cancer_gene_expression
 
 
 def analyze_all(args: argparse.Namespace):
+
     # create directory
     exp_dir_path = args.exp_dir_path
     results_dir_path = os.path.join(exp_dir_path, 'results100')
@@ -40,6 +41,8 @@ def analyze_all(args: argparse.Namespace):
     plot_cancer_gene_expression.plot_analyze_all_algorithms_results(
         inf_algs_results_df=inf_algs_results_df,
         plot_dir=results_dir_path)
+
+    print('Finished.')
 
 
 def load_all_inf_alg_results(results_dir_path: str,

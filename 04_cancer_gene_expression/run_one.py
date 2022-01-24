@@ -23,7 +23,7 @@ import os
 from timeit import default_timer as timer
 import torch
 
-import plot_cancer_gene_expression
+# import plot_cancer_gene_expression
 from utils.data.real import load_dataset_cancer_gene_expression_2016
 import utils.inference
 import utils.metrics
@@ -154,9 +154,8 @@ def setup(args: argparse.Namespace):
     cancer_gene_expression_data = load_dataset_cancer_gene_expression_2016()
     print('Loaded 2016 Cancer Gene Expression!')
 
-    # Just use the first 16 data points
     cancer_gene_expression_data['observations'] = cancer_gene_expression_data[
-                                                      'observations'][:100]
+                                                      'observations']
 
     # Permute the order of the data
     n_obs = cancer_gene_expression_data['observations'].shape[0]
