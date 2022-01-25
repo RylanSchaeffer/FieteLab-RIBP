@@ -285,7 +285,7 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
             ),
             A=dict(  # variational params for Gaussian features
                 mean=torch.full(
-                    size=(num_obs + 1, max_num_features, obs_dim),
+                    size=(1, max_num_features, obs_dim),
                     fill_value=0.,
                     dtype=torch.float32),
                 half_cov=A_half_covs),
@@ -390,7 +390,7 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
 
                 elif not self.numerically_optimize:
                     with torch.no_grad():
-                        logging.info(f'Obs Idx: {obs_idx}, VI idx: {vi_idx}')
+                        print(f'Obs Idx: {obs_idx}, VI idx: {vi_idx}')
 
                         A_means, A_half_covs = recursive_ibp_optimize_feature_params(
                             torch_observation=torch_observation,
@@ -409,27 +409,27 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
                                 torch.multiply(self.variational_params['Z']['prob'].data[obs_idx, :, None],
                                                A_means),
                                 torch.multiply(dish_eating_posteriors_running_sum[obs_idx - 1, :, None],
-                                               self.variational_params['A']['mean'].data[obs_idx - 1, :]))
+                                               self.variational_params['A']['mean'].data[0, :]))
                             history_weighted_A_half_covs = torch.add(
                                 torch.multiply(self.variational_params['Z']['prob'].data[obs_idx, :, None, None],
                                                A_half_covs),
                                 torch.multiply(dish_eating_posteriors_running_sum[obs_idx - 1, :, None, None],
-                                               self.variational_params['A']['half_cov'].data[obs_idx - 1, :]))
+                                               self.variational_params['A']['half_cov'].data[0, :]))
                             A_means = torch.divide(history_weighted_A_means, normalizing_const[:, None])
                             A_half_covs = torch.divide(
                                 history_weighted_A_half_covs,
                                 normalizing_const[:, None, None])
                             # if cumulative probability mass is 0, we compute 0/0 and get NaN. Need to mask
                             A_means[normalizing_const == 0.] = \
-                                self.variational_params['A']['mean'][obs_idx - 1][normalizing_const == 0.]
+                                self.variational_params['A']['mean'][0][normalizing_const == 0.]
                             A_half_covs[normalizing_const == 0.] = \
-                                self.variational_params['A']['half_cov'][obs_idx - 1][normalizing_const == 0.]
+                                self.variational_params['A']['half_cov'][0][normalizing_const == 0.]
 
                             utils.torch_helpers.assert_no_nan_no_inf_is_real(A_means)
                             utils.torch_helpers.assert_no_nan_no_inf_is_real(A_half_covs)
 
-                        self.variational_params['A']['mean'].data[obs_idx, :] = A_means
-                        self.variational_params['A']['half_cov'].data[obs_idx, :] = A_half_covs
+                        self.variational_params['A']['mean'].data[0, :] = A_means
+                        self.variational_params['A']['half_cov'].data[0, :] = A_half_covs
 
                         w_mean, w_half_cov = recursive_ibp_optimize_scale_params(
                             torch_observation=torch_observation,
@@ -471,8 +471,8 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
                 #                             label='Observations')
                 #     for feature_idx in range(10):
                 #         axes[vi_idx, 0].plot(
-                #             [0, self.variational_params['A']['mean'][obs_idx, feature_idx, 0].item()],
-                #             [0, self.variational_params['A']['mean'][obs_idx, feature_idx, 1].item()],
+                #             [0, self.variational_params['A']['mean'][0, feature_idx, 0].item()],
+                #             [0, self.variational_params['A']['mean'][0, feature_idx, 1].item()],
                 #             label=f'{feature_idx}')
                 #     # axes[0].legend()
                 #
@@ -489,7 +489,7 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
                 #     axes[vi_idx, 1].legend()
                 #
                 #     weighted_features = np.multiply(
-                #         self.variational_params['A']['mean'][obs_idx, :, :].detach().numpy(),
+                #         self.variational_params['A']['mean'][0, :, :].detach().numpy(),
                 #         dish_eating_posteriors[obs_idx].unsqueeze(1).detach().numpy(),
                 #     )
                 #     axes[vi_idx, 2].set_title('Weighted Features')
