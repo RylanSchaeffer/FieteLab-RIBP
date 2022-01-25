@@ -154,25 +154,10 @@ def plot_runtime_by_alpha_beta(inf_algs_results_df: pd.DataFrame,
         x='alpha_rounded',
         y='runtime',
         hue='beta_rounded',
-        legend='full',
+        legend='full',  # Ensures hue is treated as continuum & not binned.
         palette='rocket_r',
     )
 
-    # Remove "quantity" from legend title
-    # see https://stackoverflow.com/questions/51579215/remove-seaborn-lineplot-legend-title
-    # handles, labels = g.get_legend_handles_labels()
-    # g.legend(handles=handles[1:], labels=labels[1:])
-    # g.get_legend().set_title(r'$\beta$')
-
-    # Approach 1:
-    # tmp.figure.colorbar(
-    #     mpl.cm.ScalarMappable(
-    #         norm=mpl.colors.Normalize(vmin=inf_algs_results_df['beta_rounded'].min(),
-    #                                   vmax=inf_algs_results_df['beta_rounded'].max(),
-    #                                   clip=False)),
-    #     label=r'$\beta$')
-
-    # Approach 2:
     norm = plt.Normalize(0.,
                          inf_algs_results_df['beta_rounded'].max())
     sm = plt.cm.ScalarMappable(norm=norm, cmap="rocket_r")
