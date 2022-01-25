@@ -19,11 +19,11 @@ def run_all() -> None:
     results_dir_path = os.path.join(exp_dir_path, 'results')
     os.makedirs(results_dir_path, exist_ok=True)
 
-    alphas = np.round(np.arange(1., 5.01, 1.), 4)
-    betas = np.round(np.arange(1., 11.01, 1.), 4)[::-1]
-    sigma_xs = np.round(np.logspace(-2, 0, 5), 4)
-    feature_prior_cov_scalings = np.round(np.logspace(0., 2., 3), 4)[::-1]
-    scale_prior_cov_scalings = np.round(np.logspace(0., 2., 4), 4)[::-1]
+    alphas = np.round(np.arange(1., 10.01, 2.5), 4)
+    betas = np.round(np.arange(1., 15.01, 2.5), 4)
+    sigma_xs = np.round(np.logspace(-1, 1, 5), 4)
+    feature_prior_cov_scalings = np.round(np.logspace(0., 2., 6), 4)[:-1]
+    scale_prior_cov_scalings = 1 / 2.5  # gives 99% chance of scales being between -1 and 1
     inference_alg_strs = [
         'R-IBP',
     ]
