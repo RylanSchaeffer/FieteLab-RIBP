@@ -2219,7 +2219,8 @@ def recursive_ibp_optimize_bernoulli_params(torch_observation: torch.Tensor,
                                             dish_eating_prior: torch.Tensor,
                                             variational_params: Dict[str, dict],
                                             sigma_obs_squared: int = 1e-0,
-                                            simultaneous_or_sequential: str = 'sequential') -> torch.Tensor:
+                                            simultaneous_or_sequential: str = 'sequential',
+                                            ) -> torch.Tensor:
     assert simultaneous_or_sequential in {'sequential', 'simultaneous'}
 
     A_cov = utils.torch_helpers.convert_half_cov_to_cov(
@@ -2311,9 +2312,9 @@ def recursive_ibp_optimize_gaussian_params(torch_observation: torch.Tensor,
     assert sigma_obs_squared > 0
     assert simultaneous_or_sequential in {'sequential', 'simultaneous'}
 
-    prev_means = variable_variational_params['A']['mean'][0].clone()
+    prev_means = variable_variational_params['A']['mean'][0, :].clone()
     prev_covs = utils.torch_helpers.convert_half_cov_to_cov(
-        variable_variational_params['A']['half_cov'][0])
+        variable_variational_params['A']['half_cov'][0, :])
     prev_precisions = torch.linalg.inv(prev_covs)
 
     obs_dim = torch_observation.shape[0]

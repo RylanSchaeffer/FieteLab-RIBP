@@ -21,8 +21,8 @@ def run_all() -> None:
 
     alphas = np.round(np.arange(1., 10.01, 2.5), 4)
     betas = np.round(np.arange(1., 15.01, 2.5), 4)
-    sigma_xs = np.round(np.logspace(-1, 1, 5), 4)
-    feature_prior_cov_scalings = np.round(np.logspace(0., 2., 6), 4)[:-1]
+    sigma_xs = np.round(np.logspace(-1, 1, 5), 4)[:-1]
+    feature_prior_cov_scalings = np.round(np.logspace(0., 1, 6), 4)[:-1]
     scale_prior_cov_scalings = np.array([1. / 2.5])  # gives 99% chance of scales being between -1 and 1
     inference_alg_strs = [
         'R-IBP',

@@ -87,6 +87,14 @@ def run_and_plot_inference_alg(sampled_omniglot_data,
         runtime = stop_time - start_time
         logging.info('Generated inference results.')
 
+        training_reconstruction_error = utils.metrics.compute_reconstruction_error_factor_analysis  (
+            observations=sampled_omniglot_data['train_observations'],
+            dish_eating_posteriors=inference_alg_results['dish_eating_posteriors'],
+            scales=inference_alg_results['scales'],
+            features_after_last_obs=inference_alg_results['inference_alg'].features_after_last_obs(),
+            )
+        logging.info(f'Computed training reconstruction error: {training_reconstruction_error}')
+
         # record scores
         log_posterior_predictive_results = utils.metrics.compute_log_posterior_predictive_factor_analysis(
             test_observations=sampled_omniglot_data['test_observations'],
@@ -104,6 +112,7 @@ def run_and_plot_inference_alg(sampled_omniglot_data,
             num_indicators=num_indicators,
             log_posterior_predictive=dict(mean=log_posterior_predictive_results['mean'],
                                           std=log_posterior_predictive_results['std']),
+            training_reconstruction_error=training_reconstruction_error,
             runtime=runtime)
 
         logging.info(f'Writing inference results to disk at:'

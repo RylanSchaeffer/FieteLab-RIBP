@@ -41,8 +41,9 @@ def analyze_all(args: argparse.Namespace):
         plot_dir=exp_dir_path)
 
 
-def load_all_inf_alg_results(results_dir_path) -> Tuple[pd.DataFrame,
-                                                        List[np.ndarray]]:
+def load_all_inf_alg_results(results_dir_path: str,
+                             ) -> Tuple[pd.DataFrame, List[np.ndarray]]:
+
     inf_algorithms_results_rows = []
     inf_algorithms_num_features_by_num_obs = []
     run_dirs = [subdir for subdir in os.listdir(results_dir_path)]
@@ -69,7 +70,7 @@ def load_all_inf_alg_results(results_dir_path) -> Tuple[pd.DataFrame,
         inf_algorithms_results_rows.append(inf_algorithms_results_row)
 
         num_features_by_num_obs = stored_data['inference_alg_results'][
-            'num_dishes_poisson_rate_posteriors'][:, 0]  # remove extra dimension
+                                      'num_dishes_poisson_rate_posteriors'][:, 0]  # remove extra dimension
         inf_algorithms_num_features_by_num_obs.append(num_features_by_num_obs)
 
         del stored_data

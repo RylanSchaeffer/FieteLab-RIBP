@@ -24,7 +24,7 @@ def compute_max_num_features(alpha: float,
                              prefactor: int = 2):
     # Note: the expected number of latents grows logarithmically as a*b*log(1 + N/sticks)
     # The 2 is a hopefully conservative heuristic to preallocate.
-    # Note: Add 1 to ensure at least one feature exists
+    # Note: Add 1 to ensure at least one feature exists.
     return prefactor * int(1 + alpha * beta * np.log(1 + num_obs / beta))
 
 
@@ -51,14 +51,6 @@ class FactorAnalysisModel(abc.ABC):
     def features_after_last_obs(self) -> np.ndarray:
         """
         Returns array of shape (num features, feature dimension)
-        """
-        pass
-
-    @abc.abstractmethod
-    def features_by_obs(self) -> np.ndarray:
-        """
-        Returns array of shape (num obs, num features, feature dimension)
-        :return:
         """
         pass
 
@@ -176,16 +168,6 @@ class HMCGibbsFactorAnalysis(FactorAnalysisModel):
             self.fit_results['samples']['A']['value'],
             axis=0)
 
-    def features_by_obs(self) -> np.ndarray:
-        avg_feature = np.mean(
-            self.fit_results['samples']['A']['value'],
-            axis=0)
-        repeated_avg_feature = np.repeat(
-            avg_feature[np.newaxis],
-            repeats=self.num_obs,
-            axis=0)
-        return repeated_avg_feature
-
 
 class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
 
@@ -250,10 +232,8 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
             dtype=torch.float32,
             requires_grad=self.numerically_optimize)
 
-        dish_eating_posteriors = torch.zeros(
-            (num_obs + 1, max_num_features),
-            dtype=torch.float32,
-            requires_grad=self.numerically_optimize)
+        # dish_eating_posteriors are contained in the variational
+        # parameters ['Z']['probs']
 
         dish_eating_posteriors_running_sum = torch.zeros(
             (num_obs + 1, max_num_features),
@@ -279,18 +259,14 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
                       / self.gen_model_params['scale_prior_params']['scale_prior_cov_scaling']
 
         # we use half covariance in case we want to numerically optimize
-        w_half_cov = np.sqrt(self.gen_model_params['scale_prior_params']['scale_prior_cov_scaling']) * \
-                     torch.stack([torch.eye(max_num_features).float()
-                                  for _ in range((num_obs + 1))])
-        w_half_cov = w_half_cov.view(
-            num_obs + 1, max_num_features, max_num_features)
+        w_prefactor = np.sqrt(self.gen_model_params['scale_prior_params']['scale_prior_cov_scaling'])
+        w_half_cov = (w_prefactor * torch.eye(max_num_features).float()[None, :, :]).repeat(
+            num_obs + 1, 1, 1,)
 
-        A_half_covs = torch.stack([
-            np.sqrt(self.gen_model_params['feature_prior_params']['feature_prior_cov_scaling']) * torch.eye(
-                obs_dim).float()
-            for _ in range((num_obs + 1) * max_num_features)])
-        A_half_covs = A_half_covs.view(
-            num_obs + 1, max_num_features, obs_dim, obs_dim)
+        # we use half covariance because we want to numerically optimize
+        A_prefactor = np.sqrt(self.gen_model_params['feature_prior_params']['feature_prior_cov_scaling'])
+        A_half_covs = (A_prefactor * torch.eye(obs_dim).float()[None, None, :, :]).repeat(
+            1, max_num_features, 1, 1,)
 
         # dict mapping variables to variational params
         self.variational_params = dict(
@@ -312,7 +288,6 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
                     size=(num_obs + 1, max_num_features, obs_dim),
                     fill_value=0.,
                     dtype=torch.float32),
-                # mean=A_mean,
                 half_cov=A_half_covs),
         )
 
@@ -341,21 +316,20 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
                 dish_eating_posteriors_running_sum[obs_idx - 1, :]) / (
                                         self.gen_model_params['IBP']['beta'] + obs_idx - 1)
             # Recursion: 2nd term; don't subtract 1 from latent indices b/c zero based indexing
-            dish_eating_prior += poisson.cdf(k=latent_indices, mu=num_dishes_poisson_rate_posteriors[obs_idx - 1, :])
+            dish_eating_prior += poisson.cdf(
+                k=latent_indices,
+                mu=num_dishes_poisson_rate_posteriors[obs_idx - 1, :])
             # Recursion: 3rd term; don't subtract 1 from latent indices b/c zero based indexing
-            dish_eating_prior -= poisson.cdf(k=latent_indices, mu=num_dishes_poisson_rate_priors[obs_idx, :])
+            dish_eating_prior -= poisson.cdf(
+                k=latent_indices,
+                mu=num_dishes_poisson_rate_priors[obs_idx, :])
 
             # record latent prior
             dish_eating_priors[obs_idx, :] = dish_eating_prior.clone()
 
-            # initialize dish eating posterior to dish eating prior, before beginning inference
+            # Initialize dish eating posterior to dish eating prior, before
+            # beginning inference.
             self.variational_params['Z']['prob'].data[obs_idx, :] = dish_eating_prior.clone()
-            dish_eating_posteriors.data[obs_idx, :] = dish_eating_prior.clone()
-
-            # initialize features to previous features as starting point for optimization
-            # Use .data to not break backprop
-            for param_name, param_tensor in self.variational_params['A'].items():
-                param_tensor.data[obs_idx, :] = param_tensor.data[obs_idx - 1, :]
 
             if self.plot_dir is not None:
                 num_cols = 4
@@ -483,89 +457,82 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
 
                         self.variational_params['Z']['prob'].data[obs_idx, :] = Z_probs
 
-                        # record dish-eating posterior
-                        dish_eating_posteriors.data[obs_idx, :] = \
-                            self.variational_params['Z']['prob'][obs_idx, :].clone()
-
                 else:
                     raise ValueError(f'Impermissible value of numerically_optimize: {self.numerically_optimize}')
 
-                if self.plot_dir is not None:
-                    fig.suptitle(f'Obs: {obs_idx}, {self.coord_ascent_update_type}')
-                    axes[vi_idx, 0].set_ylabel(f'VI Step: {vi_idx + 1}')
-                    axes[vi_idx, 0].set_title('Individual Features')
-                    axes[vi_idx, 0].scatter(observations[:obs_idx, 0],
-                                            observations[:obs_idx, 1],
-                                            # s=3,
-                                            color='k',
-                                            label='Observations')
-                    for feature_idx in range(10):
-                        axes[vi_idx, 0].plot(
-                            [0, self.variational_params['A']['mean'][obs_idx, feature_idx, 0].item()],
-                            [0, self.variational_params['A']['mean'][obs_idx, feature_idx, 1].item()],
-                            label=f'{feature_idx}')
-                    # axes[0].legend()
-
-                    axes[vi_idx, 1].set_title('Inferred Indicator Probabilities')
-                    # axes[vi_idx, 1].set_xlabel('Indicator Index')
-                    axes[vi_idx, 1].scatter(
-                        1 + np.arange(10),
-                        dish_eating_priors[obs_idx, :10].detach().numpy(),
-                        label='Prior')
-                    axes[vi_idx, 1].scatter(
-                        1 + np.arange(10),
-                        dish_eating_posteriors[obs_idx, :10].detach().numpy(),
-                        label='Posterior')
-                    axes[vi_idx, 1].legend()
-
-                    weighted_features = np.multiply(
-                        self.variational_params['A']['mean'][obs_idx, :, :].detach().numpy(),
-                        dish_eating_posteriors[obs_idx].unsqueeze(1).detach().numpy(),
-                    )
-                    axes[vi_idx, 2].set_title('Weighted Features')
-                    axes[vi_idx, 2].scatter(observations[:obs_idx, 0],
-                                            observations[:obs_idx, 1],
-                                            # s=3,
-                                            color='k',
-                                            label='Observations')
-                    for feature_idx in range(10):
-                        axes[vi_idx, 2].plot([0, weighted_features[feature_idx, 0]],
-                                             [0, weighted_features[feature_idx, 1]],
-                                             label=f'{feature_idx}',
-                                             zorder=feature_idx + 1,
-                                             # alpha=dish_eating_posteriors[obs_idx, feature_idx].item(),
-                                             )
-
-                    cumulative_weighted_features = np.cumsum(weighted_features, axis=0)
-                    axes[vi_idx, 3].set_title('Cumulative Weighted Features')
-                    axes[vi_idx, 3].scatter(observations[:obs_idx, 0],
-                                            observations[:obs_idx, 1],
-                                            # s=3,
-                                            color='k',
-                                            label='Observations')
-                    for feature_idx in range(10):
-                        axes[vi_idx, 3].plot(
-                            [0 if feature_idx == 0 else cumulative_weighted_features[feature_idx - 1, 0],
-                             cumulative_weighted_features[feature_idx, 0]],
-                            [0 if feature_idx == 0 else cumulative_weighted_features[feature_idx - 1, 1],
-                             cumulative_weighted_features[feature_idx, 1]],
-                            label=f'{feature_idx}',
-                            alpha=dish_eating_posteriors[obs_idx, feature_idx].item())
+                # if self.plot_dir is not None:
+                #     fig.suptitle(f'Obs: {obs_idx}, {self.coord_ascent_update_type}')
+                #     axes[vi_idx, 0].set_ylabel(f'VI Step: {vi_idx + 1}')
+                #     axes[vi_idx, 0].set_title('Individual Features')
+                #     axes[vi_idx, 0].scatter(observations[:obs_idx, 0],
+                #                             observations[:obs_idx, 1],
+                #                             # s=3,
+                #                             color='k',
+                #                             label='Observations')
+                #     for feature_idx in range(10):
+                #         axes[vi_idx, 0].plot(
+                #             [0, self.variational_params['A']['mean'][obs_idx, feature_idx, 0].item()],
+                #             [0, self.variational_params['A']['mean'][obs_idx, feature_idx, 1].item()],
+                #             label=f'{feature_idx}')
+                #     # axes[0].legend()
+                #
+                #     axes[vi_idx, 1].set_title('Inferred Indicator Probabilities')
+                #     # axes[vi_idx, 1].set_xlabel('Indicator Index')
+                #     axes[vi_idx, 1].scatter(
+                #         1 + np.arange(10),
+                #         dish_eating_priors[obs_idx, :10].detach().numpy(),
+                #         label='Prior')
+                #     axes[vi_idx, 1].scatter(
+                #         1 + np.arange(10),
+                #         dish_eating_posteriors[obs_idx, :10].detach().numpy(),
+                #         label='Posterior')
+                #     axes[vi_idx, 1].legend()
+                #
+                #     weighted_features = np.multiply(
+                #         self.variational_params['A']['mean'][obs_idx, :, :].detach().numpy(),
+                #         dish_eating_posteriors[obs_idx].unsqueeze(1).detach().numpy(),
+                #     )
+                #     axes[vi_idx, 2].set_title('Weighted Features')
+                #     axes[vi_idx, 2].scatter(observations[:obs_idx, 0],
+                #                             observations[:obs_idx, 1],
+                #                             # s=3,
+                #                             color='k',
+                #                             label='Observations')
+                #     for feature_idx in range(10):
+                #         axes[vi_idx, 2].plot([0, weighted_features[feature_idx, 0]],
+                #                              [0, weighted_features[feature_idx, 1]],
+                #                              label=f'{feature_idx}',
+                #                              zorder=feature_idx + 1,
+                #                              # alpha=dish_eating_posteriors[obs_idx, feature_idx].item(),
+                #                              )
+                #
+                #     cumulative_weighted_features = np.cumsum(weighted_features, axis=0)
+                #     axes[vi_idx, 3].set_title('Cumulative Weighted Features')
+                #     axes[vi_idx, 3].scatter(observations[:obs_idx, 0],
+                #                             observations[:obs_idx, 1],
+                #                             # s=3,
+                #                             color='k',
+                #                             label='Observations')
+                #     for feature_idx in range(10):
+                #         axes[vi_idx, 3].plot(
+                #             [0 if feature_idx == 0 else cumulative_weighted_features[feature_idx - 1, 0],
+                #              cumulative_weighted_features[feature_idx, 0]],
+                #             [0 if feature_idx == 0 else cumulative_weighted_features[feature_idx - 1, 1],
+                #              cumulative_weighted_features[feature_idx, 1]],
+                #             label=f'{feature_idx}',
+                #             alpha=dish_eating_posteriors[obs_idx, feature_idx].item())
 
                 with torch.no_grad():
-
-                    # record dish-eating posterior
-                    dish_eating_posteriors.data[obs_idx, :] = self.variational_params['Z']['prob'][obs_idx, :].clone()
 
                     # update running sum of posteriors
                     dish_eating_posteriors_running_sum[obs_idx, :] = torch.add(
                         dish_eating_posteriors_running_sum[obs_idx - 1, :],
-                        dish_eating_posteriors[obs_idx, :])
+                        self.variational_params['Z']['prob'][obs_idx, :])
 
                     # update how many dishes have been sampled
                     non_eaten_dishes_posteriors_running_prod[obs_idx, :] = np.multiply(
                         non_eaten_dishes_posteriors_running_prod[obs_idx - 1, :],
-                        1. - dish_eating_posteriors[obs_idx, :],
+                        1. - self.variational_params['Z']['prob'][obs_idx, :],
                         # p(z_{tk} = 0|o_{\leq t}) = 1 - p(z_{tk} = 1|o_{\leq t})
                     )
 
@@ -583,7 +550,7 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
                     # update running sum of which customers ate which dishes
                     dish_eating_posteriors_running_sum[obs_idx] = torch.add(
                         dish_eating_posteriors_running_sum[obs_idx - 1, :],
-                        dish_eating_posteriors[obs_idx, :])
+                        self.variational_params['Z']['prob'][obs_idx, :])
 
             if self.plot_dir is not None:
                 plt.savefig(os.path.join(self.plot_dir,
@@ -606,13 +573,17 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
 
         # Remember to cut off the first index.y
         numpy_variable_params = {
-            var_name: {param_name: param_tensor.detach().numpy()[1:]
+            var_name: {param_name: param_tensor.detach().numpy()
                        for param_name, param_tensor in var_params.items()}
             for var_name, var_params in self.variational_params.items()
         }
+
+        numpy_variable_params['Z']['prob'] = numpy_variable_params['Z']['prob'][1:]
+        dish_eating_posteriors = numpy_variable_params['Z']['prob']
+
         self.fit_results = dict(
             dish_eating_priors=dish_eating_priors.numpy()[1:],
-            dish_eating_posteriors=dish_eating_posteriors.numpy()[1:],
+            dish_eating_posteriors=dish_eating_posteriors.numpy(),  # already chopped
             dish_eating_posteriors_running_sum=dish_eating_posteriors_running_sum.numpy()[1:],
             non_eaten_dishes_posteriors_running_prod=non_eaten_dishes_posteriors_running_prod.numpy()[1:],
             num_dishes_poisson_rate_priors=num_dishes_poisson_rate_priors.numpy()[1:],
@@ -690,9 +661,6 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
     def features_after_last_obs(self) -> np.ndarray:
         return self.fit_results['variational_params']['A']['mean'][-1, :, :]
 
-    def features_by_obs(self) -> np.ndarray:
-        return self.fit_results['variational_params']['A']['mean'][:, :, :]
-
 
 def recursive_ibp_optimize_bernoulli_params(torch_observation: torch.Tensor,
                                             obs_idx: int,
@@ -700,7 +668,8 @@ def recursive_ibp_optimize_bernoulli_params(torch_observation: torch.Tensor,
                                             dish_eating_prior: torch.Tensor,
                                             variable_variational_params: Dict[str, dict],
                                             sigma_obs_squared: int = 1e-0,
-                                            simultaneous_or_sequential: str = 'sequential') -> torch.Tensor:
+                                            simultaneous_or_sequential: str = 'sequential',
+                                            ) -> torch.Tensor:
     assert simultaneous_or_sequential in {'sequential', 'simultaneous'}
 
     # Add, then remove, batch dimension
@@ -709,7 +678,7 @@ def recursive_ibp_optimize_bernoulli_params(torch_observation: torch.Tensor,
         variable_variational_params['w']['half_cov'][obs_idx:obs_idx + 1, :, :])[0, :, :]
 
     A_cov = utils.torch_helpers.convert_half_cov_to_cov(
-        variable_variational_params['A']['half_cov'][obs_idx, :])
+        variable_variational_params['A']['half_cov'][0, :])
 
     num_features = A_cov.shape[0]
 
@@ -723,9 +692,6 @@ def recursive_ibp_optimize_bernoulli_params(torch_observation: torch.Tensor,
     else:
         raise ValueError(f'Impermissible value for simultaneous_or_sequential: {simultaneous_or_sequential}')
 
-    # establish that first feature has closest distance
-    A_means = variable_variational_params['A']['mean'][obs_idx].detach().numpy()
-
     bernoulli_probs = variable_variational_params['Z']['prob'][obs_idx].detach().clone()
     # either do 1 iteration of all indices (simultaneous) or do K iterations of each index (sequential)
     for slice_idx in slices_indices:
@@ -738,7 +704,7 @@ def recursive_ibp_optimize_bernoulli_params(torch_observation: torch.Tensor,
         # shape (slice length,)
         term_one = -2. * variable_variational_params['w']['mean'][obs_idx, slice_idx] * torch.einsum(
             'kd,d->',
-            variable_variational_params['A']['mean'][obs_idx, slice_idx],  # shape (1, obs dim)
+            variable_variational_params['A']['mean'][0, slice_idx],  # shape (1, obs dim)
             torch_observation,  # not sure if transpose needed
         )
 
@@ -752,27 +718,27 @@ def recursive_ibp_optimize_bernoulli_params(torch_observation: torch.Tensor,
             'kii->k',
             torch.add(A_cov[slice_idx],
                       torch.einsum('ki,kj->kij',
-                                   variable_variational_params['A']['mean'][obs_idx, slice_idx],
-                                   variable_variational_params['A']['mean'][obs_idx, slice_idx])))
+                                   variable_variational_params['A']['mean'][0, slice_idx],
+                                   variable_variational_params['A']['mean'][0, slice_idx])))
 
         # (\mu_{nl}^T \sum_{k: k \neq l} b_{nk} \phi_{nk} \mu_{nk} )
         # = (\mu_{nl}^T \sum_{k} b_{nk} \phi_{nk} \mu_{nk}) - (b_{nl} \phi_{nl} \mu_{nl}^T \mu_{nl})
         # shape (slice length, 1)
         term_three_all_pairs = torch.einsum(
             'bi,i->b',
-            variable_variational_params['A']['mean'][obs_idx, slice_idx],  # shape (slice, obs dim)
+            variable_variational_params['A']['mean'][0, slice_idx],  # shape (slice, obs dim)
             torch.einsum(
                 'b,bi->i',
                 torch.mul(bernoulli_probs, variable_variational_params['w']['mean'][obs_idx]),
                 # shape (max num features)
-                variable_variational_params['A']['mean'][obs_idx, :]))
+                variable_variational_params['A']['mean'][0, :]))
         # shape (slice length, 1)
         term_three_self_pairs = torch.einsum(
             'b,bk,bk->b',
             torch.mul(bernoulli_probs[slice_idx],
                       variable_variational_params['w']['mean'][obs_idx][slice_idx]),
-            variable_variational_params['A']['mean'][obs_idx, slice_idx],
-            variable_variational_params['A']['mean'][obs_idx, slice_idx])
+            variable_variational_params['A']['mean'][0, slice_idx],
+            variable_variational_params['A']['mean'][0, slice_idx])
 
         term_three = 2. * variable_variational_params['w']['mean'][obs_idx, slice_idx] * (
                 term_three_all_pairs - term_three_self_pairs)
@@ -798,6 +764,7 @@ def recursive_ibp_optimize_bernoulli_params(torch_observation: torch.Tensor,
     assert torch.all(0. <= bernoulli_probs)
     assert torch.all(bernoulli_probs <= 1.)
 
+    # Shape: (Max num features,)
     return bernoulli_probs
 
 
@@ -811,9 +778,9 @@ def recursive_ibp_optimize_feature_params(torch_observation: torch.Tensor,
     assert sigma_obs_squared > 0
     assert simultaneous_or_sequential in {'sequential', 'simultaneous'}
 
-    prev_means = variable_variational_params['A']['mean'][obs_idx - 1, :]
+    prev_means = variable_variational_params['A']['mean'][0, :].clone()
     prev_covs = utils.torch_helpers.convert_half_cov_to_cov(
-        variable_variational_params['A']['half_cov'][obs_idx - 1, :])
+        variable_variational_params['A']['half_cov'][0, :])
     prev_precisions = torch.linalg.inv(prev_covs)
 
     # shape: (max num features, max number features)
@@ -860,7 +827,7 @@ def recursive_ibp_optimize_feature_params(torch_observation: torch.Tensor,
         prev_means)
     # b_{nl} (o_n - \sum_{k: k\neq l} b_{nk} \mu_{nk})
 
-    feature_means = variable_variational_params['A']['mean'][obs_idx, :].detach().clone()
+    feature_means = variable_variational_params['A']['mean'][0, :].detach().clone()
     # prev_gaussian_means = gaussian_means.detach().clone()
 
     # The covariance updates only depends on the previous covariance and Z_n, so we can always
@@ -932,10 +899,10 @@ def recursive_ibp_optimize_scale_params(torch_observation: torch.Tensor,
     num_features = variable_variational_params['Z']['prob'].shape[1]
 
     # shape (num features, obs dim)
-    A_means = variable_variational_params['A']['mean'][obs_idx, :]
+    A_means = variable_variational_params['A']['mean'][0, :]
     # shape (num features, obs dim, obs dim)
     A_covs = utils.torch_helpers.convert_half_cov_to_cov(
-        variable_variational_params['A']['half_cov'][obs_idx, :, :])  # DxD
+        variable_variational_params['A']['half_cov'][0, :, :])  # DxD
     bernoulli_probs = variable_variational_params['Z']['prob'][obs_idx].detach().clone()
 
     # Step 1: Compute updated covariances
