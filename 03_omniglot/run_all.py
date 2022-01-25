@@ -23,7 +23,7 @@ def run_all() -> None:
     betas = np.round(np.arange(1., 15.01, 2.5), 4)
     sigma_xs = np.round(np.logspace(-1, 1, 5), 4)
     feature_prior_cov_scalings = np.round(np.logspace(0., 2., 6), 4)[:-1]
-    scale_prior_cov_scalings = 1 / 2.5  # gives 99% chance of scales being between -1 and 1
+    scale_prior_cov_scalings = np.array([1. / 2.5])  # gives 99% chance of scales being between -1 and 1
     inference_alg_strs = [
         'R-IBP',
     ]
@@ -37,12 +37,12 @@ def run_all() -> None:
     ]
 
     counter = 0
-    for alpha, beta, sigma_x, feature_prior_cov_scaling, scale_prior_cov_scaling,\
+    for alpha, beta, sigma_x, feature_prior_cov_scaling, scale_prior_cov_scaling, \
         inference_alg_str in itertools.product(*hyperparams):
 
         run_str = f'{inference_alg_str}_a={alpha}_b={beta}_' \
-                                f'sigmax={sigma_x}_featurecov={feature_prior_cov_scaling}_' \
-                                f'scalecov={scale_prior_cov_scaling}'
+                  f'sigmax={sigma_x}_featurecov={feature_prior_cov_scaling}_' \
+                  f'scalecov={scale_prior_cov_scaling}'
 
         run_one_results_dir_path = os.path.join(
             results_dir_path,
@@ -71,7 +71,6 @@ def launch_run_one(exp_dir_path: str,
                    sigma_x: float,
                    feature_prior_cov_scaling: float,
                    scale_prior_cov_scaling: float) -> None:
-
     run_one_script_path = os.path.join(exp_dir_path, 'run_one.sh')
     command_and_args = [
         'sbatch',
@@ -83,7 +82,7 @@ def launch_run_one(exp_dir_path: str,
         str(sigma_x),
         str(feature_prior_cov_scaling),
         str(scale_prior_cov_scaling),
-        ]
+    ]
 
     # TODO: Figure out where the logger is logging to
     logging.info(f'Launching ' + ' '.join(command_and_args))
