@@ -447,7 +447,7 @@ def load_dataset_omniglot(data_dir: str = 'data',
         # images.append(omniglot_dataset[0][0][0, :, :])
     images = torch.stack(images).numpy()
 
-    # these might be swapped but I think height = width for omniglot
+    # These might be swapped, but I think height = width for omniglot.
     _, image_height, image_width = images.shape
     labels = np.array(labels)
 
