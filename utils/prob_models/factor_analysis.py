@@ -583,7 +583,7 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
 
         self.fit_results = dict(
             dish_eating_priors=dish_eating_priors.numpy()[1:],
-            dish_eating_posteriors=dish_eating_posteriors.numpy(),  # already chopped
+            dish_eating_posteriors=dish_eating_posteriors,  # already chopped
             dish_eating_posteriors_running_sum=dish_eating_posteriors_running_sum.numpy()[1:],
             non_eaten_dishes_posteriors_running_prod=non_eaten_dishes_posteriors_running_prod.numpy()[1:],
             num_dishes_poisson_rate_priors=num_dishes_poisson_rate_priors.numpy()[1:],
