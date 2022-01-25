@@ -236,6 +236,23 @@ def compute_log_posterior_predictive_linear_gaussian(train_observations: np.ndar
     return log_posterior_predictive_results
 
 
+def compute_reconstruction_error_factor_analysis(observations: np.ndarray,
+                                                 dish_eating_posteriors: np.ndarray,
+                                                 scales: np.ndarray,
+                                                 features_after_last_obs: np.ndarray,
+                                                 ) -> float:
+    """
+    Compute the reconstruction error: ||X - multiply(W, Z) A||_2^2.
+    """
+
+    if features_after_last_obs is not None:
+        diff = observations - np.multiply(scales, dish_eating_posteriors) @ features_after_last_obs
+        error = np.square(np.linalg.norm(diff))
+    else:
+        error = np.nan
+    return error
+
+
 def compute_reconstruction_error_linear_gaussian(observations: np.ndarray,
                                                  dish_eating_posteriors: np.ndarray,
                                                  features_after_last_obs: np.ndarray,
