@@ -39,7 +39,8 @@ def run_one(args: argparse.Namespace):
         inference_alg_str=setup_results['inference_alg_str'],
         gen_model_params=setup_results['gen_model_params'],
         inference_results_dir=setup_results['inference_results_dir'],
-        data_dim=setup_results['data_dim'])
+        data_dim=setup_results['data_dim'],
+        num_gaussians=setup_results['num_gaussians'])
 
     # logging.info('Successfully ran and plotted {} on dataset {}'.format(
     #     setup_results['inference_alg_str'],
@@ -52,7 +53,8 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
                                gen_model_params,
                                inference_results_dir,
                                train_fraction: int = .80,
-                               data_dim: int=2,):
+                               data_dim: int=2,
+                               num_gaussians: int=5):
     assert 0. <= train_fraction <= 1.
     # Determine the index for train-test split
     num_obs = sampled_linear_gaussian_data['observations'].shape[0]
@@ -151,15 +153,17 @@ def run_and_plot_inference_alg(sampled_linear_gaussian_data,
         num_dishes_poisson_rate_posteriors=inference_alg_results['num_dishes_poisson_rate_posteriors'],
         indicators=sampled_linear_gaussian_data['train_sampled_indicators'],
         save_dir=inference_results_dir,
-        data_dim=data_dim)
+        data_dim=data_dim,
+        num_gaussians=num_gaussians)
 
 
 
 def run_one_save_num_features_by_num_obs_using_poisson_rates(indicators: Union[np.ndarray, None],
-                                                            num_dishes_poisson_rate_priors,
-                                                            num_dishes_poisson_rate_posteriors,
-                                                            save_dir,
-                                                            data_dim):
+                                                             num_dishes_poisson_rate_priors,
+                                                             num_dishes_poisson_rate_posteriors,
+                                                             save_dir,
+                                                             data_dim,
+                                                             num_gaussians):
     seq_length = num_dishes_poisson_rate_priors.shape[0]
     obs_indices = 1 + np.arange(seq_length)  # remember, we started with t = 0
     if indicators is None:
@@ -175,7 +179,8 @@ def run_one_save_num_features_by_num_obs_using_poisson_rates(indicators: Union[n
     data_to_plot = pd.DataFrame.from_dict({
         'obs_idx': obs_indices,
         'data_dim': np.array([data_dim]*seq_length),
-        'dish_ratio': real_num_dishes / num_dishes_poisson_rate_posteriors[:, 0],
+        'dish_ratio': num_dishes_poisson_rate_posteriors[:, 0] / max(num_dishes_poisson_rate_posteriors[:, 0]),
+        # 'dish_ratio': real_num_dishes / num_dishes_poisson_rate_posteriors[:, 0],
         # 'Prior': num_dishes_poisson_rate_priors[:, 0],
         # 'Posterior': num_dishes_poisson_rate_posteriors[:, 0],
     })
@@ -190,7 +195,7 @@ def run_one_save_num_features_by_num_obs_using_poisson_rates(indicators: Union[n
     # )
     # print("MELTED DATA TO PLOT:", melted_data_to_plot)
     data_path = os.path.join(save_dir,
-                             f'data_to_plot.pkl')
+                             f'data_to_plot_true_feature_ratio.pkl')
     data_to_plot.to_pickle(data_path)
     return str(data_path)
 
@@ -233,6 +238,7 @@ def setup(args: argparse.Namespace):
         sampled_linear_gaussian_data=sampled_linear_gaussian_data,
         inference_results_dir=inference_results_dir,
         data_dim=args.data_dim,
+        num_gaussians=args.num_gaussians,
     )
 
     return setup_results
@@ -253,6 +259,8 @@ if __name__ == '__main__':
                         help='IBP beta parameter.')
     parser.add_argument('--data_dim', type=int,
                         help='Data dimension parameter.')
+    parser.add_argument('--num_gaussians', type=int,
+                        help='Total num true features parameter.')
     args = parser.parse_args()
     run_one(args)
     # logging.info('Finished.')
