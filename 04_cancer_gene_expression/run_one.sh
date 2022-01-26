@@ -31,5 +31,5 @@ python -u 04_cancer_gene_expression/run_one.py \
 --beta="${beta}" \
 --feature_prior_cov_scaling="${feature_prior_cov_scaling}" \
 --sigma_x="${sigma_x}" \
---seed="${seed}"
+--seed="${seed}" \
 --num_data="${num_data}"

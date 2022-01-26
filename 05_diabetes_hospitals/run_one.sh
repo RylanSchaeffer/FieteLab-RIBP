@@ -13,6 +13,7 @@ beta=${4}
 feature_prior_cov_scaling=${5}
 sigma_x=${6}
 seed=${7}
+num_data=${8}
 
 
 # don't remember what this does
@@ -30,4 +31,5 @@ python -u 05_diabetes_hospitals/run_one.py \
 --beta="${beta}" \
 --feature_prior_cov_scaling="${feature_prior_cov_scaling}" \
 --sigma_x="${sigma_x}" \
---seed="${seed}"
+--seed="${seed}" \
+--num_data="${num_data}"

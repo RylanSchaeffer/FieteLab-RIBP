@@ -150,6 +150,10 @@ def setup(args: argparse.Namespace):
     diabetes_hospitals_data = load_dataset_diabetes_hospitals_2014()
     print('Loaded 2014 Diabetes Hospitals!')
 
+    # Keep only the specified number of data
+    diabetes_hospitals_data['observations'] = diabetes_hospitals_data[
+                                                  'observations'][:args.num_data]
+
     # Permute the order of the data
     n_obs = diabetes_hospitals_data['observations'].shape[0]
     permutation = np.random.permutation(np.arange(n_obs))
@@ -212,6 +216,8 @@ if __name__ == '__main__':
     parser.add_argument('--jl_eps', type=float,
                         default=0.25,
                         help='Epsilon for JL projection.')
+    parser.add_argument('--num_data', type=int,
+                        help='Number of data to use.')
     args = parser.parse_args()
     run_one(args)
     print('Finished.')

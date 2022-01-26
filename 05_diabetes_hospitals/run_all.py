@@ -19,7 +19,8 @@ import plot_diabetes_hospitals
 def run_all():
     # create directory
     exp_dir_path = '05_diabetes_hospitals'
-    results_dir_path = os.path.join(exp_dir_path, 'results')
+    num_data = 100
+    results_dir_path = os.path.join(exp_dir_path, f'results_data={num_data}')
     os.makedirs(results_dir_path, exist_ok=True)
 
     inference_alg_strs = [
@@ -28,7 +29,7 @@ def run_all():
         'Doshi-Velez-Infinite',
         'Widjaja-Finite',
         'Widjaja-Infinite',
-        'HMC-Gibbs',
+        # 'HMC-Gibbs',
     ]
     alphas = [1., 2.5, 5., 7.5]
     # betas = [1., 2.5, 5.]
@@ -65,7 +66,8 @@ def run_all():
             beta=beta,
             feature_prior_cov_scaling=feature_prior_cov_scaling,
             sigma_x=sigma_x,
-            seed=seed)
+            seed=seed,
+            num_data=num_data)
 
 
 def launch_run_one(exp_dir_path: str,
@@ -75,7 +77,8 @@ def launch_run_one(exp_dir_path: str,
                    beta: float,
                    feature_prior_cov_scaling: float,
                    sigma_x: float,
-                   seed: int):
+                   seed: int,
+                   num_data: int):
 
     run_one_script_path = os.path.join(exp_dir_path, 'run_one.sh')
     command_and_args = [
@@ -87,7 +90,8 @@ def launch_run_one(exp_dir_path: str,
         str(beta),
         str(feature_prior_cov_scaling),
         str(sigma_x),
-        str(seed)]
+        str(seed),
+        str(num_data)]
 
     # TODO: Figure out where the logger is logging to
     logging.info(f'Launching ' + ' '.join(command_and_args))
