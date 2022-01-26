@@ -1170,15 +1170,17 @@ class DoshiVelezLinearGaussian(LinearGaussianModel):
         param_2[param_2 < 1e-10] = 1e-10
         max_num_features = var_params['beta']['param_1'].shape[0]
         if self.use_infinite:
+            # Shape: (max num features,)
             v = np.random.beta(
                 a=param_1[np.newaxis, :],
                 b=param_2[np.newaxis, :],
                 size=(num_samples, max_num_features))
             indicators_probs = np.cumprod(v, axis=1)
         else:
+            # Shape: (num samples, max num features)
             indicators_probs = np.random.beta(
-                a=param_1[:],
-                b=param_2[:],
+                a=param_1[:],  # shape: (max num features,)
+                b=param_2[:],  # shape: (max num features,)
                 size=(num_samples, max_num_features))
         features = np.array([np.random.multivariate_normal(mean=var_params['A']['mean'][k, :],
                                                            cov=var_params['A']['cov'][k, :],

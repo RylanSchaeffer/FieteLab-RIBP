@@ -121,17 +121,31 @@ def compute_log_posterior_predictive_linear_gaussian(train_observations: np.ndar
     sampled_variables_posterior = inference_alg.sample_variables_for_predictive_posterior(
         num_samples=num_samples)
 
-    # shape: (max num features,)
+    # shape: either (max num features,) or (num samples, max_num_features)
     indicators_probs = sampled_variables_posterior['indicators_probs']
-    assert len(indicators_probs.shape) == 1
-    max_num_features = indicators_probs.shape[0]
+    assert len(indicators_probs.shape) <= 2
+    if len(indicators_probs.shape) == 1:
 
-    # Treat each test observation as the "next" observation
-    # shape (num samples, num obs, max num features)
-    test_Z = np.random.binomial(
-        n=1,
-        p=indicators_probs.reshape(1, max_num_features),
-        size=(num_samples, num_test_obs, max_num_features))
+        max_num_features = indicators_probs.shape[0]
+
+        # Treat each test observation as the "next" observation
+        # shape (num samples, num obs, max num features)
+        test_Z = np.random.binomial(
+            n=1,
+            p=indicators_probs.reshape(1, 1, max_num_features),
+            size=(num_samples, num_test_obs, max_num_features))
+
+    elif len(indicators_probs.shape) == 2:
+        # Shape (num samples, max num features)
+        max_num_features = indicators_probs.shape[1]
+
+        test_Z = np.random.binomial(
+            n=1,
+            p=indicators_probs.reshape(num_samples, 1, max_num_features),
+            size=(num_samples, num_test_obs, max_num_features))
+
+    else:
+        raise ValueError('Wrong number of dimensions')
 
     sigma_x_sqrd = np.square(inference_alg.gen_model_params['likelihood_params']['sigma_x'])
     sigma_A_sqrd = inference_alg.gen_model_params['feature_prior_params']['feature_prior_cov_scaling']
@@ -182,7 +196,6 @@ def compute_log_posterior_predictive_linear_gaussian(train_observations: np.ndar
         V = sigma_x_sqrd * np.eye(obs_dim)
         # Vinv = np.linalg.inv(V)
         for sample_idx in range(num_samples):
-
             sample_Ztilde = Ztilde[sample_idx]
             # (num train + num test, num train + num test)
             Uinv = np.eye(num_train_obs + num_test_obs) - np.einsum(
@@ -213,7 +226,7 @@ def compute_log_posterior_predictive_linear_gaussian(train_observations: np.ndar
                    @ inv_kron_V_Utraintrain \
                    @ Otilde_train.flatten('F')
 
-            cov = np.kron(V, U_testtest)\
+            cov = np.kron(V, U_testtest) \
                   - np.kron(V, U_testtrain) @ inv_kron_V_Utraintrain @ np.kron(V, U_traintest)
 
             sample_log_posterior_predictive = scipy.stats.multivariate_normal.logpdf(
@@ -267,4 +280,3 @@ def compute_reconstruction_error_linear_gaussian(observations: np.ndarray,
     else:
         error = np.nan
     return error
-
