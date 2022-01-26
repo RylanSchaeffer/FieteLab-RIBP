@@ -24,6 +24,11 @@ def run_all():
 
     inference_alg_strs = [
         'R-IBP',
+        # 'Doshi-Velez-Finite',
+        # 'Doshi-Velez-Infinite',
+        # 'Widjaja-Finite',
+        # 'Widjaja-Infinite',
+        # 'HMC-Gibbs',
     ]
     alphas = np.logspace(-1., 1., num=10)
     # betas = np.logspace(-1., 1., num=10)
