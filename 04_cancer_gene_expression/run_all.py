@@ -19,7 +19,7 @@ import plot_cancer_gene_expression
 def run_all():
     # create directory
     exp_dir_path = '04_cancer_gene_expression'
-    num_data = 100
+    num_data = 1000
     results_dir_path = os.path.join(exp_dir_path, f'results_data={num_data}')
     os.makedirs(results_dir_path, exist_ok=True)
 
