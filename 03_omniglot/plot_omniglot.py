@@ -8,8 +8,6 @@ from typing import Dict, List
 
 import utils.plot_general
 
-
-
 plt.rcParams["font.family"] = ["Times New Roman"]
 plt.rcParams["font.size"] = 16  # was previously 22
 sns.set_style("whitegrid")
@@ -18,14 +16,13 @@ sns.set_style("whitegrid")
 def plot_analyze_all_algorithms_results(inf_algorithms_results_df: pd.DataFrame,
                                         inf_algs_num_features_by_num_obs: List[np.ndarray],
                                         plot_dir: str):
-
     alphas = inf_algorithms_results_df['alpha'].unique()
     betas = inf_algorithms_results_df['beta'].unique()
 
     for alpha, beta in product(alphas, betas):
         indices = inf_algorithms_results_df[
             (inf_algorithms_results_df['alpha'] == alpha) & (inf_algorithms_results_df['beta'] == beta)
-        ].index.values
+            ].index.values
         alpha_beta_num_features_by_num_obs = np.stack([
             inf_algs_num_features_by_num_obs[idx] for idx in indices])
         avg_alpha_beta_num_features_by_num_obs = np.mean(
@@ -33,7 +30,7 @@ def plot_analyze_all_algorithms_results(inf_algorithms_results_df: pd.DataFrame,
             axis=0)
         plt.plot(1 + np.arange(len(avg_alpha_beta_num_features_by_num_obs)),
                  avg_alpha_beta_num_features_by_num_obs,
-                 label=rf'$\alpha={alpha}, \beta={beta}$',)
+                 label=rf'$\alpha={alpha}, \beta={beta}$', )
     # plt.legend()
     plt.xlabel('Number of Observations')
     plt.ylabel('Number of Features')

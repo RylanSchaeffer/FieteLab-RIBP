@@ -58,7 +58,7 @@ def compute_log_posterior_predictive_factor_analysis(train_observations: np.ndar
     indicators_probs = sampled_param_posterior['indicators_probs']
 
     # shape: (num samples, max num features)
-    scales = sampled_param_posterior['scales']
+    scales = sampled_param_posterior['w']
 
     # shape: (num samples, max num features, obs dim)
     features = sampled_param_posterior['features']

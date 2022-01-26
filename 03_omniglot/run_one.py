@@ -90,13 +90,14 @@ def run_and_plot_inference_alg(sampled_omniglot_data,
         training_reconstruction_error = utils.metrics.compute_reconstruction_error_factor_analysis  (
             observations=sampled_omniglot_data['train_observations'],
             dish_eating_posteriors=inference_alg_results['dish_eating_posteriors'],
-            scales=inference_alg_results['scales'],
+            scales=inference_alg_results['variational_params']['w']['mean'],
             features_after_last_obs=inference_alg_results['inference_alg'].features_after_last_obs(),
             )
         logging.info(f'Computed training reconstruction error: {training_reconstruction_error}')
 
         # record scores
         log_posterior_predictive_results = utils.metrics.compute_log_posterior_predictive_factor_analysis(
+            train_observations=sampled_omniglot_data['train_observations'],
             test_observations=sampled_omniglot_data['test_observations'],
             inference_alg=inference_alg_results['inference_alg'])
         logging.info('Computed log posterior predictive.')
@@ -153,7 +154,7 @@ def setup(args: argparse.Namespace):
 
     # load Mixture of Gaussian data
     sampled_omniglot_data = utils.data.real.load_dataset_omniglot(
-        num_data=300,
+        num_data=12,
         feature_extractor_method='vae',
     )
 

@@ -578,7 +578,11 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
             for var_name, var_params in self.variational_params.items()
         }
 
+        # Chop off 0th observation index
         numpy_variable_params['Z']['prob'] = numpy_variable_params['Z']['prob'][1:]
+        numpy_variable_params['w']['mean'] = numpy_variable_params['w']['mean'][1:]
+        numpy_variable_params['w']['half_cov'] = numpy_variable_params['w']['half_cov'][1:]
+
         dish_eating_posteriors = numpy_variable_params['Z']['prob']
 
         self.fit_results = dict(
