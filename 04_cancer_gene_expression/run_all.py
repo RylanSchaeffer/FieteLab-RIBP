@@ -19,22 +19,23 @@ import plot_cancer_gene_expression
 def run_all():
     # create directory
     exp_dir_path = '04_cancer_gene_expression'
-    results_dir_path = os.path.join(exp_dir_path, 'results')
+    num_data = 100
+    results_dir_path = os.path.join(exp_dir_path, f'results_data={num_data}')
     os.makedirs(results_dir_path, exist_ok=True)
 
     inference_alg_strs = [
         'R-IBP',
-        # 'Doshi-Velez-Finite',
-        # 'Doshi-Velez-Infinite',
-        # 'Widjaja-Finite',
-        # 'Widjaja-Infinite',
+        'Doshi-Velez-Finite',
+        'Doshi-Velez-Infinite',
+        'Widjaja-Finite',
+        'Widjaja-Infinite',
         # 'HMC-Gibbs',
     ]
-    alphas = np.logspace(-1., 1., num=10)
+    alphas = np.logspace(-1., 1., num=5)
     # betas = np.logspace(-1., 1., num=10)
     betas = [1.]
-    feature_prior_cov_scalings = np.logspace(0., 2., num=10)
-    sigma_xs = np.logspace(-1., 1., num=10)
+    feature_prior_cov_scalings = np.logspace(0., 2., num=5)
+    sigma_xs = np.logspace(-1., 1., num=5)
     seeds = list(range(1))
 
     hyperparams = [
@@ -65,7 +66,8 @@ def run_all():
             beta=beta,
             feature_prior_cov_scaling=feature_prior_cov_scaling,
             sigma_x=sigma_x,
-            seed=seed)
+            seed=seed,
+            num_data=num_data)
 
 
 def launch_run_one(exp_dir_path: str,
@@ -75,7 +77,8 @@ def launch_run_one(exp_dir_path: str,
                    beta: float,
                    feature_prior_cov_scaling: float,
                    sigma_x: float,
-                   seed: int):
+                   seed: int,
+                   num_data: int):
 
     run_one_script_path = os.path.join(exp_dir_path, 'run_one.sh')
     command_and_args = [
@@ -87,7 +90,8 @@ def launch_run_one(exp_dir_path: str,
         str(beta),
         str(feature_prior_cov_scaling),
         str(sigma_x),
-        str(seed)]
+        str(seed),
+        str(num_data)]
 
     # TODO: Figure out where the logger is logging to
     logging.info(f'Launching ' + ' '.join(command_and_args))

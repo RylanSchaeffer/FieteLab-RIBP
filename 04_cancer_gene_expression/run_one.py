@@ -154,8 +154,9 @@ def setup(args: argparse.Namespace):
     cancer_gene_expression_data = load_dataset_cancer_gene_expression_2016()
     print('Loaded 2016 Cancer Gene Expression!')
 
+    # Keep only the specified number of data
     cancer_gene_expression_data['observations'] = cancer_gene_expression_data[
-                                                      'observations']
+                                                      'observations'][:args.num_data]
 
     # Permute the order of the data
     n_obs = cancer_gene_expression_data['observations'].shape[0]
@@ -222,6 +223,8 @@ if __name__ == '__main__':
     parser.add_argument('--jl_eps', type=float,
                         default=0.25,
                         help='Epsilon for JL projection.')
+    parser.add_argument('--num_data', type=int,
+                        help='Number of data to use.')
     args = parser.parse_args()
     run_one(args)
     print('Finished.')
