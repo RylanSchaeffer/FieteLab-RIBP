@@ -9,6 +9,7 @@ inference_alg_str=${2}
 alpha=${3}
 beta=${4}
 data_dim=${5}
+num_gaussians=${6}
 
 # don't remember what this does
 export PYTHONPATH=.
@@ -23,4 +24,5 @@ python -u 02_linear_gaussian/fig6_st1_run_one.py \
 --inference_alg_str="${inference_alg_str}" \
 --alpha="${alpha}" \
 --beta="${beta}" \
---data_dim="${data_dim}"
+--data_dim="${data_dim}" \
+--num_gaussians="${num_gaussians}"

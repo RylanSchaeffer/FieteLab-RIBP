@@ -16,9 +16,10 @@ import subprocess
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-import plot_linear_gaussian
+# import plot_linear_gaussian
 from typing import Dict, Union
 import utils.data.synthetic
+
 
 def generate_gaussian_params_from_gaussian_prior(num_gaussians: int = 3,
                                                  gaussian_dim: int = 2,
@@ -42,7 +43,7 @@ def generate_gaussian_params_from_gaussian_prior(num_gaussians: int = 3,
 
 
 def sample_from_linear_gaussian(num_obs: int = 100,
-                                data_dim: int=2,
+                                data_dim: int = 2,
                                 indicator_sampling_str: str = 'categorical',
                                 indicator_sampling_params: Dict[str, float] = None,
                                 feature_prior_params: Dict[str, float] = None,
@@ -90,7 +91,7 @@ def sample_from_linear_gaussian(num_obs: int = 100,
             indicator_sampling_str,
             indicator_sampling_params['alpha'],
             indicator_sampling_params['beta'],
-            indicator_sampling_params['datadim'],)
+            indicator_sampling_params['datadim'], )
 
     else:
         raise NotImplementedError
@@ -119,7 +120,7 @@ def sample_from_linear_gaussian(num_obs: int = 100,
 
     features = gaussian_params['means']
     obs_dim = features.shape[1]
-    print("DATA OBS DIM:",obs_dim)
+    print("DATA OBS DIM:", obs_dim)
     obs_means = np.matmul(sampled_indicators, features)
     obs_cov = np.square(likelihood_params['sigma_x']) * np.eye(obs_dim)
     observations = np.array([
@@ -138,6 +139,7 @@ def sample_from_linear_gaussian(num_obs: int = 100,
         indicator_sampling_descr_str=indicator_sampling_descr_str,
         feature_prior_params=feature_prior_params,
         likelihood_params=likelihood_params,
+        num_gaussians=num_gaussians,
     )
 
     return sampled_data_result
@@ -163,7 +165,7 @@ def run_all():
     feature_prior_cov_scaling: float = 100.
     num_customers = 100
     # data_dimensions_array = np.array([2,3])
-    data_dimensions_array = np.array([2,10,20])
+    data_dimensions_array = np.array([2, 10, 20])
 
     melted_data_to_plot_for_all_datasets = []
 
@@ -187,9 +189,9 @@ def run_all():
         alpha = indicator_sampling_params['alpha']
         beta = indicator_sampling_params['beta']
         data_dim = data_dimensions_array[data_dimension_idx]
-        alpha_beta_datadim_string = 'alpha_'+str(alpha)+'_beta_'+str(beta)+'_datadim_'+str(data_dim)
+        alpha_beta_datadim_string = 'alpha_' + str(alpha) + '_beta_' + str(beta) + '_datadim_' + str(data_dim)
 
-        print("ON DATASET",dataset_idx,"WITH ALPHA, BETA, DATA DIM",alpha, beta, data_dim)
+        print("ON DATASET", dataset_idx, "WITH ALPHA, BETA, DATA DIM", alpha, beta, data_dim)
         logging.info(f'Sampling: {indicator_sampling}, Dataset Index: {dataset_idx}')
         sampled_linear_gaussian_data = sample_from_linear_gaussian(
             num_obs=num_customers,
@@ -214,21 +216,22 @@ def run_all():
         #     observations=sampled_linear_gaussian_data['observations'],
         #     plot_dir=run_one_results_dir_path)
 
-        for inference_alg_str, in itertools.product(*hyperparams): # only use RIBP
+        for inference_alg_str, in itertools.product(*hyperparams):  # only use RIBP
             run_one_melted_data_path = str(launch_run_one(
                 exp_dir_path=exp_dir_path,
                 run_one_results_dir_path=run_one_results_dir_path,
                 inference_alg_str=inference_alg_str,
                 alpha=alpha,
                 beta=beta,
-                data_dim=data_dim)).strip('\n')
+                data_dim=data_dim,
+                num_gaussians=sampled_linear_gaussian_data['num_gaussians'])).strip('\n')
             # print("MELTED DATA TO PLOT FOR RUN ONE SAVED AT",run_one_melted_data_path)
             run_one_melted_data_to_plot = pd.read_pickle(run_one_melted_data_path)
             melted_data_to_plot_for_all_datasets.append(run_one_melted_data_to_plot)
             continue
 
-        if dataset_idx == num_datasets-1:
-            print("NUMBER OF DATASETS TO AVERAGE:",len(melted_data_to_plot_for_all_datasets))
+        if dataset_idx == num_datasets - 1:
+            print("NUMBER OF DATASETS TO AVERAGE:", len(melted_data_to_plot_for_all_datasets))
             if need_initialize_dataframe:
                 data_to_plot = pd.concat(melted_data_to_plot_for_all_datasets)
                 need_initialize_dataframe = False
@@ -237,25 +240,27 @@ def run_all():
                 data_to_plot = pd.concat([data_to_plot, results_for_all_datasets])
 
             # Save results
-            data_to_plot.to_pickle(results_dir_path+'/data_to_plot_'+alpha_beta_datadim_string+'.pkl')
-            print("DATA SAVED TO:",results_dir_path+'/data_to_plot_'+alpha_beta_datadim_string+'.pkl')
+            data_to_plot.to_pickle(
+                results_dir_path + '/data_to_plot_true_feature_ratio_' + alpha_beta_datadim_string + '.pkl')
+            print("DATA SAVED TO:",
+                  results_dir_path + '/data_to_plot_true_feature_ratio_' + alpha_beta_datadim_string + '.pkl')
 
         # Plot result
-        if data_dimension_idx==data_dimensions_array.shape[0]-1 and dataset_idx == num_datasets-1:
+        if data_dimension_idx == data_dimensions_array.shape[0] - 1 and dataset_idx == num_datasets - 1:
             plot_dir_path = os.path.join(results_dir_path,
                                          alpha_beta_datadim_string)
             os.makedirs(plot_dir_path, exist_ok=True)
             plot_avg_feature_ratio_by_num_obs_using_poisson_rates(data_to_plot=data_to_plot,
-                                                                 plot_dir=plot_dir_path)
-                                                                 # alpha_beta_datadim_string=alpha_beta_datadim_string)
-            print("FIGURE SAVED TO:",plot_dir_path)
+                                                                  plot_dir=plot_dir_path)
+            # alpha_beta_datadim_string=alpha_beta_datadim_string)
+            print("FIGURE SAVED TO:", plot_dir_path)
 
 
 def plot_avg_feature_ratio_by_num_obs_using_poisson_rates(data_to_plot: pd.DataFrame,
-                                                         # std_data_to_plot: pd.DataFrame,
-                                                         plot_dir: str):
-                                                         # alpha_beta_datadim_string: str):
-    fig, ax = plt.subplots(figsize=(10,8))
+                                                          plot_dir: str):
+
+    # fig, ax = plt.subplots(figsize=(10,8))
+    fig, ax = plt.subplots(figsize=(5, 4))
     sns.set_style("darkgrid")
     g = sns.lineplot(x='obs_idx', y='dish_ratio', data=data_to_plot,
                      hue='data_dim', ci='sd', ax=ax, legend='full')
@@ -267,15 +272,18 @@ def plot_avg_feature_ratio_by_num_obs_using_poisson_rates(data_to_plot: pd.DataF
 
     plt.grid()
     plt.xlabel('Number of Observations')
-    plt.ylabel('Num Inferred Features / Num True Features')
+    plt.ylabel('Observed Num True Features /\nTotal Num True Features')
+    # plt.ylabel('Num Inferred Features / Num True Features')
     plt.ylim(bottom=0.)
     g.get_legend().set_title('Data Dimension')
-    plt.savefig(os.path.join(plot_dir, 'fig6_st1_plot.png'),
+    plt.savefig(os.path.join(plot_dir, 'fig6_st1_tf_plot.png'),
+                # plt.savefig(os.path.join(plot_dir, 'fig6_st1_plot.png'),
                 bbox_inches='tight',
                 dpi=300)
     # plt.show()
     plt.close()
-    print("FIGURE SAVED TO:",plot_dir+'/fig6_st1_plot.png')
+    print("FIGURE SAVED TO:", plot_dir + '/fig6_st1_tf_plot.png')
+    # print("FIGURE SAVED TO:",plot_dir+'/fig6_st1_plot.png')
 
 
 def launch_run_one(exp_dir_path: str,
@@ -283,8 +291,8 @@ def launch_run_one(exp_dir_path: str,
                    inference_alg_str: str,
                    alpha: float,
                    beta: float,
-                   data_dim: int):
-
+                   data_dim: int,
+                   num_gaussians: int):
     run_one_script_path = os.path.join(exp_dir_path, f'fig6_st1_run_one.sh')
     command_and_args = [
         # 'sbatch',
@@ -293,7 +301,8 @@ def launch_run_one(exp_dir_path: str,
         inference_alg_str,
         str(alpha),
         str(beta),
-        str(data_dim)]
+        str(data_dim),
+        str(num_gaussians)]
 
     # TODO: Figure out where the logger is logging to
     # logging.info(f'Launching ' + ' '.join(command_and_args))
@@ -303,11 +312,13 @@ def launch_run_one(exp_dir_path: str,
 
 
 if __name__ == '__main__':
-    run_all()
+    # run_all()
 
     # If only generating the figure:
+    data_to_plot = pd.read_pickle(
+        '/om2/user/gkml/FieteLab-RIBP/02_linear_gaussian/results/data_to_plot_true_feature_ratio_alpha_5.98_beta_1.0_datadim_20.pkl')
     # data_to_plot = pd.read_pickle('/om2/user/gkml/FieteLab-RIBP/02_linear_gaussian/results/data_to_plot_alpha_5.98_beta_1.0_datadim_20.pkl')
-    # plot_dir = '/om2/user/gkml/FieteLab-RIBP/02_linear_gaussian/results'
-    # plot_avg_feature_ratio_by_num_obs_using_poisson_rates(data_to_plot=data_to_plot,
-    #                                                       plot_dir=plot_dir)
+    plot_dir = '/om2/user/gkml/FieteLab-RIBP/02_linear_gaussian/results'
+    plot_avg_feature_ratio_by_num_obs_using_poisson_rates(data_to_plot=data_to_plot,
+                                                          plot_dir=plot_dir)
     logging.info('Finished.')
