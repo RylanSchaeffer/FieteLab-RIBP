@@ -76,7 +76,7 @@ def plot_run_one_inference_results(sampled_omniglot_data: Dict,
         plot_dir=plot_dir,
     )
 
-    utils.plot.plot_run_one_num_features_by_num_obs_using_poisson_rates(
+    utils.plot_general.plot_run_one_num_features_by_num_obs_using_poisson_rates(
         num_dishes_poisson_rate_priors=inference_alg_results['num_dishes_poisson_rate_priors'],
         num_dishes_poisson_rate_posteriors=inference_alg_results['num_dishes_poisson_rate_posteriors'],
         indicators=None,
@@ -137,7 +137,9 @@ def plot_images_belonging_to_top_k_features(inference_alg_str: str,
         customer_indices_by_decreasing_prob_mass = np.argsort(
             posteriors_at_table)[::-1]
 
-        for image_num in range(max_num_images_per_row):
+        for image_num in range(min(len(customer_indices_by_decreasing_prob_mass),
+                                   len(posteriors_at_table),
+                                   max_num_images_per_row)):
             customer_idx = customer_indices_by_decreasing_prob_mass[image_num]
             customer_mass = posteriors_at_table[customer_idx]
             # only plot high confidence

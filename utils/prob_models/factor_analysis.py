@@ -43,8 +43,8 @@ class FactorAnalysisModel(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def sample_params_for_predictive_posterior(self,
-                                               num_samples: int):
+    def sample_variables_for_predictive_posterior(self,
+                                                  num_samples: int):
         pass
 
     @abc.abstractmethod
@@ -141,8 +141,8 @@ class HMCGibbsFactorAnalysis(FactorAnalysisModel):
 
         return self.fit_results
 
-    def sample_params_for_predictive_posterior(self,
-                                               num_samples: int) -> Dict[str, np.ndarray]:
+    def sample_variables_for_predictive_posterior(self,
+                                                  num_samples: int) -> Dict[str, np.ndarray]:
 
         if self.fit_results is None:
             raise ValueError('Must call .fit() before calling .predict()')
@@ -598,8 +598,8 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
 
         return self.fit_results
 
-    def sample_params_for_predictive_posterior(self,
-                                               num_samples: int) -> Dict[str, np.ndarray]:
+    def sample_variables_for_predictive_posterior(self,
+                                                  num_samples: int) -> Dict[str, np.ndarray]:
 
         # obs index is customer index (1-based)
         # add one because we are predicting the next customer
@@ -644,7 +644,7 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
 
         # Use the prior for w
         # Previous w_n don't matter
-        scales = np.random.multivariate_normal(
+        w = np.random.multivariate_normal(
             mean=np.zeros(max_num_features),
             cov=self.gen_model_params['scale_prior_params']['scale_prior_cov_scaling'] * np.eye(max_num_features),
             size=num_samples,)
@@ -653,12 +653,12 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
         features = features.transpose(1, 0, 2)
 
         # shape = (num samples, max num features)
-        scales = scales.transpose(1, 0)
+        w = w.transpose(1, 0)
 
         sampled_params = dict(
             indicators_probs=indicators_probs,
             features=features,
-            scales=scales)
+            w=w)
 
         return sampled_params
 

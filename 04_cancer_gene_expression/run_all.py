@@ -26,7 +26,8 @@ def run_all():
         'R-IBP',
     ]
     alphas = np.logspace(-1., 1., num=10)
-    betas = np.logspace(-1., 1., num=10)
+    # betas = np.logspace(-1., 1., num=10)
+    betas = [1.]
     feature_prior_cov_scalings = np.logspace(0., 2., num=10)
     sigma_xs = np.logspace(-1., 1., num=10)
     seeds = list(range(1))
