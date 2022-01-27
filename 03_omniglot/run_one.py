@@ -88,7 +88,7 @@ def run_and_plot_inference_alg(sampled_omniglot_data,
         runtime = stop_time - start_time
         logging.info('Generated inference results.')
 
-        training_reconstruction_error = utils.metrics.compute_reconstruction_error_factor_analysis  (
+        training_reconstruction_error = utils.metrics.compute_reconstruction_error_factor_analysis(
             observations=sampled_omniglot_data['train_observations'],
             dish_eating_posteriors=inference_alg_results['dish_eating_posteriors'],
             scales=inference_alg_results['variational_params']['w']['mean'],
@@ -147,6 +147,7 @@ def setup(args: argparse.Namespace):
 
     utils.run_helpers.create_logger(run_dir=inference_results_dir)
 
+    print(args)
     logging.info(args)
 
     # set seeds
