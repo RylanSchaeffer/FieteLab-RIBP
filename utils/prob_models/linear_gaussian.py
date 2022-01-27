@@ -1397,9 +1397,12 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
             requires_grad=self.numerically_optimize)
 
         # we use half covariance because we want to numerically optimize
-        prefactor = np.sqrt(self.gen_model_params['feature_prior_params']['feature_prior_cov_scaling'])
-        A_half_covs = (prefactor * torch.eye(obs_dim).float()[None, None, :, :]).repeat(
+        A_prefactor = np.sqrt(self.gen_model_params['feature_prior_params']['feature_prior_cov_scaling'])
+        A_half_covs = (A_prefactor * torch.eye(obs_dim).float()[None, None, :, :]).repeat(
             1, max_num_features, 1, 1,)
+        # Create a matrix with small diagonal values to prevent singular
+        # matrix error when inverting covariance.
+        prevent_singular_matrix_A = 1e-2 * A_half_covs.clone() / A_prefactor
 
         # dict mapping variables to variational params
         self.variational_params = dict(
@@ -1584,6 +1587,9 @@ class RecursiveIBPLinearGaussian(LinearGaussianModel):
 
                         self.variational_params['A']['mean'].data[0, :] = A_means
                         self.variational_params['A']['half_cov'].data[0, :] = A_half_covs
+
+                        # Ensure no singular matrix error by adding small diagonal component.
+                        self.variational_params['A']['half_cov'].data += prevent_singular_matrix_A
 
                         # maximize approximate lower bound with respect to Z's params
                         # tracemalloc.start()

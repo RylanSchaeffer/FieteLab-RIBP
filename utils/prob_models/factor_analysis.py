@@ -268,6 +268,10 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
         A_half_covs = (A_prefactor * torch.eye(obs_dim).float()[None, None, :, :]).repeat(
             1, max_num_features, 1, 1,)
 
+        # Create a matrix with small diagonal values to prevent singular
+        # matrix error when inverting covariance.
+        prevent_singular_matrix_A = 1e-2 * A_half_covs.clone() / A_prefactor
+
         # dict mapping variables to variational params
         self.variational_params = dict(
             Z=dict(  # variational params for binary indicators
@@ -430,6 +434,9 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
 
                         self.variational_params['A']['mean'].data[0, :] = A_means
                         self.variational_params['A']['half_cov'].data[0, :] = A_half_covs
+
+                        # Ensure no singular matrix error by adding small diagonal component.
+                        self.variational_params['A']['half_cov'].data += prevent_singular_matrix_A
 
                         w_mean, w_half_cov = recursive_ibp_optimize_scale_params(
                             torch_observation=torch_observation,
