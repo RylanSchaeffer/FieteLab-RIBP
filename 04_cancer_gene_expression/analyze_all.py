@@ -7,6 +7,7 @@ Example usage:
 04_cancer_gene_expression/analyze_all.py
 """
 import argparse
+import copy
 import joblib
 import logging
 import numpy as np
@@ -21,7 +22,7 @@ def analyze_all(args: argparse.Namespace):
 
     # create directory
     exp_dir_path = args.exp_dir_path
-    results_dir_path = os.path.join(exp_dir_path, 'results100')
+    results_dir_path = os.path.join(exp_dir_path, 'results_data=100')
 
     inf_algs_results_df_path = os.path.join(results_dir_path,
                                             'inf_algs_results_df.csv')
@@ -58,7 +59,7 @@ def load_all_inf_alg_results(results_dir_path: str,
         try:
             stored_data = joblib.load(
                 os.path.join(run_dir_path, 'inference_alg_results.joblib'))
-        except FileNotFoundError:
+        except (FileNotFoundError, ValueError):
             logging.info(f'Could not find results for {run_dir_path}.')
             continue
 
@@ -73,13 +74,17 @@ def load_all_inf_alg_results(results_dir_path: str,
             stored_data['training_reconstruction_error'],
         ]
 
-        inf_algorithms_results_rows.append(inf_algorithms_results_row)
+        # Copy to ensure we don't keep any references to stored_data.
+        # Was having memory issues otherwise.
+        inf_algorithms_results_rows.append(copy.deepcopy(inf_algorithms_results_row))
 
         # num_features_by_num_obs = stored_data['inference_alg_results'][
         #                               'num_dishes_poisson_rate_posteriors'][:, 0]  # remove extra dimension
         # inf_algorithms_num_features_by_num_obs.append(num_features_by_num_obs)
 
         del stored_data
+
+        print(f'Loaded {run_dir_path}')
 
     inf_algs_results_df = pd.DataFrame(
         inf_algorithms_results_rows,

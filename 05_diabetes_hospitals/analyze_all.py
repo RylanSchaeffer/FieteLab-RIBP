@@ -4,9 +4,10 @@ dataset, and plot performance (e.g. log posterior predictive vs runtime).
 
 Example usage:
 
-04_cancer_gene_expression/analyze_all.py
+05_diabetes_hospitals/analyze_all.py
 """
 import argparse
+import copy
 import joblib
 import logging
 import numpy as np
@@ -20,7 +21,7 @@ import plot_diabetes_hospitals
 def analyze_all(args: argparse.Namespace):
     # create directory
     exp_dir_path = args.exp_dir_path
-    results_dir_path = os.path.join(exp_dir_path, 'results')
+    results_dir_path = os.path.join(exp_dir_path, 'results_data=100')
 
     inf_algs_results_df = load_all_inf_alg_results(
         results_dir_path=results_dir_path)
@@ -29,7 +30,7 @@ def analyze_all(args: argparse.Namespace):
         os.path.join(results_dir_path, 'inf_algs_results_df.csv'),
         index=False)
 
-    plot_cancer_gene_expression.plot_analyze_all_algorithms_results(
+    plot_diabetes_hospitals.plot_analyze_all_algorithms_results(
         inf_algs_results_df=inf_algs_results_df,
         plot_dir=results_dir_path)
 
@@ -62,13 +63,17 @@ def load_all_inf_alg_results(results_dir_path: str,
             # stored_data['reconstruction_error'],
         ]
 
-        inf_algorithms_results_rows.append(inf_algorithms_results_row)
+        # Copy to ensure we don't keep any references to stored_data.
+        # Was having memory issues otherwise.
+        inf_algorithms_results_rows.append(copy.deepcopy(inf_algorithms_results_row))
 
         # num_features_by_num_obs = stored_data['inference_alg_results'][
         #                               'num_dishes_poisson_rate_posteriors'][:, 0]  # remove extra dimension
         # inf_algorithms_num_features_by_num_obs.append(num_features_by_num_obs)
 
         del stored_data
+
+        print(f'Loaded {run_dir_path}')
 
     inf_algs_results_df = pd.DataFrame(
         inf_algorithms_results_rows,
