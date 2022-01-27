@@ -16,7 +16,7 @@ import subprocess
 def run_all() -> None:
     # create directory
     exp_dir_path = '03_omniglot'
-    num_data = 100
+    num_data = 1000
     results_dir_path = os.path.join(exp_dir_path, f'results_data={num_data}')
     os.makedirs(results_dir_path, exist_ok=True)
 

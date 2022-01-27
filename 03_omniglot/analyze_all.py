@@ -21,7 +21,7 @@ import plot_omniglot
 def analyze_all(args: argparse.Namespace):
     # create directory
     exp_dir_path = args.exp_dir_path
-    results_dir_path = os.path.join(exp_dir_path, 'results')
+    results_dir_path = os.path.join(exp_dir_path, 'results_data=100')
 
     inf_algs_results_df, inf_algs_num_features_by_num_obs = load_all_inf_alg_results(
         results_dir_path=results_dir_path)

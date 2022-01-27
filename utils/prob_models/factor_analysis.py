@@ -3,6 +3,7 @@ import jax
 import jax.random
 import logging
 import matplotlib.pyplot as plt
+from sklearn.decomposition import FactorAnalysis
 import numpy as np
 import numpyro
 import os
@@ -53,6 +54,84 @@ class FactorAnalysisModel(abc.ABC):
         Returns array of shape (num features, feature dimension)
         """
         pass
+
+
+class FiniteFactorAnalysis(FactorAnalysisModel):
+
+    def __init__(self,
+                 model_str: str,
+                 gen_model_params: Dict[str, float],
+                 num_samples: int,
+                 plot_dir: str = None):
+
+        assert model_str == 'factor_analysis'
+
+        self.model_str = model_str
+        self.gen_model_params = gen_model_params
+        self.num_components = gen_model_params['num_components']
+        assert self.num_components > 0
+
+        self.num_obs = None
+        self.obs_dim = None
+        self.ffa = FactorAnalysis(n_components=self.num_components,
+                                  copy=True,
+                                  random_state=0)
+        self.fit_results = None
+
+
+    def fit(self,
+            observations: np.ndarray):
+
+        self.num_obs, self.obs_dim = observations.shape
+        self.ffa.fit(observations)
+
+        dish_eating_posteriors = torch.ones(
+            (self.num_obs + 1, self.num_components),
+            dtype=torch.float32).numpy()[1:]
+
+        dish_eating_priors = np.full(fill_value=np.nan,
+                                     shape=dish_eating_posteriors.shape)
+
+        dish_eating_posteriors_running_sum = np.cumsum(dish_eating_posteriors, axis=0)
+
+        num_dishes_poisson_rate_posteriors = np.sum(dish_eating_posteriors_running_sum > 1e-10,
+                                                    axis=1).reshape(-1, 1)
+
+        num_dishes_poisson_rate_priors = np.full(fill_value=np.nan,
+                                                 shape=num_dishes_poisson_rate_posteriors.shape)
+
+        self.fit_results = dict(
+            dish_eating_priors=dish_eating_priors,
+            dish_eating_posteriors=dish_eating_posteriors,  # already chopped
+            dish_eating_posteriors_running_sum=dish_eating_posteriors_running_sum,
+            # non_eaten_dishes_posteriors_running_prod=non_eaten_dishes_posteriors_running_prod,
+            num_dishes_poisson_rate_priors=num_dishes_poisson_rate_priors,
+            num_dishes_poisson_rate_posteriors=num_dishes_poisson_rate_posteriors,
+            gen_model_params=self.gen_model_params,
+        )
+
+        return self.fit_results
+
+    def sample_variables_for_predictive_posterior(self,
+                                                  num_samples: int) -> Dict[str, np.ndarray]:
+
+        if self.fit_results is None:
+            raise ValueError('Must call .fit() before calling .predict()')
+
+        indicators_probs = np.ones((num_samples, self.num_components))
+        features = np.stack([self.ffa.components_
+                             for k in range(num_samples)])
+
+        sampled_params = dict(
+            indicators_probs=indicators_probs,  # shape (num samples, max num features)
+            features=features,  # shape (num samples, self.num_components, feature dim)
+        )
+
+        return sampled_params
+
+    def features_after_last_obs(self) -> np.ndarray:
+        # shape (n_features, feature_dim)
+        return self.ffa.components_
 
 
 class HMCGibbsFactorAnalysis(FactorAnalysisModel):
