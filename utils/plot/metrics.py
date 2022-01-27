@@ -15,10 +15,23 @@ plt.rcParams["font.size"] = 16  # was previously 22
 sns.set_style("whitegrid")
 
 
+def compute_tidied_label(label: str) -> str:
+
+    if label == 'runtime':
+        tidied_ylabel = 'Runtime'
+    elif label == 'negative_log_posterior_predictive':
+        tidied_ylabel = 'Neg Log Posterior Predictive'
+    elif label == 'reconstruction_error':
+        tidied_ylabel = 'Reconstruction Error'
+    else:
+        tidied_ylabel = label
+
+
 def plot_neg_log_posterior_predictive_vs_runtime_by_alg(inf_algs_results_df: pd.DataFrame,
                                                         plot_dir: str,
                                                         title: str = None):
     for inf_alg_str, inf_alg_results_df in inf_algs_results_df.groupby(['inference_alg']):
+
         algs_runstimes_and_neg_log_pp = inf_alg_results_df.agg({
             'runtime': ['mean', 'sem'],
             'negative_log_posterior_predictive': ['mean', 'sem']
@@ -103,6 +116,8 @@ def plot_score_all_params_violin_by_alg(inf_algs_results_df: pd.DataFrame,
                    y=score,
                    data=inf_algs_results_df)
 
+    tidied_ylabel = compute_tidied_label(label=score)
+    plt.ylabel(tidied_ylabel)
     plt.yscale('log')
     plt.grid(visible=True, axis='y')
     plt.tight_layout()
@@ -116,6 +131,7 @@ def plot_score_all_params_violin_by_alg(inf_algs_results_df: pd.DataFrame,
 def plot_score_best_by_alg(inf_algs_results_df: pd.DataFrame,
                            plot_dir: str,
                            score: str = 'neg_log_posterior_predictive'):
+
     assert score in inf_algs_results_df.columns.values
 
     best_score_inf_algs_results_df = inf_algs_results_df.groupby('inference_alg').agg({
@@ -129,8 +145,11 @@ def plot_score_best_by_alg(inf_algs_results_df: pd.DataFrame,
                 y='min',
                 data=best_score_inf_algs_results_df,
                 jitter=False)
-    plt.ylabel(score)
+
+    tidied_ylabel = compute_tidied_label(label=score)
+    plt.ylabel(tidied_ylabel)
     plt.yscale('log')
+    # plt.legend()
     plt.grid(visible=True, axis='y')
     plt.tight_layout()
     plt.savefig(os.path.join(plot_dir, f'{score}_best_vs_inf_alg.png'),

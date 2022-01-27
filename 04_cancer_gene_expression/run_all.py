@@ -19,21 +19,21 @@ import plot_cancer_gene_expression
 def run_all():
     # create directory
     exp_dir_path = '04_cancer_gene_expression'
-    num_data = 1000
+    num_data = 100
     results_dir_path = os.path.join(exp_dir_path, f'results_data={num_data}')
     os.makedirs(results_dir_path, exist_ok=True)
 
     inference_alg_strs = [
         'R-IBP',
-        'Doshi-Velez-Finite',
-        'Doshi-Velez-Infinite',
-        'Widjaja-Finite',
-        'Widjaja-Infinite',
+        # 'Doshi-Velez-Finite',
+        # 'Doshi-Velez-Infinite',
+        # 'Widjaja-Finite',
+        # 'Widjaja-Infinite',
         # 'HMC-Gibbs',
     ]
     alphas = np.logspace(-1., 1., num=5)
-    # betas = np.logspace(-1., 1., num=10)
-    betas = [1.]
+    betas = np.logspace(-1., 1., num=5)
+    # betas = [1.]
     feature_prior_cov_scalings = np.logspace(0., 2., num=5)
     sigma_xs = np.logspace(-1., 1., num=5)
     seeds = list(range(1))

@@ -16,8 +16,10 @@ def plot_analyze_all_algorithms_results(inf_algs_results_df: pd.DataFrame,
 
     title = '2016 Cancer Gene Expression'
 
+    # Plot only R-IBP alpha/beta runtime tradeoff
+    ribp_algs_results_df = inf_algs_results_df[inf_algs_results_df['inference_alg'] == 'R-IBP']
     utils.plot.metrics.plot_runtime_by_alpha_beta(
-        inf_algs_results_df=inf_algs_results_df,
+        inf_algs_results_df=ribp_algs_results_df,
         plot_dir=plot_dir)
 
     scores = ['runtime', 'negative_log_posterior_predictive', 'reconstruction_error']
@@ -32,11 +34,11 @@ def plot_analyze_all_algorithms_results(inf_algs_results_df: pd.DataFrame,
 
         best_beta_one_dir = os.path.join(plot_dir, f'{score}_best_beta=1')
         os.makedirs(best_beta_one_dir, exist_ok=True)
-        # utils.plot.metrics.plot_score_best_by_alg(
-        #     inf_algs_results_df[inf_algs_results_df['beta'] == 1.],
-        #     score=score,
-        #     plot_dir=best_beta_one_dir,
-        # )
+        utils.plot.metrics.plot_score_best_by_alg(
+            inf_algs_results_df[inf_algs_results_df['beta'] == 1.],
+            score=score,
+            plot_dir=best_beta_one_dir,
+        )
 
         all_dir = os.path.join(plot_dir, f'{score}_all')
         os.makedirs(all_dir, exist_ok=True)
@@ -46,15 +48,15 @@ def plot_analyze_all_algorithms_results(inf_algs_results_df: pd.DataFrame,
             plot_dir=all_dir,
         )
 
-    utils.plot.linear_gaussian.plot_neg_log_posterior_predictive_by_linear_gaussian_parameters(
-        inf_algs_results_df=inf_algs_results_df[inf_algs_results_df['inference_alg'] == 'R-IBP'],
-        plot_dir=plot_dir,
-        title=title)
-
-    utils.plot.linear_gaussian.plot_reconst_error_by_linear_gaussian_parameters(
-        inf_algs_results_df=inf_algs_results_df[inf_algs_results_df['inference_alg'] == 'R-IBP'],
-        plot_dir=plot_dir,
-        title=title)
+    # utils.plot.linear_gaussian.plot_neg_log_posterior_predictive_by_linear_gaussian_parameters(
+    #     inf_algs_results_df=ribp_algs_results_df,
+    #     plot_dir=plot_dir,
+    #     title=title)
+    #
+    # utils.plot.linear_gaussian.plot_reconst_error_by_linear_gaussian_parameters(
+    #     inf_algs_results_df=ribp_algs_results_df,
+    #     plot_dir=plot_dir,
+    #     title=title)
 
     utils.plot.metrics.plot_neg_log_posterior_predictive_vs_runtime_by_alg(
         inf_algs_results_df=inf_algs_results_df,

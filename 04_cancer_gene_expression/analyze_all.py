@@ -23,6 +23,8 @@ def analyze_all(args: argparse.Namespace):
     # create directory
     exp_dir_path = args.exp_dir_path
     results_dir_path = os.path.join(exp_dir_path, 'results_data=100')
+    plot_dir = os.path.join(results_dir_path, 'plots')
+    os.makedirs(plot_dir, exist_ok=True)
 
     inf_algs_results_df_path = os.path.join(results_dir_path,
                                             'inf_algs_results_df.csv')
@@ -41,7 +43,7 @@ def analyze_all(args: argparse.Namespace):
 
     plot_cancer_gene_expression.plot_analyze_all_algorithms_results(
         inf_algs_results_df=inf_algs_results_df,
-        plot_dir=results_dir_path)
+        plot_dir=plot_dir)
 
     print('Finished.')
 
