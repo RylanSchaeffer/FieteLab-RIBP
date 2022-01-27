@@ -91,6 +91,13 @@ def run_and_plot_inference_alg(diabetes_hospitals_data,
         print('Generated inference results.')
 
         # record scores
+        training_reconstruction_error = utils.metrics.compute_reconstruction_error_linear_gaussian(
+            observations=diabetes_hospitals_data['train_observations'],
+            dish_eating_posteriors=inference_alg_results['dish_eating_posteriors'],
+            features_after_last_obs=inference_alg_results['inference_alg'].features_after_last_obs())
+        logging.info(f'Computed training reconstruction error: {training_reconstruction_error}')
+
+        # record scores
         log_posterior_predictive_results = utils.metrics.compute_log_posterior_predictive_linear_gaussian(
             train_observations=diabetes_hospitals_data['train_observations'],
             test_observations=diabetes_hospitals_data['test_observations'],

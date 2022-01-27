@@ -13,7 +13,7 @@ import numpy as np
 import os
 import subprocess
 
-import plot_diabetes_hospitals
+# import plot_diabetes_hospitals
 
 
 def run_all():

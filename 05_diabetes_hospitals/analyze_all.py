@@ -39,6 +39,7 @@ def analyze_all(args: argparse.Namespace):
 
 def load_all_inf_alg_results(results_dir_path: str,
                              ) -> pd.DataFrame:
+
     inf_algorithms_results_rows = []
     # inf_algorithms_num_features_by_num_obs = []
     run_dirs = [subdir for subdir in os.listdir(results_dir_path)]
@@ -62,7 +63,7 @@ def load_all_inf_alg_results(results_dir_path: str,
             stored_data['inference_alg_params']['likelihood_params']['sigma_x'],
             stored_data['runtime'],
             stored_data['log_posterior_predictive']['mean'],
-            # stored_data['reconstruction_error'],
+            stored_data['training_reconstruction_error'],
         ]
 
         # Copy to ensure we don't keep any references to stored_data.
@@ -82,13 +83,13 @@ def load_all_inf_alg_results(results_dir_path: str,
         columns=['inference_alg', 'alpha', 'beta', 'feature_cov_scaling',
                  'likelihood_cov_scaling', 'runtime',
                  'log_posterior_predictive',
-                 # 'reconstruction_error',
+                 'reconstruction_error',
                  ])
 
     inf_algs_results_df['negative_log_posterior_predictive'] = \
         -inf_algs_results_df['log_posterior_predictive']
 
-    return inf_algs_results_df  # , inf_algorithms_num_features_by_num_obs
+    return inf_algs_results_df
 
 
 if __name__ == '__main__':
