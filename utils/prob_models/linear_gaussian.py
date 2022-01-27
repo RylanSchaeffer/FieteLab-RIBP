@@ -1806,7 +1806,7 @@ class WidjajaLinearGaussian(LinearGaussianModel):
 
     def __init__(self,
                  model_str: str,
-                 gen_model_params: Dict[str, float],
+                 gen_model_params: Dict[str, Dict[str, float]],
                  use_infinite: bool,
                  max_num_features: int = None,
                  plot_dir: str = None
@@ -1860,17 +1860,17 @@ class WidjajaLinearGaussian(LinearGaussianModel):
         beta_param_1 = np.zeros(shape=(num_obs, self.max_num_features))
         beta_param_2 = np.zeros(shape=(num_obs, self.max_num_features))
 
-        A_means = np.zeros(shape=(num_obs, self.max_num_features, obs_dim))
+        A_means = np.zeros(shape=(1, self.max_num_features, obs_dim))
         # They assume a diagonal covariance. We will later expand.
-        A_covs = np.zeros(shape=(num_obs, self.max_num_features, obs_dim))
+        A_covs = np.zeros(shape=(1, self.max_num_features, obs_dim))
 
         for obs_idx in range(num_obs):
             obs_indices = slice(obs_idx, obs_idx + 1, 1)
             step_results = online_strategy.step(obs_indices=obs_indices)
             dish_eating_priors[obs_idx, :] = step_results['dish_eating_prior'][0, :].numpy()
             dish_eating_posteriors[obs_idx] = step_results['dish_eating_posterior'][0, :].numpy()
-            A_means[obs_idx] = step_results['A_mean'].numpy()
-            A_covs[obs_idx] = step_results['A_cov'].numpy()
+            A_means[0] = step_results['A_mean'].numpy()
+            A_covs[0] = step_results['A_cov'].numpy()
             beta_param_1[obs_idx] = step_results['beta_param_1'].numpy()
             beta_param_2[obs_idx] = step_results['beta_param_2'].numpy()
 
@@ -1930,8 +1930,8 @@ class WidjajaLinearGaussian(LinearGaussianModel):
                 a=param_1[np.newaxis, -1, :],
                 b=param_2[np.newaxis, -1, :],
                 size=(num_samples, max_num_features))
-        features = np.stack([np.random.multivariate_normal(mean=var_params['A']['mean'][-1, k, :],
-                                                           cov=var_params['A']['cov'][-1, k, :],
+        features = np.stack([np.random.multivariate_normal(mean=var_params['A']['mean'][0, k, :],
+                                                           cov=var_params['A']['cov'][0, k, :],
                                                            size=num_samples)
                              for k in range(max_num_features)])
         # shape = (num samples, max num features, obs dim)
@@ -1944,11 +1944,8 @@ class WidjajaLinearGaussian(LinearGaussianModel):
         return sampled_params
 
     def features_after_last_obs(self) -> np.ndarray:
-        return self.fit_results['variational_params']['A']['mean'][-1, :, :]
-
-    def features_by_obs(self) -> np.ndarray:
-        # TODO: refactor to not
-        return self.fit_results['variational_params']['A']['mean'][:, :, :]
+        # Shape: (max num features, observation dim)
+        return self.fit_results['variational_params']['A']['mean'][0, :, :]
 
 
 def compute_max_num_features(alpha: float,
