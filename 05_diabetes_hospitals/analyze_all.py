@@ -25,12 +25,23 @@ def analyze_all(args: argparse.Namespace):
     plot_dir = os.path.join(results_dir_path, 'plots')
     os.makedirs(plot_dir, exist_ok=True)
 
-    inf_algs_results_df = load_all_inf_alg_results(
-        results_dir_path=results_dir_path)
+    inf_algs_results_df_path = os.path.join(results_dir_path,
+                                            'inf_algs_results_df.csv')
 
-    inf_algs_results_df.to_csv(
-        os.path.join(results_dir_path, 'inf_algs_results_df.csv'),
-        index=False)
+    if not os.path.isfile(inf_algs_results_df_path):
+        inf_algs_results_df = load_all_inf_alg_results(
+            results_dir_path=results_dir_path)
+
+        inf_algs_results_df.to_csv(
+            inf_algs_results_df_path,
+            index=False)
+
+    else:
+        inf_algs_results_df = pd.read_csv(inf_algs_results_df_path,
+                                          index_col=None)
+
+    print(f"Runs per algorithm:\n"
+          f"{inf_algs_results_df.groupby('inference_alg').size()}")
 
     plot_diabetes_hospitals.plot_analyze_all_algorithms_results(
         inf_algs_results_df=inf_algs_results_df,

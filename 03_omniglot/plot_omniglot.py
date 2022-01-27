@@ -14,32 +14,33 @@ sns.set_style("whitegrid")
 
 
 def plot_analyze_all_algorithms_results(inf_algorithms_results_df: pd.DataFrame,
-                                        inf_algs_num_features_by_num_obs: List[np.ndarray],
                                         plot_dir: str):
-    alphas = inf_algorithms_results_df['alpha'].unique()
-    betas = inf_algorithms_results_df['beta'].unique()
 
-    for alpha, beta in product(alphas, betas):
-        indices = inf_algorithms_results_df[
-            (inf_algorithms_results_df['alpha'] == alpha) & (inf_algorithms_results_df['beta'] == beta)
-            ].index.values
-        alpha_beta_num_features_by_num_obs = np.stack([
-            inf_algs_num_features_by_num_obs[idx] for idx in indices])
-        avg_alpha_beta_num_features_by_num_obs = np.mean(
-            alpha_beta_num_features_by_num_obs,
-            axis=0)
-        plt.plot(1 + np.arange(len(avg_alpha_beta_num_features_by_num_obs)),
-                 avg_alpha_beta_num_features_by_num_obs,
-                 label=rf'$\alpha={alpha}, \beta={beta}$', )
-    # plt.legend()
-    plt.xlabel('Number of Observations')
-    plt.ylabel('Number of Features')
-    plt.savefig(os.path.join(plot_dir,
-                             'num_features_by_num_obs_groupedby_alpha_beta.png'),
-                bbox_inches='tight',
-                dpi=300)
-    # plt.show()
-    plt.close()
+    pass
+    # alphas = inf_algorithms_results_df['alpha'].unique()
+    # betas = inf_algorithms_results_df['beta'].unique()
+    #
+    # for alpha, beta in product(alphas, betas):
+    #     indices = inf_algorithms_results_df[
+    #         (inf_algorithms_results_df['alpha'] == alpha) & (inf_algorithms_results_df['beta'] == beta)
+    #         ].index.values
+    #     alpha_beta_num_features_by_num_obs = np.stack([
+    #         inf_algs_num_features_by_num_obs[idx] for idx in indices])
+    #     avg_alpha_beta_num_features_by_num_obs = np.mean(
+    #         alpha_beta_num_features_by_num_obs,
+    #         axis=0)
+    #     plt.plot(1 + np.arange(len(avg_alpha_beta_num_features_by_num_obs)),
+    #              avg_alpha_beta_num_features_by_num_obs,
+    #              label=rf'$\alpha={alpha}, \beta={beta}$', )
+    # # plt.legend()
+    # plt.xlabel('Number of Observations')
+    # plt.ylabel('Number of Features')
+    # plt.savefig(os.path.join(plot_dir,
+    #                          'num_features_by_num_obs_groupedby_alpha_beta.png'),
+    #             bbox_inches='tight',
+    #             dpi=300)
+    # # plt.show()
+    # plt.close()
 
     # for num_features_by_num_obs in inf_algs_num_features_by_num_obs:
     #     plt.plot(1 + np.arange(len(num_features_by_num_obs)),

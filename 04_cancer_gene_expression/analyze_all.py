@@ -41,6 +41,9 @@ def analyze_all(args: argparse.Namespace):
         inf_algs_results_df = pd.read_csv(inf_algs_results_df_path,
                                           index_col=None)
 
+    print(f"Runs per algorithm:\n"
+          f"{inf_algs_results_df.groupby('inference_alg').size()}")
+
     plot_cancer_gene_expression.plot_analyze_all_algorithms_results(
         inf_algs_results_df=inf_algs_results_df,
         plot_dir=plot_dir)
