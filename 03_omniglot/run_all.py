@@ -16,7 +16,8 @@ import subprocess
 def run_all() -> None:
     # create directory
     exp_dir_path = '03_omniglot'
-    results_dir_path = os.path.join(exp_dir_path, 'results')
+    num_data = 100
+    results_dir_path = os.path.join(exp_dir_path, f'results_data={num_data}')
     os.makedirs(results_dir_path, exist_ok=True)
 
     alphas = np.round(np.arange(1., 10.01, 2.5), 4)
@@ -56,7 +57,8 @@ def run_all() -> None:
             beta=beta,
             sigma_x=sigma_x,
             feature_prior_cov_scaling=feature_prior_cov_scaling,
-            scale_prior_cov_scaling=scale_prior_cov_scaling)
+            scale_prior_cov_scaling=scale_prior_cov_scaling,
+            num_data=num_data)
 
         counter += 1
         if counter == 1000:
@@ -70,7 +72,8 @@ def launch_run_one(exp_dir_path: str,
                    beta: float,
                    sigma_x: float,
                    feature_prior_cov_scaling: float,
-                   scale_prior_cov_scaling: float) -> None:
+                   scale_prior_cov_scaling: float,
+                   num_data: int) -> None:
     run_one_script_path = os.path.join(exp_dir_path, 'run_one.sh')
     command_and_args = [
         'sbatch',
@@ -82,6 +85,7 @@ def launch_run_one(exp_dir_path: str,
         str(sigma_x),
         str(feature_prior_cov_scaling),
         str(scale_prior_cov_scaling),
+        str(num_data),
     ]
 
     # TODO: Figure out where the logger is logging to

@@ -13,6 +13,7 @@ beta=${4}
 sigma_x=${5}
 feature_prior_cov_scaling=${6}
 scale_prior_cov_scaling=${7}
+num_data=${8}
 
 # don't remember what this does
 export PYTHONPATH=.
@@ -29,4 +30,5 @@ python -u 03_omniglot/run_one.py \
 --beta="${beta}" \
 --sigma_x="${sigma_x}" \
 --feature_prior_cov_scaling="${feature_prior_cov_scaling}" \
---scale_prior_cov_scaling="${scale_prior_cov_scaling}"
+--scale_prior_cov_scaling="${scale_prior_cov_scaling}" \
+--num_data="${num_data}"

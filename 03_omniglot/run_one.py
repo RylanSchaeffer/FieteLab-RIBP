@@ -12,6 +12,7 @@ Example usage:
  --sigma_x=2. \
  --feature_prior_cov_scaling=10. \
  --scale_prior_cov_scaling=1. \
+ --num_data=100
 """
 
 import argparse
@@ -154,7 +155,7 @@ def setup(args: argparse.Namespace):
 
     # load Mixture of Gaussian data
     sampled_omniglot_data = utils.data.real.load_dataset_omniglot(
-        num_data=100,
+        num_data=args.num_data,
         feature_extractor_method='vae',
     )
 
@@ -201,6 +202,8 @@ if __name__ == '__main__':
                         help='Scale on feature A_k prior covariance.')
     parser.add_argument('--scale_prior_cov_scaling', type=float,
                         help='Scale on scale w_n prior covariance.')
+    parser.add_argument('--num_data', type=int, default=100,
+                        help='Number of data points to use.')
     args = parser.parse_args()
     run_one(args)
     logging.info('Finished.')
