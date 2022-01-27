@@ -31,7 +31,6 @@ import utils.run_helpers
 
 
 def run_one(args: argparse.Namespace):
-
     setup_results = setup(args=args)
 
     print('Running and plotting {} on dataset {}'.format(
@@ -54,7 +53,6 @@ def run_and_plot_inference_alg(diabetes_hospitals_data,
                                gen_model_params,
                                inference_results_dir,
                                train_fraction: int = .80):
-
     assert 0. <= train_fraction <= 1.
 
     # Determine the index for train-test split
@@ -70,7 +68,6 @@ def run_and_plot_inference_alg(diabetes_hospitals_data,
         'inference_alg_results.joblib')
 
     if not os.path.isfile(inference_results_path):
-
         print(f'Inference results not found at: {inference_results_path}')
         print('Generating inference results...')
 
@@ -115,10 +112,11 @@ def run_and_plot_inference_alg(diabetes_hospitals_data,
             num_indicators=num_indicators,
             log_posterior_predictive=dict(mean=log_posterior_predictive_results['mean'],
                                           std=log_posterior_predictive_results['std']),
+            training_reconstruction_error=training_reconstruction_error,
             runtime=runtime)
 
         print(f'Writing inference results to disk at:'
-                     f' {inference_results_path}')
+              f' {inference_results_path}')
         joblib.dump(data_to_store,
                     filename=inference_results_path)
 
@@ -191,7 +189,7 @@ def setup(args: argparse.Namespace):
         ),
         likelihood_params=dict(
             sigma_x=args.sigma_x),
-        )
+    )
 
     setup_results = dict(
         inference_alg_str=args.inference_alg_str,

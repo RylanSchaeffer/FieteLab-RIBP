@@ -16,7 +16,6 @@ sns.set_style("whitegrid")
 
 
 def compute_tidied_label(label: str) -> str:
-
     if label == 'runtime':
         tidied_ylabel = 'Runtime'
     elif label == 'negative_log_posterior_predictive':
@@ -25,13 +24,13 @@ def compute_tidied_label(label: str) -> str:
         tidied_ylabel = 'Reconstruction Error'
     else:
         tidied_ylabel = label
+    return tidied_ylabel
 
 
 def plot_neg_log_posterior_predictive_vs_runtime_by_alg(inf_algs_results_df: pd.DataFrame,
                                                         plot_dir: str,
                                                         title: str = None):
     for inf_alg_str, inf_alg_results_df in inf_algs_results_df.groupby(['inference_alg']):
-
         algs_runstimes_and_neg_log_pp = inf_alg_results_df.agg({
             'runtime': ['mean', 'sem'],
             'negative_log_posterior_predictive': ['mean', 'sem']
@@ -112,11 +111,15 @@ def plot_score_all_params_violin_by_alg(inf_algs_results_df: pd.DataFrame,
                                         title: str = None):
     assert score in inf_algs_results_df.columns.values
 
-    sns.violinplot(x='inference_alg',
-                   y=score,
-                   data=inf_algs_results_df)
+    g = sns.violinplot(x='inference_alg',
+                       y=score,
+                       data=inf_algs_results_df)
+
+    # Rotate x-axis labels so they don't overlap.
+    g.set_xticklabels(g.get_xticklabels(), rotation=30, ha='right')
 
     tidied_ylabel = compute_tidied_label(label=score)
+    plt.xlabel('Inference Algorithm')
     plt.ylabel(tidied_ylabel)
     plt.yscale('log')
     plt.grid(visible=True, axis='y')
@@ -131,7 +134,6 @@ def plot_score_all_params_violin_by_alg(inf_algs_results_df: pd.DataFrame,
 def plot_score_best_by_alg(inf_algs_results_df: pd.DataFrame,
                            plot_dir: str,
                            score: str = 'neg_log_posterior_predictive'):
-
     assert score in inf_algs_results_df.columns.values
 
     best_score_inf_algs_results_df = inf_algs_results_df.groupby('inference_alg').agg({
@@ -141,10 +143,17 @@ def plot_score_best_by_alg(inf_algs_results_df: pd.DataFrame,
     # Move inference_alg from index to a new column.
     best_score_inf_algs_results_df.reset_index(inplace=True)
 
-    sns.catplot(x='inference_alg',
-                y='min',
-                data=best_score_inf_algs_results_df,
-                jitter=False)
+    g = sns.catplot(x='inference_alg',
+                    y='min',
+                    data=best_score_inf_algs_results_df,
+                    jitter=False)
+
+    # Hide 'inference_alg' from xaxis label
+    plt.xlabel('Inference Algorithm')
+
+    # Rotate x-axis labels so they don't overlap.
+    # For some reason, passing `g.get_xticklabels(), ` raises AttributeError
+    g.set_xticklabels(rotation=30, ha='right')
 
     tidied_ylabel = compute_tidied_label(label=score)
     plt.ylabel(tidied_ylabel)
@@ -161,7 +170,6 @@ def plot_score_best_by_alg(inf_algs_results_df: pd.DataFrame,
 
 def plot_runtime_by_alpha_beta(inf_algs_results_df: pd.DataFrame,
                                plot_dir: str):
-
     inf_algs_results_df['alpha_rounded'] = np.round(inf_algs_results_df['alpha'],
                                                     decimals=3)
 
