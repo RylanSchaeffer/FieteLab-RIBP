@@ -92,7 +92,7 @@ def load_all_inf_alg_results(results_dir_path: str,
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--exp_dir_path', type=str,
-                        default='04_cancer_gene_expression',
+                        default='05_diabetes_hospitals',
                         help='Path to write plots and other results to.')
     args = parser.parse_args()
     analyze_all(args=args)
