@@ -12,6 +12,7 @@ torch.set_default_tensor_type('torch.FloatTensor')
 inference_algs = [
     'HMC-Gibbs',
     'Collapsed-Gibbs',
+    'FiniteFactorAnalysis',
     'Doshi-Velez-Finite',
     'Doshi-Velez-Infinite',
     'R-IBP',
@@ -86,6 +87,11 @@ def run_inference_alg(inference_alg_str: str,
                 plot_dir=None,
                 num_coord_ascent_steps_per_obs=5,
                 # plot_dir=plot_dir,
+            )
+        elif inference_alg_str == 'FiniteFactorAnalysis':
+            inference_alg = utils.prob_models.factor_analysis.FiniteFactorAnalysis(
+                model_str=model_str,
+                gen_model_params=gen_model_params,
             )
         else:
             raise NotImplementedError

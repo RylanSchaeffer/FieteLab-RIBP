@@ -2,8 +2,12 @@
 data/
 **/results
 02_linear_gaussian/nice_results/
-03_omniglot/results100
-04_cancer_gene_expression/results100
+03_omniglot/results_data=100/
+03_omniglot/results_data=1000/
+04_cancer_gene_expression/results_data=100/
+04_cancer_gene_expression/results_data=1000/
+05_diabetes_hospitals/results_data=100/
+05_diabetes_hospitals/results_data=1000/
 ribp
 *.npy
 *.npz

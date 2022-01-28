@@ -62,30 +62,27 @@ class FiniteFactorAnalysis(FactorAnalysisModel):
                  model_str: str,
                  gen_model_params: Dict[str, Dict[str, float]],
                  plot_dir: str = None):
-
         assert model_str == 'factor_analysis'
 
         self.model_str = model_str
         self.gen_model_params = gen_model_params
-        self.num_components = gen_model_params['num_components']
-        assert self.num_components > 0
         self.plot_dir = plot_dir
 
+        self.n_components = self.gen_model_params['IBP']['n_components']
         self.num_obs = None
         self.obs_dim = None
-        self.ffa = FactorAnalysis(n_components=self.num_components,
+        self.ffa = FactorAnalysis(n_components=self.n_components,
                                   copy=True,
                                   random_state=0)
         self.fit_results = None
 
     def fit(self,
             observations: np.ndarray):
-
         self.num_obs, self.obs_dim = observations.shape
         self.ffa.fit(observations)
 
         dish_eating_posteriors = np.ones(
-            (self.num_obs, self.num_components),
+            (self.num_obs, self.n_components),
             dtype=np.float32)
 
         dish_eating_priors = np.full_like(dish_eating_posteriors,
@@ -99,6 +96,10 @@ class FiniteFactorAnalysis(FactorAnalysisModel):
         num_dishes_poisson_rate_priors = np.full(fill_value=np.nan,
                                                  shape=num_dishes_poisson_rate_posteriors.shape)
 
+        # TODO: is this correct?
+        variational_params = {'A': {'mean': self.ffa.components_},
+                              'w': {'mean': np.ones_like(dish_eating_posteriors)}}
+
         self.fit_results = dict(
             dish_eating_priors=dish_eating_priors,
             dish_eating_posteriors=dish_eating_posteriors,  # already chopped
@@ -106,6 +107,7 @@ class FiniteFactorAnalysis(FactorAnalysisModel):
             num_dishes_poisson_rate_priors=num_dishes_poisson_rate_priors,
             num_dishes_poisson_rate_posteriors=num_dishes_poisson_rate_posteriors,
             gen_model_params=self.gen_model_params,
+            variational_params=variational_params,
         )
 
         return self.fit_results
@@ -113,15 +115,16 @@ class FiniteFactorAnalysis(FactorAnalysisModel):
     def sample_variables_for_predictive_posterior(self,
                                                   num_samples: int,
                                                   ) -> Dict[str, np.ndarray]:
-
         if self.fit_results is None:
             raise ValueError('Must call .fit() before calling .predict()')
 
-        indicators_probs = np.ones(shape=(num_samples, self.num_components))
-        features = np.stack([self.ffa.components_
-                             for k in range(num_samples)])
+        indicators_probs = np.ones(shape=(num_samples, self.n_components))
+        features = np.repeat(self.ffa.components_[np.newaxis, :, :],
+                             repeats=num_samples,
+                             axis=0)
 
         sampled_params = dict(
+            w=np.ones(shape=(num_samples, self.n_components)),
             indicators_probs=indicators_probs,  # shape (num samples, max num features)
             features=features,  # shape (num samples, self.num_components, feature dim)
         )
@@ -340,12 +343,12 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
         # we use half covariance in case we want to numerically optimize
         w_prefactor = np.sqrt(self.gen_model_params['scale_prior_params']['scale_prior_cov_scaling'])
         w_half_cov = (w_prefactor * torch.eye(max_num_features).float()[None, :, :]).repeat(
-            num_obs + 1, 1, 1,)
+            num_obs + 1, 1, 1, )
 
         # we use half covariance because we want to numerically optimize
         A_prefactor = np.sqrt(self.gen_model_params['feature_prior_params']['feature_prior_cov_scaling'])
         A_half_covs = (A_prefactor * torch.eye(obs_dim).float()[None, None, :, :]).repeat(
-            1, max_num_features, 1, 1,)
+            1, max_num_features, 1, 1, )
 
         # Create a matrix with small diagonal values to prevent singular
         # matrix error when inverting covariance.
@@ -733,7 +736,7 @@ class RecursiveIBPFactorAnalysis(FactorAnalysisModel):
         w = np.random.multivariate_normal(
             mean=np.zeros(max_num_features),
             cov=self.gen_model_params['scale_prior_params']['scale_prior_cov_scaling'] * np.eye(max_num_features),
-            size=num_samples,)
+            size=num_samples, )
 
         # shape = (num samples, max num features, obs dim)
         features = features.transpose(1, 0, 2)

@@ -127,19 +127,40 @@ def run_and_plot_inference_alg(sampled_omniglot_data,
     # read results from disk
     stored_data = joblib.load(inference_results_path)
 
-    logging.info('Plotting inference algorithm results...')
-    plot_omniglot.plot_run_one_inference_results(
-        sampled_omniglot_data=sampled_omniglot_data,
-        inference_alg_results=stored_data['inference_alg_results'],
-        inference_alg_str=stored_data['inference_alg_str'],
-        inference_alg_params=stored_data['inference_alg_params'],
-        log_posterior_predictive_dict=stored_data['log_posterior_predictive'],
-        plot_dir=inference_results_dir)
-    logging.info('Plotted inference algorithm results.')
+    # logging.info('Plotting inference algorithm results...')
+    # plot_omniglot.plot_run_one_inference_results(
+    #     sampled_omniglot_data=sampled_omniglot_data,
+    #     inference_alg_results=stored_data['inference_alg_results'],
+    #     inference_alg_str=stored_data['inference_alg_str'],
+    #     inference_alg_params=stored_data['inference_alg_params'],
+    #     log_posterior_predictive_dict=stored_data['log_posterior_predictive'],
+    #     plot_dir=inference_results_dir)
+    # logging.info('Plotted inference algorithm results.')
 
 
 def setup(args: argparse.Namespace):
     """ Create necessary directories, set seeds and load linear-Gaussian data."""
+
+    gen_model_params = dict(
+        IBP=dict(
+            alpha=args.alpha,
+            beta=args.beta),
+        feature_prior_params=dict(
+            feature_prior_cov_scaling=args.feature_prior_cov_scaling,
+        ),
+        scale_prior_params=dict(
+            scale_prior_cov_scaling=args.scale_prior_cov_scaling,
+        ),
+        likelihood_params=dict(
+            sigma_x=args.sigma_x),
+        )
+
+    # Override defaults for FFA
+    if args.inference_alg_str == 'FiniteFactorAnalysis':
+        gen_model_params['IBP']['n_components'] = 30
+        gen_model_params['IBP']['alpha'] = np.nan
+        gen_model_params['IBP']['beta'] = np.nan
+        # args.run_one_results_dir = 10
 
     inference_results_dir = args.run_one_results_dir
     logging.info(f'Inference results dir: {inference_results_dir}')
@@ -160,20 +181,6 @@ def setup(args: argparse.Namespace):
         feature_extractor_method='vae',
     )
 
-    gen_model_params = dict(
-        IBP=dict(
-            alpha=args.alpha,
-            beta=args.beta),
-        feature_prior_params=dict(
-            feature_prior_cov_scaling=args.feature_prior_cov_scaling,
-        ),
-        scale_prior_params=dict(
-            scale_prior_cov_scaling=args.scale_prior_cov_scaling,
-        ),
-        likelihood_params=dict(
-            sigma_x=args.sigma_x),
-        )
-
     setup_results = dict(
         inference_alg_str=args.inference_alg_str,
         gen_model_params=gen_model_params,
@@ -191,7 +198,7 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=0,
                         help='Pseudo-random seed for NumPy/PyTorch.')
     parser.add_argument('--inference_alg_str', type=str,
-                        choices=utils.inference.inference_algs,
+                        # choices=utils.inference.inference_algs,
                         help='Inference algorithm to run on dataset')
     parser.add_argument('--alpha', type=float,
                         help='IBP alpha parameter.')

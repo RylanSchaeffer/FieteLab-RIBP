@@ -24,15 +24,15 @@ def run_all():
 
     inference_alg_strs = [
         'R-IBP',
-        'Doshi-Velez-Finite',
-        'Doshi-Velez-Infinite',
-        'Widjaja-Finite',
-        'Widjaja-Infinite',
+        # 'Doshi-Velez-Finite',
+        # 'Doshi-Velez-Infinite',
+        # 'Widjaja-Finite',
+        # 'Widjaja-Infinite',
         # 'HMC-Gibbs',
     ]
     alphas = [1., 2.5, 5., 7.5]
-    # betas = [1., 2.5, 5.]
-    betas = [1.0]
+    betas = [1., 2.5, 5.]
+    # betas = [1.0]
     feature_prior_cov_scalings = [1., 5., 10.]
     sigma_xs = [0.5, 2., 5.]
     seeds = list(range(1))

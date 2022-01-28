@@ -4,7 +4,6 @@ import os
 import pandas as pd
 import sklearn
 import tensorflow as tf
-import tensorflow_datasets as tfds
 import torch
 import torchvision
 from typing import Dict
@@ -546,6 +545,9 @@ def load_dataset_reddit(num_data: int,
     # possible other alternative datasets:
     #   https://www.tensorflow.org/datasets/catalog/cnn_dailymail
     #   https://www.tensorflow.org/datasets/catalog/newsroom (also in sklearn)
+
+    # Import here to avoid slowdown
+    import tensorflow_datasets as tfds
 
     # useful overview: https://www.tensorflow.org/datasets/overview
     # take only subset of data for speed: https://www.tensorflow.org/datasets/splits

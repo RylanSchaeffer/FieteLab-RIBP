@@ -16,7 +16,38 @@ sns.set_style("whitegrid")
 def plot_analyze_all_algorithms_results(inf_algs_results_df: pd.DataFrame,
                                         plot_dir: str):
 
-    pass
+    # ribp_results_df = inf_algs_results_df[inf_algs_results_df['inference_alg'] == 'R-IBP']
+    #
+    # # FFA = Finite Factor Analysis
+    # ffa_results_df = inf_algs_results_df[inf_algs_results_df['inference_alg'] == 'FiniteFactorAnalysis']
+
+    sns.scatterplot(
+        x='reconstruction_error',
+        y='negative_log_posterior_predictive',
+        data=inf_algs_results_df,
+        style='inference_alg',
+        hue='inference_alg',
+        # hue='feature_cov_scaling',
+        # legend='full',
+    )
+
+    # ax = plt.gca()
+    # sns.scatterplot(
+    #     x='reconstruction_error',
+    #     y='negative_log_posterior_predictive',
+    #     data=ribp_results_df,
+    # )
+
+    plt.xlabel('Reconstruction Error')
+    plt.ylabel('Neg Log Posterior Predictive')
+    plt.yscale('log')
+    plt.savefig(os.path.join(plot_dir, f'neg_log_posterior_predictive_vs_reconstruction_error.png'),
+                bbox_inches='tight',
+                dpi=300)
+    # plt.show()
+    plt.close()
+
+    # pass
     # alphas = inf_algorithms_results_df['alpha'].unique()
     # betas = inf_algorithms_results_df['beta'].unique()
     #

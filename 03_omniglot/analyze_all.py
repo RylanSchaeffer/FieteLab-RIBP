@@ -71,6 +71,7 @@ def load_all_inf_alg_results(results_dir_path: str,
         except FileNotFoundError:
             logging.info(f'Could not find results for {run_dir_path}.')
             continue
+
         inf_algorithms_results_row = [
             stored_data['inference_alg_str'],
             stored_data['inference_alg_params']['IBP']['alpha'],
@@ -82,6 +83,12 @@ def load_all_inf_alg_results(results_dir_path: str,
             stored_data['log_posterior_predictive']['mean'],
             stored_data['training_reconstruction_error'],
         ]
+
+        # Add number of components for finite Factor Analysis runs
+        if inf_algorithms_results_row[0] != 'FiniteFactorAnalysis':
+            inf_algorithms_results_row.append(np.nan)
+        else:
+            inf_algorithms_results_row.append(stored_data['inference_alg_params']['IBP']['n_components'])
 
         inf_algorithms_results_rows.append(copy.deepcopy(inf_algorithms_results_row))
 
@@ -99,6 +106,7 @@ def load_all_inf_alg_results(results_dir_path: str,
                  'scale_cov_scaling', 'likelihood_cov_scaling', 'runtime',
                  'log_posterior_predictive',
                  'reconstruction_error',
+                 'n_components',
                  ])
 
     inf_algorithms_results_df['negative_log_posterior_predictive'] = \
