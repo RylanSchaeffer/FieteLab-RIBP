@@ -13,7 +13,7 @@ plt.rcParams["font.size"] = 16  # was previously 22
 sns.set_style("whitegrid")
 
 
-def plot_analyze_all_algorithms_results(inf_algorithms_results_df: pd.DataFrame,
+def plot_analyze_all_algorithms_results(inf_algs_results_df: pd.DataFrame,
                                         plot_dir: str):
 
     pass
@@ -62,6 +62,7 @@ def plot_run_one_inference_results(sampled_omniglot_data: Dict,
                                    inference_alg_params: Dict[str, Dict[str, float]],
                                    log_posterior_predictive_dict: Dict,
                                    plot_dir: str):
+
     # utils.plot.plot_run_one_indicators_by_num_obs(
     #     dish_eating_priors=inference_alg_results['dish_eating_priors'],
     #     dish_eating_posteriors=inference_alg_results['dish_eating_posteriors'],

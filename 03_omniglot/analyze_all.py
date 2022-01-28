@@ -8,6 +8,7 @@ Example usage:
 03_omniglot/analyze_all.py
 """
 import argparse
+import copy
 import joblib
 import logging
 import numpy as np
@@ -25,7 +26,7 @@ def analyze_all(args: argparse.Namespace):
     plot_dir = os.path.join(results_dir_path, 'plots')
     os.makedirs(plot_dir, exist_ok=True)
 
-    inf_algs_results_df_path = os.path.join(exp_dir_path,
+    inf_algs_results_df_path = os.path.join(results_dir_path,
                                             'inf_algs_results_df.csv')
 
     if not os.path.isfile(inf_algs_results_df_path):
@@ -50,7 +51,7 @@ def analyze_all(args: argparse.Namespace):
           f"{inf_algs_results_df.groupby('inference_alg').size()}")
 
     plot_omniglot.plot_analyze_all_algorithms_results(
-        inf_algorithms_results_df=inf_algs_results_df,
+        inf_algs_results_df=inf_algs_results_df,
         plot_dir=plot_dir)
 
 
@@ -78,21 +79,27 @@ def load_all_inf_alg_results(results_dir_path: str,
             stored_data['inference_alg_params']['scale_prior_params']['scale_prior_cov_scaling'],
             stored_data['inference_alg_params']['likelihood_params']['sigma_x'],
             stored_data['runtime'],
-            stored_data['log_posterior_predictive']['mean']]
+            stored_data['log_posterior_predictive']['mean'],
+            stored_data['training_reconstruction_error'],
+        ]
 
-        inf_algorithms_results_rows.append(inf_algorithms_results_row)
+        inf_algorithms_results_rows.append(copy.deepcopy(inf_algorithms_results_row))
 
-        num_features_by_num_obs = stored_data['inference_alg_results'][
-                                      'num_dishes_poisson_rate_posteriors'][:, 0]  # remove extra dimension
+        # num_features_by_num_obs = stored_data['inference_alg_results'][
+        #                               'num_dishes_poisson_rate_posteriors'][:, 0]  # remove extra dimension
         # inf_algorithms_num_features_by_num_obs.append(num_features_by_num_obs)
 
         del stored_data
+
+        print(f'Loaded {run_dir_path}')
 
     inf_algorithms_results_df = pd.DataFrame(
         inf_algorithms_results_rows,
         columns=['inference_alg', 'alpha', 'beta', 'feature_cov_scaling',
                  'scale_cov_scaling', 'likelihood_cov_scaling', 'runtime',
-                 'log_posterior_predictive'])
+                 'log_posterior_predictive',
+                 'reconstruction_error',
+                 ])
 
     inf_algorithms_results_df['negative_log_posterior_predictive'] = \
         -inf_algorithms_results_df['log_posterior_predictive']

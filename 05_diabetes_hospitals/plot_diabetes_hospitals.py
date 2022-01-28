@@ -12,6 +12,7 @@ sns.set_style("whitegrid")
 
 def plot_analyze_all_algorithms_results(inf_algs_results_df: pd.DataFrame,
                                         plot_dir: str):
+
     title = '2014 Diabetic Patients'
 
     # Plot only R-IBP alpha/beta runtime tradeoff
@@ -28,6 +29,7 @@ def plot_analyze_all_algorithms_results(inf_algs_results_df: pd.DataFrame,
             inf_algs_results_df,
             score=score,
             plot_dir=best_beta_all_dir,
+            title=title,
         )
 
         best_beta_one_dir = os.path.join(plot_dir, f'{score}_best_beta=1')
@@ -36,6 +38,7 @@ def plot_analyze_all_algorithms_results(inf_algs_results_df: pd.DataFrame,
             inf_algs_results_df[inf_algs_results_df['beta'] == 1.],
             score=score,
             plot_dir=best_beta_one_dir,
+            title=title,
         )
 
         all_dir = os.path.join(plot_dir, f'{score}_all')
@@ -44,6 +47,7 @@ def plot_analyze_all_algorithms_results(inf_algs_results_df: pd.DataFrame,
             inf_algs_results_df=inf_algs_results_df,
             score=score,
             plot_dir=all_dir,
+            title=title,
         )
 
     # utils.plot.linear_gaussian.plot_neg_log_posterior_predictive_by_linear_gaussian_parameters(

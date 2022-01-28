@@ -122,6 +122,9 @@ def plot_score_all_params_violin_by_alg(inf_algs_results_df: pd.DataFrame,
     plt.xlabel('Inference Algorithm')
     plt.ylabel(tidied_ylabel)
     plt.yscale('log')
+    if title is not None:
+        plt.title(title)
+
     plt.grid(visible=True, axis='y')
     plt.tight_layout()
     plt.savefig(os.path.join(plot_dir, f'{score}_all_params_vs_inf_alg.png'),
@@ -133,7 +136,8 @@ def plot_score_all_params_violin_by_alg(inf_algs_results_df: pd.DataFrame,
 
 def plot_score_best_by_alg(inf_algs_results_df: pd.DataFrame,
                            plot_dir: str,
-                           score: str = 'neg_log_posterior_predictive'):
+                           score: str = 'neg_log_posterior_predictive',
+                           title: str = None):
     assert score in inf_algs_results_df.columns.values
 
     best_score_inf_algs_results_df = inf_algs_results_df.groupby('inference_alg').agg({
@@ -158,6 +162,10 @@ def plot_score_best_by_alg(inf_algs_results_df: pd.DataFrame,
     tidied_ylabel = compute_tidied_label(label=score)
     plt.ylabel(tidied_ylabel)
     plt.yscale('log')
+
+    if title is not None:
+        plt.title(title)
+
     # plt.legend()
     plt.grid(visible=True, axis='y')
     plt.tight_layout()
