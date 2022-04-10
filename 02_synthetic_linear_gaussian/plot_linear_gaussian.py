@@ -172,7 +172,7 @@ def plot_run_one_inference_results(sampled_linear_gaussian_data: dict,
         plot_dir=plot_dir)
 
     if 'num_dishes_poisson_rate_priors' in inference_alg_results:
-        utils.plot.plot_run_one_num_features_by_num_obs_using_poisson_rates(
+        utils.plot_general.plot_run_one_num_features_by_num_obs_using_poisson_rates(
             num_dishes_poisson_rate_priors=inference_alg_results['num_dishes_poisson_rate_priors'],
             num_dishes_poisson_rate_posteriors=inference_alg_results['num_dishes_poisson_rate_posteriors'],
             indicators=sampled_linear_gaussian_data['train_sampled_indicators'],
@@ -180,7 +180,7 @@ def plot_run_one_inference_results(sampled_linear_gaussian_data: dict,
 
     # Not all algorithms give a prior; if they don't, try using all -1s.
     if 'dish_eating_prior' in inference_alg_results:
-        utils.plot.plot_run_one_indicators_by_num_obs(
+        utils.plot_general.plot_run_one_indicators_by_num_obs(
             dish_eating_priors=inference_alg_results['dish_eating_priors'],
             dish_eating_posteriors=inference_alg_results['dish_eating_posteriors'],
             indicators=sampled_linear_gaussian_data['train_sampled_indicators'],

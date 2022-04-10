@@ -6,5 +6,6 @@
 #SBATCH --mail-user=rylansch
 #SBATCH --mail-type=FAIL
 
+chmod 744 02_synthetic_linear_gaussian/run_one.sh
 export PYTHONPATH=.
 python -u 02_synthetic_linear_gaussian/run_all.py        # -u flushes output buffer immediately

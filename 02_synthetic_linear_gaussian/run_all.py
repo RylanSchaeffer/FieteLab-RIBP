@@ -13,7 +13,6 @@ import numpy as np
 import os
 import subprocess
 
-import plot_linear_gaussian
 import utils.data.synthetic
 
 
@@ -27,9 +26,19 @@ def run_all():
         # ('GriffithsGhahramani', dict()),
         # ('categorical', dict(probs=np.ones(5) / 5.)),
         # ('categorical', dict(probs=np.array([0.4, 0.25, 0.2, 0.1, 0.05]))),
-        ('IBP', dict(alpha=1.17, beta=1.)),
-        ('IBP', dict(alpha=2.4, beta=1.)),
-        ('IBP', dict(alpha=5.98, beta=1.)),
+        # ('IBP', dict(alpha=1.17, beta=1.)),
+        # ('IBP', dict(alpha=2.4, beta=1.)),
+        # ('IBP', dict(alpha=5.98, beta=1.)),
+        ('IBP', dict(alpha=1.5, beta=1.)),
+        ('IBP', dict(alpha=2.0, beta=1.)),
+        ('IBP', dict(alpha=2.5, beta=1.)),
+        ('IBP', dict(alpha=3.0, beta=1.)),
+        ('IBP', dict(alpha=3.5, beta=1.)),
+        ('IBP', dict(alpha=4.0, beta=1.)),
+        ('IBP', dict(alpha=4.5, beta=1.)),
+        ('IBP', dict(alpha=5.0, beta=1.)),
+        ('IBP', dict(alpha=5.5, beta=1.)),
+        ('IBP', dict(alpha=6.0, beta=1.)),
     ]
 
     num_datasets = 10
@@ -40,12 +49,12 @@ def run_all():
 
     inference_alg_strs = [
         'R-IBP',
-        # 'HMC-Gibbs',
+        'HMC-Gibbs',
         # 'Collapsed-Gibbs',
-        # 'Doshi-Velez-Finite',
-        # 'Doshi-Velez-Infinite',
-        # 'Widjaja-Finite',
-        # 'Widjaja-Infinite',
+        'Doshi-Velez-Finite',
+        'Doshi-Velez-Infinite',
+        'Widjaja-Finite',
+        'Widjaja-Infinite',
     ]
     hyperparams = [inference_alg_strs]
 
@@ -96,7 +105,7 @@ def launch_run_one(exp_dir_path: str,
 
     run_one_script_path = os.path.join(exp_dir_path, 'run_one.sh')
     command_and_args = [
-        # 'sbatch',
+        'sbatch',
         run_one_script_path,
         run_one_results_dir_path,
         inference_alg_str,
