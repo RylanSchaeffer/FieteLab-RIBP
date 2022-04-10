@@ -336,7 +336,9 @@ def plot_asymp_inferred_feature_num_vs_true_feature_num(asymptotic_feature_ratio
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(7, 5))
 
     for idx in range(num_true_features_array.shape[0]):
-        plt.plot(num_customers_array, asymptotic_feature_ratios[idx], label=str(num_true_features_array[idx]))
+        plt.plot(num_customers_array,
+                 asymptotic_feature_ratios[idx],
+                 label=str(num_true_features_array[idx]))
 
     ax.set_xlabel('Number of Observations', fontsize=12)
     plt.ylabel('Asymptotic Ratio of Inferred to True \nNumber of Features',fontsize=12)

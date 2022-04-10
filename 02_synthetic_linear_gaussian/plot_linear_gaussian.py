@@ -10,6 +10,7 @@ from typing import Dict
 
 # common plotting functions
 import utils.plot_general
+import utils.plot.metrics
 
 
 plt.rcParams["font.family"] = ["Times New Roman"]
@@ -32,14 +33,15 @@ def plot_analyze_all_algorithms_results(inf_algs_results_df: pd.DataFrame,
         else:
             raise NotImplementedError
 
-        utils.plot.plot_neg_log_posterior_predictive_vs_runtime_by_alg(
+        utils.plot.metrics.plot_neg_log_posterior_predictive_vs_runtime_by_alg(
             inf_algs_results_df=inf_algs_results_by_sampling_df,
             plot_dir=sampling_results_dir_path,
             title=nice_title)
 
-        utils.plot.plot_recon_error_vs_runtime_by_alg(
+        utils.plot.metrics.plot_recon_error_vs_runtime_by_alg(
             inf_algs_results_df=inf_algs_results_by_sampling_df,
-            plot_dir=sampling_results_dir_path)
+            plot_dir=sampling_results_dir_path,
+            title=nice_title)
 
 
 def plot_run_one_gaussian_features_by_num_obs(observations: np.ndarray,
