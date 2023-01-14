@@ -4,7 +4,7 @@
 
 -----
 
-This code corresponds to our [ICML 2021 publication](https://proceedings.mlr.press/v162/schaeffer22a.html).
+This code corresponds to our ICML 2022 publication [Streaming Inference for Infinite Feature Models](https://proceedings.mlr.press/v162/schaeffer22a.html).
 
 ![](01_prior/results/a=10.78_b=2.3/ibp_recursion_a=10.78_b=2.3.png)
 
