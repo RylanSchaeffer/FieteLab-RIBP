@@ -4,7 +4,7 @@
 
 -----
 
-This code corresponds to our AISTATS 2021 submission.
+This code corresponds to our [ICML 2021 publication](https://proceedings.mlr.press/v162/schaeffer22a.html).
 
 ![](01_prior/results/a=10.78_b=2.3/ibp_recursion_a=10.78_b=2.3.png)
 
